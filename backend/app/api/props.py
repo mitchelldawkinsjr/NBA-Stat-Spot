@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Dict, List
+from typing import Dict
+from ..services.analytics import suggest_props_stub
 
 router = APIRouter(prefix="/api/props", tags=["props"])
 
@@ -14,8 +15,7 @@ class SuggestRequest(BaseModel):
 
 @router.post("/suggest")
 def suggest(req: SuggestRequest) -> Dict:
-    # MVP: return empty suggestions; analytics service will fill later
-    return {"suggestions": []}
+    return {"suggestions": suggest_props_stub()}
 
 @router.post("/good-bets")
 def good_bets(hours: int = 24) -> Dict:
