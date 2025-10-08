@@ -7,17 +7,13 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
 
   useEffect(() => {
     const c = setTimeout(async () => {
-      if (!q || items.length === 0 && !open) {
-        // fetch when typing
-      }
-      if (!q) { setItems([]); return }
+      if (!q) { setItems([]); setOpen(false); return }
       const res = await fetch(`/api/players/search?q=${encodeURIComponent(q)}`)
       const data = await res.json()
       setItems(data.items || [])
       setOpen(true)
     }, 250)
     return () => clearTimeout(c)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q])
 
   function handleSelect(p: any) {
@@ -48,13 +44,15 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
         )}
       </div>
       {open && items.length > 0 && (
-        <ul style={{ position: 'absolute', zIndex: 10, background: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', listStyle: 'none', padding: 8, margin: 4, width: '100%', borderRadius: 8, border: '1px solid #eee', maxHeight: 280, overflowY: 'auto' }}>
-          color: '',
+        <ul style={{ position: 'absolute', zIndex: 10, background: '#fff', color: '#111827', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', listStyle: 'none', padding: 8, margin: 4, width: '100%', borderRadius: 8, border: '1px solid #eee', maxHeight: 280, overflowY: 'auto' }}>
           {items.map((p) => (
             <li key={p.id}>
-              <button onClick={() => handleSelect(p)} style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer' }}>
-              onMouseEnter={(e)=> (e.currentTarget.style.background='#f3f4f6')}
-              onMouseLeave={(e)=> (e.currentTarget.style.background='transparent')}
+              <button
+                onClick={() => handleSelect(p)}
+                onMouseEnter={(e: any) => (e.currentTarget.style.background = '#f3f4f6')}
+                onMouseLeave={(e: any) => (e.currentTarget.style.background = 'transparent')}
+                style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#111827', borderRadius: 6 }}
+              >
                 {p.name}
               </button>
             </li>
