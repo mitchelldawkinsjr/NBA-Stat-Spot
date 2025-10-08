@@ -7,21 +7,59 @@ function StatPill({ label, value }: { label: string; value: string }) {
   )
 }
 
+type MarketLines = { PTS?: number; REB?: number; AST?: number; "3PM"?: number; PRA?: number }
+
 export function SuggestionsTable({ player }: { player: { id: number; name: string } | null }) {
   const [result, setResult] = useState<any>(null)
+  const [market, setMarket] = useState<{ [k: string]: string }>({})
+
   const suggest = useMutation({
     mutationFn: async () => {
       if (!player || !player.id) return null
-      const res = await fetch('/api/props/suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: player.id, lastN: 10 }) })
+      const marketLines: MarketLines = {}
+      for (const k of ["PTS","REB","AST","3PM","PRA"]) {
+        const v = market[k]
+        if (v !== undefined && v !== '' && !Number.isNaN(Number(v))) {
+          ;(marketLines as any)[k] = Number(v)
+        }
+      }
+      const res = await fetch('/api/props/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId: player.id, lastN: 10, marketLines })
+      })
       return res.json()
     },
     onSuccess: (data) => setResult(data)
   })
 
+  function MarketInput({ label }: { label: string }) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <label style={{ width: 36 }}>{label}</label>
+        <input
+          inputMode="decimal"
+          value={market[label] ?? ''}
+          onChange={(e) => setMarket((m) => ({ ...m, [label]: e.target.value }))}
+          placeholder="e.g. 24.5"
+          style={{ width: 90, padding: '6px 8px', border: '1px solid #ddd', borderRadius: 6 }}
+        />
+      </div>
+    )
+  }
+
   return (
     <div>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <input value={player?.name || ''} placeholder="Selected player" disabled style={{ width: 280, padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, color: '#111827', background: '#fff' }} />
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: '#374151' }}>Market Lines (optional):</span>
+          <MarketInput label="PTS" />
+          <MarketInput label="REB" />
+          <MarketInput label="AST" />
+          <MarketInput label="3PM" />
+          <MarketInput label="PRA" />
+        </div>
         <button onClick={() => suggest.mutate()} disabled={!player || !player.id} style={{ padding: '8px 12px' }}>Suggest</button>
       </div>
       <div style={{ marginTop: 12 }}>
