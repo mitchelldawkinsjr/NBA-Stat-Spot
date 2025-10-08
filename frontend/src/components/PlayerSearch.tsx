@@ -48,7 +48,7 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
           {items.map((p) => (
             <li key={p.id}>
               <button
-                onClick={() => handleSelect(p)}
+                onMouseDown={(e: any) => { e.preventDefault(); handleSelect(p); }}
                 onMouseEnter={(e: any) => (e.currentTarget.style.background = '#f3f4f6')}
                 onMouseLeave={(e: any) => (e.currentTarget.style.background = 'transparent')}
                 style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#111827', borderRadius: 6 }}
