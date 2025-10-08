@@ -15,7 +15,8 @@ class SuggestRequest(BaseModel):
 
 @router.post("/suggest")
 def suggest(req: SuggestRequest) -> Dict:
-    return {"suggestions": suggest_props_stub()}
+    from ..services.analytics import suggest_from_gamelogs
+    return {"suggestions": suggest_from_gamelogs(req.playerId, req.season, req.lastN, req.marketLines)}
 
 @router.post("/good-bets")
 def good_bets(hours: int = 24) -> Dict:
