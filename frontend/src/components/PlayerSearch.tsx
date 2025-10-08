@@ -49,9 +49,12 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
       </div>
       {open && items.length > 0 && (
         <ul style={{ position: 'absolute', zIndex: 10, background: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', listStyle: 'none', padding: 8, margin: 4, width: '100%', borderRadius: 8, border: '1px solid #eee', maxHeight: 280, overflowY: 'auto' }}>
+          color: '',
           {items.map((p) => (
             <li key={p.id}>
               <button onClick={() => handleSelect(p)} style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer' }}>
+              onMouseEnter={(e)=> (e.currentTarget.style.background='#f3f4f6')}
+              onMouseLeave={(e)=> (e.currentTarget.style.background='transparent')}
                 {p.name}
               </button>
             </li>
