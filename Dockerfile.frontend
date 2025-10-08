@@ -1,0 +1,12 @@
+# syntax=docker/dockerfile:1
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci || npm install
+COPY frontend ./
+RUN npm run build || echo 'skip build for initial scaffold'
+
+FROM nginx:alpine
+COPY --from=deps /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
