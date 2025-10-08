@@ -1,9 +1,20 @@
 import './App.css'
 import { Link, Routes, Route } from 'react-router-dom'
 import { GoodBetsDashboard } from './components/GoodBetsDashboard'
+import { PlayerSearch } from './components/PlayerSearch'
+import { SuggestionsTable } from './components/SuggestionsTable'
+import { useState } from 'react'
 
 function SuggestPage() {
-  return <div>Suggest Props (MVP)</div>
+  const [player, setPlayer] = useState<{ id: number; name: string } | null>(null)
+  return (
+    <div>
+      <h2>Suggest Props</h2>
+      <PlayerSearch onSelect={setPlayer} />
+      <div style={{ marginTop: 12 }} />
+      <SuggestionsTable player={player} />
+    </div>
+  )
 }
 
 function App() {
