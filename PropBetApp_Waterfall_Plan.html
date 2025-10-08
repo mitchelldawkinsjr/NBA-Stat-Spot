@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Player Prop-Bet Analysis Web App — Waterfall Technical Specification</title>
+  <style>
+    :root {
+      --text: #1f2937;
+      --muted: #4b5563;
+      --border: #e5e7eb;
+      --accent: #2563eb;
+    }
+    html, body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial, sans-serif; color: var(--text); }
+    body { max-width: 920px; margin: 32px auto; padding: 0 20px; line-height: 1.6; }
+    h1 { font-size: 28px; margin: 0 0 6px; }
+    h2 { font-size: 20px; margin: 28px 0 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+    h3 { font-size: 16px; margin: 18px 0 8px; }
+    p, li { font-size: 14px; }
+    code { background: #f8fafc; border: 1px solid var(--border); padding: 1px 4px; border-radius: 4px; }
+    .muted { color: var(--muted); }
+    .toc { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; background: #fafafa; }
+    .kv { display: grid; grid-template-columns: 170px 1fr; gap: 6px 14px; font-size: 13px; margin: 10px 0 20px; }
+    .section { page-break-inside: avoid; }
+    .blockquote { border-left: 3px solid var(--accent); padding: 6px 12px; background: #f5f9ff; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #fafafa; }
+    .page-break { page-break-before: always; }
+
+    @media print {
+      body { margin: 12mm auto; }
+      a { color: inherit; text-decoration: none; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Player Prop-Bet Analysis Web App</h1>
+    <div class="muted">Waterfall Technical Specification</div>
+    <div class="kv">
+      <div>Version</div><div>1.0</div>
+      <div>Date</div><div><!-- Update as needed -->October 2025</div>
+      <div>Owner</div><div>Product & Data Engineering</div>
+    </div>
+    <div class="toc">
+      <strong>Table of Contents</strong>
+      <ol>
+        <li><a href="#overview">Overview & Goals</a></li>
+        <li><a href="#requirements">Requirements</a></li>
+        <li><a href="#data">Data Sources & Model</a></li>
+        <li><a href="#analytics">Analytics Approach</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#api">API Design</a></li>
+        <li><a href="#uiux">UI/UX</a></li>
+        <li><a href="#plan">Implementation Plan (Waterfall)</a></li>
+        <li><a href="#v3">v3: AI Predictions of Props</a></li>
+        <li><a href="#risks">Risks & Mitigations</a></li>
+        <li><a href="#acceptance">Acceptance Criteria</a></li>
+        <li><a href="#deliverables">Deliverables</a></li>
+        <li><a href="#appendix">Appendix</a></li>
+      </ol>
+    </div>
+  </header>
+
+  <section id="overview" class="section">
+    <h2>1) Overview & Goals</h2>
+    <p>
+      Build a lightweight web application that ingests NBA player and team data, runs statistical
+      analysis on historical performance and opponent context, and surfaces suggested player prop
+      bets (points, rebounds, assists, 3PM, PRA, etc.) with confidence and rationale. Data is sourced from
+      <code>nba_api</code> and NBA live endpoints. The system emphasizes transparency (feature-level rationale),
+      speed, and ease-of-use for quick decisions.
+    </p>
+  </section>
+
+  <section id="requirements" class="section">
+    <h2>2) Requirements</h2>
+    <h3>Functional</h3>
+    <ul>
+      <li>Player search with autocomplete and selection.</li>
+      <li>Filters: season, last N games, home/away, rest days, optional opponent.</li>
+      <li>Prop categories: Points, Rebounds, Assists, 3PM, PRA.</li>
+      <li>Suggested props with fair line, confidence score, edge (when market line provided), and rationale.</li>
+      <li>Export/share suggestions via link or JSON.</li>
+      <li><strong>Main Dashboard:</strong> “Good Bets for Upcoming Games” based on the next scheduled games (details in UI/UX).</li>
+    </ul>
+    <h3>Non-functional</h3>
+    <ul>
+      <li>Performance: typical responses under 3 seconds; employ caching.</li>
+      <li>Reliability: graceful degradation on partial endpoint failures.</li>
+      <li>Observability: request logging, error tracking, basic metrics.</li>
+      <li>Security: no secrets in client; rate-limiting and backoff on API calls.</li>
+      <li>Compliance: clear disclaimer; informational purposes only.</li>
+    </ul>
+  </section>
+
+  <section id="data" class="section">
+    <h2>3) Data Sources & Model</h2>
+    <h3>Sources (via <code>nba_api</code>)</h3>
+    <ul>
+      <li>Historical player game logs: <code>stats.endpoints.playergamelog</code>, <code>playerdashboardbylastngames</code>.</li>
+      <li>Player info/roles: <code>commonplayerinfo</code>, <code>playerprofilev2</code>.</li>
+      <li>Team/opponent context: <code>teamestimatedmetrics</code>, <code>leaguedashteamstats</code>, opponent splits.</li>
+      <li>Pace/defense indicators: team pace, defensive rating, allowed stats.</li>
+      <li>Schedule/live: <code>nba_api.live.nba.endpoints.scoreboard</code> for today/upcoming games.</li>
+    </ul>
+    <h3>Core Entities</h3>
+    <ul>
+      <li><strong>Player</strong>: id, name, team, position, minutes trend, usage proxy.</li>
+      <li><strong>GameLog</strong>: date, opponent, home/away, minutes, pts, reb, ast, 3pm, fga, fta, pace.</li>
+      <li><strong>OpponentDefense</strong>: team id, pace, defensive rating, allowed stats by category/position where available.</li>
+      <li><strong>PropSuggestion</strong>: type, fairLine, confidence, marketLine?, edge?, rationale, features, timestamp.</li>
+    </ul>
+  </section>
+
+  <section id="analytics" class="section">
+    <h2>4) Analytics Approach</h2>
+    <h3>Feature Engineering</h3>
+    <ul>
+      <li>Baselines: season average, last 5/10 games rolling means and medians.</li>
+      <li>Variability: standard deviation and IQR to assess volatility.</li>
+      <li>Opponent adjustments: opponent allowed stats per possession, positional allowed, and pace adjustment factor.</li>
+      <li>Contextual factors: home/away splits, rest days, back-to-back flags, minutes trend, usage proxy.</li>
+      <li>Recency weighting: EWMA to weight recent games higher with caps to avoid overfitting.</li>
+    </ul>
+    <h3>Projection Algorithm (v1)</h3>
+    <ol>
+      <li>Estimate per-minute or per-36 production for each stat via EWMA.</li>
+      <li>Project minutes using rolling median minutes and trend.</li>
+      <li>Adjust by opponent pace: <em>paceAdj</em> = oppPace / leagueAvgPace.</li>
+      <li>Adjust by opponent defense: apply allowed percentile or rating scalars per stat.</li>
+      <li>Apply home/away and rest multipliers learned from splits.</li>
+      <li>Output projected mean and variance (combine rolling variance with opponent variance).</li>
+      <li>Fair line = median of assumed distribution; confidence = P(exceed market line).</li>
+    </ol>
+    <h3>v2 (Optional)</h3>
+    <ul>
+      <li>Regularized regression or gradient boosted trees per stat.</li>
+      <li>Bayesian updates for role/injury changes.</li>
+    </ul>
+  </section>
+
+  <section id="architecture" class="section">
+    <h2>5) Architecture</h2>
+    <h3>Frontend</h3>
+    <ul>
+      <li>Tech: React (Vite) or SvelteKit SPA.</li>
+      <li>Components: PlayerSearch, FiltersPanel, OpponentCard, SuggestionsTable, RationaleDrawer, ShareLink, <strong>GoodBetsDashboard</strong>.</li>
+      <li>State/data: URL-driven params; query caching (e.g., TanStack Query).</li>
+    </ul>
+    <h3>Backend</h3>
+    <ul>
+      <li>Tech: FastAPI (Python) or Express (Node).</li>
+      <li>Services: StatsService (wrapping <code>nba_api</code>), FeatureService, ProjectionService, SuggestionService.</li>
+      <li>Caching: Redis or in-memory w/ TTL; rate limiting and retries with exponential backoff.</li>
+    </ul>
+    <h3>Storage</h3>
+    <ul>
+      <li>MVP: cache only; v2 add Postgres for daily snapshots and saved preferences.</li>
+    </ul>
+  </section>
+
+  <section id="api" class="section">
+    <h2>6) API Design</h2>
+    <table>
+      <thead><tr><th>Route</th><th>Method</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>/api/players/search?q=</td><td>GET</td><td>Autocomplete player search.</td></tr>
+        <tr><td>/api/players/{id}/gamelogs</td><td>GET</td><td>Game logs with filters (season, range, splits).</td></tr>
+        <tr><td>/api/teams/{id}/defense</td><td>GET</td><td>Team pace, defensive rating, allowed stats.</td></tr>
+        <tr><td>/api/players/{id}/context</td><td>GET</td><td>Context for UI: opponent options, latest form.</td></tr>
+        <tr><td>/api/props/suggest</td><td>POST</td><td>Return suggestions with fair lines, confidence, rationale.</td></tr>
+        <tr><td>/api/schedule/upcoming</td><td>GET</td><td>Upcoming games within N hours for dashboard.</td></tr>
+        <tr><td>/api/props/good-bets</td><td>POST</td><td>Top suggestions for upcoming games (dashboard).</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="uiux" class="section">
+    <h2>7) UI/UX</h2>
+    <h3>Main Flow</h3>
+    <ul>
+      <li>Search player → set filters → optional opponent → “Suggest Props”.</li>
+      <li>Suggestions table: stat, fair line, confidence, edge (if line provided), expandable rationale.</li>
+      <li>Player dashboard: trend charts (last N), minutes trend, usage proxy, opponent card.</li>
+    </ul>
+    <h3>Good Bets for Upcoming Games (Dashboard)</h3>
+    <div class="blockquote">
+      <p>
+        A home screen module that lists upcoming games (e.g., next 24–48 hours) and surfaces the
+        top suggested props (points, rebounds, assists, 3PM, PRA) for likely-impact players in those
+        games. Designed for quick scanning and action.
+      </p>
+    </div>
+    <ul>
+      <li><strong>Data</strong>: <code>scoreboard</code> endpoint to identify games and participating players; team-level defense and pace.</li>
+      <li><strong>Selection</strong>: For each game, evaluate starters/high-minute players; compute projections via core engine.</li>
+      <li><strong>Ranking</strong>: Score = confidence × signal (e.g., z-score vs baseline) with volatility cap.</li>
+      <li><strong>Filters</strong>: Time window (e.g., next 24h), stat category, minimum confidence threshold.</li>
+      <li><strong>Display</strong>: Game row → top 3–5 props with stat, fair line, confidence, brief rationale (pace, defense, form).</li>
+      <li><strong>Rationale Examples</strong>: “High pace vs top-10 allowed REB; minutes ↑; recent form +.”</li>
+      <li><strong>Empty State</strong>: If schedule unavailable, fall back to league-wide top suggestions for today.</li>
+    </ul>
+  </section>
+
+  <section id="plan" class="section">
+    <h2>8) Implementation Plan (Waterfall)</h2>
+    <ol>
+      <li><strong>Inception & Spec</strong> (1–2d): finalize scope, stat types, filters, APIs.</li>
+      <li><strong>Data Access Layer</strong> (3–5d): wrap <code>nba_api</code>, retries/backoff, caching; search, gamelogs, defense.</li>
+      <li><strong>Feature Engineering</strong> (3–4d): EWMA, splits, pace/def adjustments; unit tests.</li>
+      <li><strong>Projection Engine</strong> (3–5d): deterministic projections; confidence; variance capping; tests.</li>
+      <li><strong>Suggestion Service</strong> (2–3d): assemble fair lines, confidence, rationale, edge.</li>
+      <li><strong>Backend API</strong> (3–4d): implement endpoints; validation; error handling; metrics.</li>
+      <li><strong>Frontend</strong> (4–6d): UI shell, Good Bets dashboard, suggestions table, charts.</li>
+      <li><strong>Hardening</strong> (2–3d): load testing, logging, rate-limit handling, UX polish.</li>
+      <li><strong>Deployment</strong> (1–2d): Dockerize, deploy backend; deploy frontend; set observability.</li>
+      <li><strong>Handover</strong> (1d): docs, runbooks, next-steps roadmap.</li>
+    </ol>
+  </section>
+
+  <section id="v3" class="section">
+    <h2>v3: AI Predictions of Props</h2>
+    <h3>Objectives</h3>
+    <ul>
+      <li>Improve projection accuracy using ML models trained on historical game logs, opponent context, and player usage/minutes profiles.</li>
+      <li>Produce calibrated probabilities for exceeding candidate lines; generate fair lines via quantile regression or distribution fitting.</li>
+      <li>Provide transparent explanations (feature importances) and guardrails to avoid overconfident outputs.</li>
+    </ul>
+    <h3>Data & Features</h3>
+    <ul>
+      <li>Labels: target stats per game (PTS, REB, AST, 3PM, PRA).</li>
+      <li>Features: EWMA per-minute/per-36 rates, minutes trend, opponent pace/defense, home/away, rest days, back-to-back, recent volatility, team context.</li>
+      <li>Windows: rolling 10/20/40-game aggregates; season-to-date; opponent-specific splits where sample size allows.</li>
+    </ul>
+    <h3>Modeling Approach</h3>
+    <ul>
+      <li><strong>Per-stat regressors</strong>: Ridge/Elastic Net baseline; Gradient Boosted Trees (XGBoost/LightGBM) for nonlinearity.</li>
+      <li><strong>Quantile regression</strong>: predict key quantiles (e.g., 0.5/0.6/0.7) to derive fair lines and probabilities.</li>
+      <li><strong>Calibration</strong>: isotonic or Platt scaling using validation folds to align predicted probabilities with empirical frequencies.</li>
+      <li><strong>Explainability</strong>: SHAP values or permutation importances per prediction; surface top drivers in UI.</li>
+    </ul>
+    <h3>Training & Backtesting</h3>
+    <ul>
+      <li>Time-based cross-validation (rolling/blocked) to prevent leakage.</li>
+      <li>Backtests on most recent seasons; report MAE/RMSE and coverage for quantiles; Brier score for binary over/under tasks.</li>
+      <li>Model registry with versioning and metadata (training window, features hash).</li>
+    </ul>
+    <h3>Inference Pipeline</h3>
+    <ul>
+      <li>Feature builder shared with v1: deterministic transforms; ensure train/serve parity.</li>
+      <li>Low-latency inference service with on-load model cache; median p50 &lt; 100ms per stat on warm path.</li>
+      <li>Guardrails: floor/ceiling on probabilities, uncertainty inflation under data scarcity.</li>
+    </ul>
+    <h3>APIs</h3>
+    <table>
+      <thead><tr><th>Route</th><th>Method</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>/api/props/ai-suggest</td><td>POST</td><td>AI-driven suggestions (same input as /api/props/suggest + <code>useAI=true</code>).</td></tr>
+        <tr><td>/api/props/explain</td><td>POST</td><td>Return feature importances/SHAP for a specific prediction.</td></tr>
+        <tr><td>/api/models/status</td><td>GET</td><td>Model versions, training windows, and health.</td></tr>
+      </tbody>
+    </table>
+    <h3>UI/UX</h3>
+    <ul>
+      <li>Toggle: “Use AI predictions”.</li>
+      <li>Show AI Fair Line, AI Confidence, and a small “Why?” link opening a drawer with top drivers.</li>
+      <li>Badge/notice when data scarcity triggers higher uncertainty.</li>
+    </ul>
+    <h3>Monitoring</h3>
+    <ul>
+      <li>Data drift detection: monitor feature distributions vs. training baseline.</li>
+      <li>Calibration checks: reliability plots and rolling Brier/Log-loss.</li>
+      <li>Latency/error SLOs; alerting on model load failures or abnormal outputs.</li>
+    </ul>
+    <h3>Risks</h3>
+    <ul>
+      <li>Concept drift from trades/injuries → frequent retraining cadence; incorporate injury flags.</li>
+      <li>Overconfidence on sparse data → probability caps and conservative variance inflation.</li>
+      <li>Feature leakage risk → strict temporal CV; feature audits.</li>
+    </ul>
+    <h3>Timeline (Add-on)</h3>
+    <ul>
+      <li>Data curation & feature parity (1–2w)</li>
+      <li>Baseline + boosting models (2–3w) with backtesting & calibration</li>
+      <li>Inference service + UI integration (1–2w)</li>
+      <li>Monitoring & retraining automation (1w)</li>
+    </ul>
+  </section>
+
+  <section id="risks" class="section">
+    <h2>9) Risks & Mitigations</h2>
+    <ul>
+      <li>Endpoint limits/instability → cache aggressively; stagger calls; circuit breaker.</li>
+      <li>Injuries/role changes not modeled → manual minutes override; v2 incorporate news.</li>
+      <li>Noisy position splits → fallback to team-level adjustments.</li>
+      <li>Overfitting recency → cap weights; enforce minimum sample sizes.</li>
+    </ul>
+  </section>
+
+  <section id="acceptance" class="section">
+    <h2>10) Acceptance Criteria</h2>
+    <ul>
+      <li>For 10 players, suggestions returned under 3 seconds with rationale.</li>
+      <li>Projection error within ±15% vs held-out last-5-games median per stat.</li>
+      <li>API passes contract tests; end-to-end: search → suggest.</li>
+      <li>No secrets in client; rate-limit/backoff validated.</li>
+      <li>Disclaimer displayed; informational-only.</li>
+    </ul>
+  </section>
+
+  <section id="deliverables" class="section">
+    <h2>11) Deliverables</h2>
+    <ul>
+      <li>Frontend app (React + Vite) and deployment configs.</li>
+      <li>Backend service (FastAPI) with Dockerfile and CI.</li>
+      <li>Analytics modules: features, projections, suggestions.</li>
+      <li>Tests (unit + minimal e2e).</li>
+      <li>Documentation: API contracts, ops runbook, modeling notes.</li>
+    </ul>
+  </section>
+
+  <section id="appendix" class="section">
+    <h2>12) Appendix</h2>
+    <h3>Example Suggestion Payload</h3>
+    <pre>{
+  "type": "PTS",
+  "fairLine": 25.5,
+  "confidence": 0.62,
+  "marketLine": 24.5,
+  "edge": 0.62 - 0.52,
+  "rationale": [
+    "Opp pace +8% vs league avg",
+    "Opp allows top-20% PTS to position",
+    "EWMA per-minute PTS up 10% last 10 games"
+  ],
+  "features": {
+    "minutesProj": 34,
+    "paceAdj": 1.08,
+    "defAdj": 1.06,
+    "recencyWeights": {"halfLifeGames": 7}
+  },
+  "distribution": {"mean": 25.1, "variance": 20.3}
+}</pre>
+
+    <h3>Print to PDF</h3>
+    <ol>
+      <li>Open this file in a browser.</li>
+      <li>Press <strong>Print</strong> (Cmd/Ctrl+P).</li>
+      <li>Destination: <strong>Save as PDF</strong>. Margins: default; Options: Background graphics on.</li>
+    </ol>
+  </section>
+
+  <footer class="muted" style="margin-top: 28px;">
+    &copy; 2025 — Technical Specification
+  </footer>
+</body>
+</html>
+

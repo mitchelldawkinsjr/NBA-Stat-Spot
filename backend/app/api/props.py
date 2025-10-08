@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Dict
-from ..services.analytics import suggest_props_stub
 
 router = APIRouter(prefix="/api/props", tags=["props"])
 
