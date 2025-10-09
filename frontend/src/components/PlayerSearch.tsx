@@ -44,14 +44,14 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
         )}
       </div>
       {open && items.length > 0 && (
-        <ul style={{ position: 'absolute', zIndex: 10, background: '#fff', color: '#111827', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', listStyle: 'none', padding: 8, margin: 4, width: '100%', borderRadius: 8, border: '1px solid #eee', maxHeight: 280, overflowY: 'auto' }}>
+        <ul onMouseDown={(e: any)=> e.preventDefault()} style={{ position: 'absolute', zIndex: 10, background: '#fff', color: '#111827', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', listStyle: 'none', padding: 8, margin: 4, width: '100%', borderRadius: 8, border: '1px solid #eee', maxHeight: 280, overflowY: 'auto' }}>
           {items.map((p) => (
             <li key={p.id}>
               <button
-                onMouseDown={(e: any) => { e.preventDefault(); handleSelect(p); }}
+                onPointerDown={(e: any) => { e.preventDefault(); handleSelect(p); }}
                 onMouseEnter={(e: any) => (e.currentTarget.style.background = '#f3f4f6')}
                 onMouseLeave={(e: any) => (e.currentTarget.style.background = 'transparent')}
-                style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#111827', borderRadius: 6 }}
+                type="button" style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#111827', borderRadius: 6 }}
               >
                 {p.name}
               </button>
