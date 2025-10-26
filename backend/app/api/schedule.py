@@ -1,8 +1,1 @@
-from fastapi import APIRouter
-from typing import Dict
-
-router = APIRouter(prefix="/api/schedule", tags=["schedule"])
-
-@router.get("/upcoming")
-def upcoming(hours: int = 24) -> Dict:
-    return {"games": []}
+from fastapi import APIRouter\nfrom typing import Dict, List\n\nrouter = APIRouter(prefix="/api/schedule", tags=["schedule"])\n\n@router.get("/upcoming")\ndef upcoming(hours: int = 24) -> Dict:\n    try:\n        # Try nba_api live scoreboard (today)\n        from nba_api.live.nba.endpoints import scoreboard\n        sb = scoreboard.ScoreBoard()\n        games = []\n        for g in sb.games.get_dict():\n            games.append({"gameId": g.get("gameId"), "home": g.get("homeTeam", {}).get("teamTricode"), "away": g.get("awayTeam", {}).get("teamTricode"), "gameTimeUTC": g.get("gameTimeUTC")})\n        return {"games": games}\n    except Exception:\n        # Fallback empty; good-bets endpoint will handle league-wide suggestions\n        return {"games": []}\n
