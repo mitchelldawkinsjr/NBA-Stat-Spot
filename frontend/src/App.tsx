@@ -2,17 +2,23 @@ import './App.css'
 import { Link, Routes, Route } from 'react-router-dom'
 import { GoodBetsDashboard } from './components/GoodBetsDashboard'
 import { PlayerSearch } from './components/PlayerSearch'
-import { SuggestionsTable } from './components/SuggestionsTable'
+import { FiltersPanel } from './components/FiltersPanel'
 import { useState } from 'react'
+import PlayerTrends from './pages/PlayerTrends'
+import { EnhancedSuggest } from './components/EnhancedSuggest'
 
-function SuggestPage() {
+function ExplorePage() {
   const [player, setPlayer] = useState<{ id: number; name: string } | null>(null)
+  const [filters, setFilters] = useState<any>({ lastN: 10 })
   return (
     <div>
-      <h2>Suggest Props</h2>
-      <PlayerSearch onSelect={setPlayer} />
+      <h2>Explore Player Props</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }} >
+        <PlayerSearch onSelect={setPlayer} />
+        <FiltersPanel value={filters} onChange={setFilters} />
+      </div>
       <div style={{ marginTop: 12 }} />
-      <SuggestionsTable player={player} />
+      <EnhancedSuggest player={player} filters={filters} />
     </div>
   )
 }
@@ -24,13 +30,17 @@ function App() {
       <h1>NBA Stat Spot</h1>
       <p style={{ color: '#666', margin: '0 0 12px 0' }}>Lightweight player prop analysis with transparent rationale.</p>
       <nav style={{ display: 'flex', gap: 12 }}>
-        <Link to="/">Dashboard</Link>
-        <Link to="/suggest">Suggest Props</Link>
+        <Link to="/">Explore</Link>
+        <Link to="/dashboard">Dashboard</Link>
+        <Link to="/trends">Player Trends</Link>
       </nav>
       <div style={{ marginTop: 12 }}>
         <Routes>
-          <Route path="/" element={<GoodBetsDashboard />} />
-          <Route path="/suggest" element={<SuggestPage />} />
+          <Route path="/" element={<ExplorePage />} />
+          <Route path="/dashboard" element={<GoodBetsDashboard />} />
+          <Route path="/trends" element={<PlayerTrends />} />
+          {/* Back-compat alias */}
+          <Route path="/suggest" element={<ExplorePage />} />
         </Routes>
       </div>
     </div>
