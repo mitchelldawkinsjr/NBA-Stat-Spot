@@ -13,12 +13,12 @@ function ExplorePage() {
   return (
     <div>
       <h2>Explore Player Props</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }} >
-        <PlayerSearch onSelect={setPlayer} />
-        <FiltersPanel value={filters} onChange={setFilters} />
+      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16 }}>
+        <div><FiltersPanel value={filters} onChange={setFilters} /></div>
+        <div><PlayerSearch onSelect={setPlayer} />
+          <div style={{ height: 12 }} />
+          <EnhancedSuggest player={player} filters={filters} /></div>
       </div>
-      <div style={{ marginTop: 12 }} />
-      <EnhancedSuggest player={player} filters={filters} />
     </div>
   )
 }

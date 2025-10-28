@@ -21,14 +21,13 @@ export function EnhancedSuggest({ player, filters }: { player: { id: number; nam
   })
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16 }}>
-      <div>
+    <div>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         <input value={player?.name || ''} placeholder='Selected player' disabled style={{ width: 280, padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
         <button onClick={() => suggest.mutate()} disabled={!player || !player.id} style={{ padding: '8px 12px' }}>Suggest</button>
       </div>
       <div style={{ marginTop: 12 }}>
-        {!result ? <div style={{ color: '#374151' }}>No suggestions yet.</div> : <SuggestionCards suggestions={result.suggestions || []} />}
+        {!result ? <div style={{ color: '#111827' }}>No suggestions yet.</div> : <SuggestionCards suggestions={result.suggestions || []} />}
       </div>
     </div>
   )
