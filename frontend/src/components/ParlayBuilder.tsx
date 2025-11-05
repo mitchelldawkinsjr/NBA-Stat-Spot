@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { PlayerSearch } from './PlayerSearch'
 import { SuggestionCards } from './SuggestionCards'
+import { useSeason } from '../context/SeasonContext'
 
 const TYPES = ['PTS','REB','AST','3PM','PRA'] as const
 
@@ -16,6 +17,7 @@ type Leg = {
 }
 
 export function ParlayBuilder() {
+  const { season: globalSeason } = useSeason()
   const [legs, setLegs] = useState<Leg[]>([
     { player: null, type: 'PTS', line: '' },
     { player: null, type: 'REB', line: '' },
@@ -31,7 +33,7 @@ export function ParlayBuilder() {
         if (!l.player?.id || l.line === '') return { suggestions: [] }
         const body: any = {
           playerId: l.player.id,
-          season: l.season || '2025-26',
+          season: l.season || globalSeason || '2025-26',
           lastN: l.lastN || undefined,
           home: l.home && l.home !== 'any' ? l.home : undefined,
           marketLines: { [l.type]: l.line },

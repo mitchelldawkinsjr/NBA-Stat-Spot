@@ -2,15 +2,17 @@ import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { PlayerSearch } from './PlayerSearch'
 import { SuggestionCards } from './SuggestionCards'
+import { useSeason } from '../context/SeasonContext'
 
 const TYPES = ['PTS','REB','AST','3PM','PRA'] as const
 type PropType = typeof TYPES[number]
 
 export function QuickPropLab() {
+  const { season: globalSeason } = useSeason()
   const [player, setPlayer] = useState<{ id: number; name: string } | null>(null)
   const [propType, setPropType] = useState<PropType>('PTS')
   const [line, setLine] = useState<string>('')
-  const [season, setSeason] = useState<string>('2025-26')
+  const [season, setSeason] = useState<string>(globalSeason)
   const [lastN, setLastN] = useState<number | ''>('')
   const [home, setHome] = useState<'any'|'home'|'away'>('any')
   const [result, setResult] = useState<any>(null)

@@ -7,10 +7,12 @@ import { useState } from 'react'
 // Trends removed per request
 import { EnhancedSuggest } from './components/EnhancedSuggest'
 import { ParlayBuilder } from './components/ParlayBuilder'
+import { useSeason } from './context/SeasonContext'
 
 function ExplorePage() {
   const [player, setPlayer] = useState<{ id: number; name: string } | null>(null)
-  const [filters, setFilters] = useState<any>({ lastN: 10, season: '2025-26' })
+  const { season } = useSeason()
+  const [filters, setFilters] = useState<any>({ lastN: 10, season })
   return (
     <div>
       <h2 style={{ marginBottom: 8 }}>Explore Player Props</h2>
@@ -30,6 +32,7 @@ function ExplorePage() {
 }
 
 function App() {
+  const { season, setSeason } = useSeason()
   return (
     <div>
       <div className="sticky top-0 z-20 bg-white border-b border-gray-200">
@@ -40,10 +43,14 @@ function App() {
               <h1 style={{ margin: 0 }}>NBA Stat Spot</h1>
               <p style={{ color: '#666', margin: '2px 0 0 0', fontSize: 14 }}>Lightweight player prop analysis with transparent rationale.</p>
             </div>
-            <nav className="flex gap-4 md:gap-6">
+            <nav className="flex gap-4 md:gap-6 items-center">
               <Link className="px-2 py-1 rounded hover:bg-gray-100" to="/dashboard">Dashboard</Link>
               <Link className="px-2 py-1 rounded hover:bg-gray-100" to="/explore">Explore</Link>
               <Link className="px-2 py-1 rounded hover:bg-gray-100" to="/parlay">Parlay</Link>
+              <div className="hidden sm:flex items-center gap-2">
+                <span style={{ fontSize: 12, color: '#6b7280' }}>Season</span>
+                <input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="2025-26" className="px-2 py-1 rounded border border-gray-300" style={{ width: 100 }} />
+              </div>
             </nav>
           </div>
         </div>

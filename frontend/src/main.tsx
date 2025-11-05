@@ -4,6 +4,7 @@ import './index.css'
 import App from './App'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
+import { SeasonProvider } from './context/SeasonContext'
 
 const queryClient = new QueryClient()
 
@@ -11,7 +12,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        <SeasonProvider>
+          <App />
+        </SeasonProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,
