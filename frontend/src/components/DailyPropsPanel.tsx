@@ -13,7 +13,7 @@ async function fetchDaily(minConfidence?: number) {
 }
 
 export function DailyPropsPanel() {
-  const [minConf, setMinConf] = useState<number>(60)
+  const [minConf, setMinConf] = useState<number>(50)
   const [type, setType] = useState<TypeFilter>('All')
   const [q, setQ] = useState<string>('')
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ['daily-props', minConf], queryFn: () => fetchDaily(minConf) })
@@ -36,7 +36,7 @@ export function DailyPropsPanel() {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search player" style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 6 }} />
           <div title="Minimum confidence threshold" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: 12, color: '#6b7280' }}>Min Conf</span>
-            <input type="range" min={50} max={80} step={1} value={minConf} onChange={(e) => setMinConf(Number(e.target.value))} />
+            <input type="range" min={45} max={75} step={1} value={minConf} onChange={(e) => setMinConf(Number(e.target.value))} />
             <span style={{ fontSize: 12 }}>{minConf}%</span>
           </div>
         </div>

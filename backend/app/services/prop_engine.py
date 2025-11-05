@@ -20,5 +20,8 @@ class PropBetEngine:
             "suggestion": suggestion,
             "confidence": round(confidence, 1),
             "stats": {"hit_rate": hit_rate, "recent": recent},
-            "rationale": {"summary": "Stub rationale"},
+            # Provide a human-readable rationale summary for display
+            "rationale": {
+                "summary": f"{recent['trend'].capitalize()} form; {hit_rate:.0%} hit over {line_value} in season sample"
+            },
         }

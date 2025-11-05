@@ -7,6 +7,8 @@ type SuggestionItem = {
   rationale?: string[]
   chosenDirection?: Direction
   betterDirection?: Direction
+  playerId?: number
+  playerName?: string
 }
 
 export function SuggestionCards({ suggestions }: { suggestions: SuggestionItem[] }) {
@@ -15,7 +17,12 @@ export function SuggestionCards({ suggestions }: { suggestions: SuggestionItem[]
       {suggestions.map((s: SuggestionItem, idx: number) => (
         <div key={idx} className="p-4 md:p-5" style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <strong>{s.type}</strong>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <strong>{s.type}</strong>
+              {s.playerId && s.playerName && (
+                <a href={`/player/${s.playerId}`} style={{ color: '#2563eb', fontSize: 12 }}>{s.playerName}</a>
+              )}
+            </div>
             {s.marketLine != null && (
               (() => {
                 const impliedOver = (s.fairLine != null && s.marketLine != null) ? (s.fairLine - s.marketLine) >= 0 : true
