@@ -94,6 +94,7 @@ export default function PlayerProfile() {
 
   const last5 = useMemo(() => enrichedLogs.slice(-5), [enrichedLogs])
   const last10 = useMemo(() => enrichedLogs.slice(-10), [enrichedLogs])
+  // Keep recent averages for potential display/overlays
   const recentAverages = useMemo(() => ({
     pts5: avg(last5.map(g => g.pts)),
     reb5: avg(last5.map(g => g.reb)),
