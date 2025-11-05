@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSeason } from '../context/SeasonContext'
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Line } from 'recharts'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Line, LabelList, ReferenceLine } from 'recharts'
+import { useMutation } from '@tanstack/react-query'
+import { SuggestionCards } from '../components/SuggestionCards'
+import { PropCard } from '../components/PropCard'
+import { calculateConfidenceBasic } from '../utils/confidence'
 
 type GameLog = {
   game_id: string
@@ -137,6 +141,32 @@ export default function PlayerProfile() {
   const hrSeason = useMemo(() => hrLine ? hitRate(enrichedLogs, hrKeyMap[hrStat], Number(hrLine), hrDir) : null, [enrichedLogs, hrStat, hrLine, hrDir])
   const hrRecent = useMemo(() => hrLine ? hitRate(recentN, hrKeyMap[hrStat], Number(hrLine), hrDir) : null, [recentN, hrStat, hrLine, hrDir])
 
+  // Evaluate the entered line using backend suggestion engine
+  const apiKeyMap: Record<'PTS'|'REB'|'AST'|'3PM'|'PRA', 'pts'|'reb'|'ast'|'tpm'|'pra'> = { PTS: 'pts', REB: 'reb', AST: 'ast', '3PM': 'tpm', PRA: 'pra' }
+  const [evalResult, setEvalResult] = useState<any>(null)
+  const evalLine = useMutation({
+    mutationFn: async () => {
+      if (!id || !hrLine) return null
+      const seasonToUse = (fallbackUsed || season || '2025-26') as string
+      const body: any = {
+        playerId: Number(id),
+        season: seasonToUse,
+        lastN: windowN,
+        marketLines: { [apiKeyMap[hrStat]]: Number(hrLine) },
+      }
+      const res = await fetch('/api/v1/props/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      return res.json()
+    },
+    onSuccess: (data) => setEvalResult(data)
+  })
+
+  const selectedSuggestion: any | null = useMemo(() => {
+    const items = evalResult?.suggestions || []
+    const match = items.find((s: any) => s.type === hrStat)
+    if (!match) return null
+    return { ...match, chosenDirection: hrDir }
+  }, [evalResult, hrStat, hrDir])
+
   function StatCard({ title, value, sub }: { title: string; value: string; sub?: string }) {
     return (
       <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, background: '#fff' }}>
@@ -146,6 +176,8 @@ export default function PlayerProfile() {
       </div>
     )
   }
+
+  
 
   return (
     <div>
@@ -175,15 +207,70 @@ export default function PlayerProfile() {
               <button onClick={() => setHrDir('over')} className="px-3 py-2 rounded border border-gray-300" style={{ background: hrDir === 'over' ? '#17408B' : '#fff', color: hrDir === 'over' ? '#fff' : '#111827' }}>Over</button>
               <button onClick={() => setHrDir('under')} className="px-3 py-2 rounded border border-gray-300" style={{ background: hrDir === 'under' ? '#17408B' : '#fff', color: hrDir === 'under' ? '#fff' : '#111827' }}>Under</button>
             </div>
+            <button onClick={() => evalLine.mutate()} disabled={!hrLine || evalLine.isPending} className="px-3 py-2 rounded" style={{ background: '#17408B', color: '#fff', opacity: (!hrLine || evalLine.isPending) ? 0.7 : 1 }}>{evalLine.isPending ? 'Evaluating…' : 'Evaluate Line'}</button>
           </div>
 
-          {/* Summary tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" style={{ marginTop: 12 }}>
-            <StatCard title="Season Avg PTS" value={seasonAverages.pts.toFixed(1)} sub={`${windowN}g: ${avg(recentN.map(g=>g.pts)).toFixed(1)}`} />
-            <StatCard title="Season Avg REB" value={seasonAverages.reb.toFixed(1)} sub={`${windowN}g: ${avg(recentN.map(g=>g.reb)).toFixed(1)}`} />
-            <StatCard title="Season Avg AST" value={seasonAverages.ast.toFixed(1)} sub={`${windowN}g: ${avg(recentN.map(g=>g.ast)).toFixed(1)}`} />
-            <StatCard title="Season Avg 3PM" value={seasonAverages.tpm.toFixed(1)} sub={`${windowN}g: ${avg(recentN.map(g=>g.tpm)).toFixed(1)}`} />
+          {/* Hit rate cards (single row) - moved above season averages */}
+          {hrLine && (
+            <div style={{ display: 'flex', gap: 12, marginTop: 12, overflowX: 'auto' }}>
+              <div style={{ minWidth: 200 }}>
+                <StatCard title={`Season Hit Rate (${hrStat} ${hrDir} ${hrLine})`} value={`${hrSeason}%`} />
+              </div>
+              <div style={{ minWidth: 200 }}>
+                <StatCard title={`${windowN}g Hit Rate (${hrStat} ${hrDir} ${hrLine})`} value={`${hrRecent}%`} />
+              </div>
+            </div>
+          )}
+
+          {/* Summary tiles - single row with horizontal scroll on small screens */}
+          <div style={{ display: 'flex', gap: 12, marginTop: 12, overflowX: 'auto', paddingBottom: 4 }}>
+            <div style={{ minWidth: 200 }}><StatCard title="Season Avg PTS" value={seasonAverages.pts.toFixed(1)} sub={`${windowN}g: ${avg(recentN.map(g=>g.pts)).toFixed(1)}`} /></div>
+            <div style={{ minWidth: 200 }}><StatCard title="Season Avg REB" value={seasonAverages.reb.toFixed(1)} sub={`${windowN}g: ${avg(recentN.map(g=>g.reb)).toFixed(1)}`} /></div>
+            <div style={{ minWidth: 200 }}><StatCard title="Season Avg AST" value={seasonAverages.ast.toFixed(1)} sub={`${windowN}g: ${avg(recentN.map(g=>g.ast)).toFixed(1)}`} /></div>
+            <div style={{ minWidth: 200 }}><StatCard title="Season Avg 3PM" value={seasonAverages.tpm.toFixed(1)} sub={`${windowN}g: ${avg(recentN.map(g=>g.tpm)).toFixed(1)}`} /></div>
           </div>
+
+          {/* Prop Highlights (v2) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-4">
+            {(() => {
+              const lastPts = recentN.map(g => g.pts)
+              const lastAst = recentN.map(g => g.ast)
+              const lastReb = recentN.map(g => g.reb)
+              const lastTpm = recentN.map(g => g.tpm)
+              const lastPra = recentN.map(g => (g.pra as number))
+              function roundHalf(x: number) { return Math.round(x * 2) / 2 }
+              const linePts = hrStat==='PTS' && hrLine ? Number(hrLine) : roundHalf(seasonAverages.pts)
+              const lineAst = hrStat==='AST' && hrLine ? Number(hrLine) : roundHalf(seasonAverages.ast)
+              const lineReb = hrStat==='REB' && hrLine ? Number(hrLine) : roundHalf(seasonAverages.reb)
+              const lineTpm = hrStat==='3PM' && hrLine ? Number(hrLine) : roundHalf(seasonAverages.tpm)
+              const linePra = hrStat==='PRA' && hrLine ? Number(hrLine) : roundHalf(seasonAverages.pra)
+              const cards = [
+                { label: 'Points', value: linePts, vals: lastPts },
+                { label: 'Assists', value: lineAst, vals: lastAst },
+                { label: 'Rebounds', value: lineReb, vals: lastReb },
+                { label: '3-Pointers', value: lineTpm, vals: lastTpm },
+                { label: 'PRA', value: linePra, vals: lastPra },
+              ]
+              return cards.map((c, idx) => {
+                const recentAvg = c.vals.length ? c.vals.reduce((a,b)=>a+b,0)/c.vals.length : 0
+                const delta = recentAvg - (Number(c.value) || 0)
+                const trend: 'up'|'down'|'neutral' = delta > 0.5 ? 'up' : delta < -0.5 ? 'down' : 'neutral'
+                const conf = calculateConfidenceBasic(c.vals as number[], Number(c.value))
+                const rec = delta >= 0 ? 'OVER' : 'UNDER'
+                return (
+                  <PropCard key={idx} label={`${c.label} Prop Line`} value={c.value} trend={trend} trendText={`L${windowN} Avg: ${recentAvg.toFixed(1)} (${delta>=0?'+':''}${delta.toFixed(1)})`} confidence={conf} recommendation={rec} />
+                )
+              })
+            })()}
+          </div>
+
+          {/* Venue split - below season averages */}
+          <div style={{ display: 'flex', gap: 12, marginTop: 12, overflowX: 'auto', paddingBottom: 4 }}>
+            <div style={{ minWidth: 220 }}><StatCard title="Home Splits (PTS/REB/AST/3PM)" value={`${venueAverages.home.pts.toFixed(1)} / ${venueAverages.home.reb.toFixed(1)} / ${venueAverages.home.ast.toFixed(1)} / ${venueAverages.home.tpm.toFixed(1)}`} /></div>
+            <div style={{ minWidth: 220 }}><StatCard title="Away Splits (PTS/REB/AST/3PM)" value={`${venueAverages.away.pts.toFixed(1)} / ${venueAverages.away.reb.toFixed(1)} / ${venueAverages.away.ast.toFixed(1)} / ${venueAverages.away.tpm.toFixed(1)}`} /></div>
+          </div>
+
+          
 
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3" style={{ marginTop: 12 }}>
@@ -193,11 +280,16 @@ export default function PlayerProfile() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="idx" />
+                    <XAxis dataKey="idx" tick={false} axisLine={false} tickLine={false} />
                     <YAxis allowDecimals />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="PTS" fill="#2563eb" name="PTS" />
+                    <Bar dataKey="PTS" fill="#2563eb" name="PTS">
+                      <LabelList dataKey="PTS" position="bottom" offset={8} />
+                    </Bar>
+                    {hrStat === 'PTS' && hrLine && (
+                      <ReferenceLine y={Number(hrLine)} stroke="#ef4444" strokeDasharray="3 3" label={{ value: `Line ${hrLine}` as any, position: 'right', fill: '#ef4444' }} />
+                    )}
                     <Line type="monotone" dataKey={() => avg(recentN.map(g=>g.pts))} stroke="#059669" name={`${windowN}g avg`} dot={false} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -209,12 +301,22 @@ export default function PlayerProfile() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="idx" />
+                    <XAxis dataKey="idx" tick={false} axisLine={false} tickLine={false} />
                     <YAxis allowDecimals />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="REB" fill="#10B981" name="REB" />
-                    <Bar dataKey="AST" fill="#F59E0B" name="AST" />
+                    <Bar dataKey="REB" fill="#10B981" name="REB">
+                      <LabelList dataKey="REB" position="bottom" offset={8} />
+                    </Bar>
+                    <Bar dataKey="AST" fill="#F59E0B" name="AST">
+                      <LabelList dataKey="AST" position="bottom" offset={8} />
+                    </Bar>
+                    {hrStat === 'REB' && hrLine && (
+                      <ReferenceLine y={Number(hrLine)} stroke="#ef4444" strokeDasharray="3 3" label={{ value: `REB ${hrLine}` as any, position: 'right', fill: '#ef4444' }} />
+                    )}
+                    {hrStat === 'AST' && hrLine && (
+                      <ReferenceLine y={Number(hrLine)} stroke="#ef4444" strokeDasharray="3 3" label={{ value: `AST ${hrLine}` as any, position: 'right', fill: '#ef4444' }} />
+                    )}
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -225,11 +327,16 @@ export default function PlayerProfile() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="idx" />
+                    <XAxis dataKey="idx" tick={false} axisLine={false} tickLine={false} />
                     <YAxis allowDecimals />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="PRA" fill="#7c3aed" name="PRA" />
+                    <Bar dataKey="PRA" fill="#7c3aed" name="PRA">
+                      <LabelList dataKey="PRA" position="bottom" offset={8} />
+                    </Bar>
+                    {hrStat === 'PRA' && hrLine && (
+                      <ReferenceLine y={Number(hrLine)} stroke="#ef4444" strokeDasharray="3 3" label={{ value: `PRA ${hrLine}` as any, position: 'right', fill: '#ef4444' }} />
+                    )}
                     <Line type="monotone" dataKey={() => avg(recentN.map(g=> (g.pra as number)))} stroke="#111827" name={`${windowN}g avg`} dot={false} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -237,17 +344,14 @@ export default function PlayerProfile() {
             </div>
           </div>
 
-          {/* Venue split */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ marginTop: 12 }}>
-            <StatCard title="Home Splits (PTS/REB/AST/3PM)" value={`${venueAverages.home.pts.toFixed(1)} / ${venueAverages.home.reb.toFixed(1)} / ${venueAverages.home.ast.toFixed(1)} / ${venueAverages.home.tpm.toFixed(1)}`} />
-            <StatCard title="Away Splits (PTS/REB/AST/3PM)" value={`${venueAverages.away.pts.toFixed(1)} / ${venueAverages.away.reb.toFixed(1)} / ${venueAverages.away.ast.toFixed(1)} / ${venueAverages.away.tpm.toFixed(1)}`} />
-          </div>
+          
 
-          {/* Hit rate cards */}
-          {hrLine && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ marginTop: 12 }}>
-              <StatCard title={`Season Hit Rate (${hrStat} ${hrDir} ${hrLine})`} value={`${hrSeason}%`} />
-              <StatCard title={`${windowN}g Hit Rate (${hrStat} ${hrDir} ${hrLine})`} value={`${hrRecent}%`} />
+          
+
+          {/* Evaluated suggestion */}
+          {selectedSuggestion && (
+            <div style={{ marginTop: 12 }}>
+              <SuggestionCards suggestions={[selectedSuggestion]} />
             </div>
           )}
 
@@ -286,5 +390,4 @@ export default function PlayerProfile() {
     </div>
   )
 }
-
 

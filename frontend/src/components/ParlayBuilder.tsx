@@ -92,21 +92,23 @@ export function ParlayBuilder() {
   }, [perLegSuggestions, legs])
 
   return (
-    <div className="p-4 md:p-5" style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-        <div style={{ fontWeight: 600 }}>Parlay Builder</div>
-        <div className="flex gap-2 md:gap-3">
-          <button onClick={addLeg} disabled={legs.length >= 3} className="px-3 py-1.5 rounded border border-gray-300 bg-white">Add Leg</button>
-          <button onClick={() => compute.mutate()} disabled={!canCompute || compute.isPending} className="px-3 py-1.5 rounded border border-[color:var(--tw-shadow-color)]" style={{ background: '#17408B', color: '#fff', border: '1px solid #17408B', opacity: canCompute ? 1 : 0.6 }}>{compute.isPending ? 'Reviewing…' : 'Review Parlay'}</button>
+    <div className="container mx-auto px-4 py-6">
+      <h2 className="text-2xl font-bold mb-4">Parlay Builder</h2>
+      <div className="p-4 md:p-6 border border-gray-200 rounded-lg bg-white shadow-sm">
+        <div className="flex items-baseline justify-between gap-3 flex-wrap">
+          <div className="font-semibold text-gray-800">Build Your Parlay</div>
+          <div className="flex gap-2 md:gap-3">
+            <button onClick={addLeg} disabled={legs.length >= 3} className="px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed">Add Leg</button>
+            <button onClick={() => compute.mutate()} disabled={!canCompute || compute.isPending} className="px-4 py-2 rounded-md bg-blue-700 text-white font-medium hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed">{compute.isPending ? 'Reviewing…' : 'Review Parlay'}</button>
+          </div>
         </div>
-      </div>
 
       <div className="grid grid-cols-1 gap-3 md:gap-4" style={{ marginTop: 10 }}>
         {legs.map((leg, idx) => (
-          <div key={idx} className="p-3 md:p-4" style={{ border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-              <div style={{ fontWeight: 500 }}>Leg {idx + 1}</div>
-              <button onClick={() => removeLeg(idx)} disabled={legs.length <= 2} className="px-2 py-1 rounded border border-gray-300 bg-white">Remove</button>
+          <div key={idx} className="p-3 md:p-4 border border-gray-200 rounded-lg bg-gray-50">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="font-medium text-gray-800">Leg {idx + 1}</div>
+              <button onClick={() => removeLeg(idx)} disabled={legs.length <= 2} className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed">Remove</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4" style={{ marginTop: 8 }}>
               <div>
@@ -118,19 +120,19 @@ export function ParlayBuilder() {
                 ) : null}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
-                <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as unknown as typeof TYPES[number] } : x))} className="px-3 py-2 rounded border border-gray-300 bg-white" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
+                <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as unknown as typeof TYPES[number] } : x))} className="px-3 py-2 rounded-md border border-gray-300 bg-white">
                   {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <input value={leg.line} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, line: e.target.value } : x))} placeholder={`${leg.type} line e.g. 24.5`} inputMode="decimal" className="px-3 py-2 rounded border border-gray-300" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
-                <input value={leg.season || ''} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, season: e.target.value } : x))} placeholder="Season (e.g. 2025-26)" className="px-3 py-2 rounded border border-gray-300" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
-                <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as Leg['home'] } : x))} className="px-3 py-2 rounded border border-gray-300 bg-white" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
+                <input value={leg.line} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, line: e.target.value } : x))} placeholder={`${leg.type} line e.g. 24.5`} inputMode="decimal" className="px-3 py-2 rounded-md border border-gray-300" />
+                <input value={leg.season || ''} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, season: e.target.value } : x))} placeholder="Season (e.g. 2025-26)" className="px-3 py-2 rounded-md border border-gray-300" />
+                <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as Leg['home'] } : x))} className="px-3 py-2 rounded-md border border-gray-300 bg-white">
                   <option value="any">Venue: Any</option>
                   <option value="home">Venue: Home</option>
                   <option value="away">Venue: Away</option>
                 </select>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, direction: 'over' } : x))} className="px-3 py-2 rounded border border-gray-300" style={{ background: (leg.direction ?? 'over') === 'over' ? '#17408B' : '#fff', color: (leg.direction ?? 'over') === 'over' ? '#fff' : '#111827' }}>Over</button>
-                  <button onClick={() => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, direction: 'under' } : x))} className="px-3 py-2 rounded border border-gray-300" style={{ background: (leg.direction ?? 'over') === 'under' ? '#17408B' : '#fff', color: (leg.direction ?? 'over') === 'under' ? '#fff' : '#111827' }}>Under</button>
+                  <button onClick={() => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, direction: 'over' } : x))} className={`px-3 py-2 rounded-md border border-gray-300 ${((leg.direction ?? 'over') === 'over') ? 'bg-blue-700 text-white' : 'bg-white text-gray-700'}`}>Over</button>
+                  <button onClick={() => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, direction: 'under' } : x))} className={`px-3 py-2 rounded-md border border-gray-300 ${((leg.direction ?? 'over') === 'under') ? 'bg-blue-700 text-white' : 'bg-white text-gray-700'}`}>Under</button>
                 </div>
               </div>
             </div>
@@ -143,7 +145,7 @@ export function ParlayBuilder() {
               const better: Direction = impliedOver ? 'over' : 'under'
               const decorated = { ...s, chosenDirection: chosen, betterDirection: chosen === better ? undefined : better }
               return (
-                <div style={{ marginTop: 8 }}>
+                <div className="mt-3">
                   <SuggestionCards suggestions={[decorated]} />
                 </div>
               )
@@ -152,16 +154,17 @@ export function ParlayBuilder() {
         ))}
       </div>
 
-      <div className="mt-3 md:mt-4 pt-3 md:pt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
+      <div className="mt-6 pt-4 border-t border-gray-200">
         {combinedConfidence != null ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontWeight: 600 }}>Parlay Confidence</div>
-            <div style={{ fontSize: 18 }}>{combinedConfidence}%</div>
+          <div className="flex items-center justify-between">
+            <div className="font-semibold text-gray-800">Parlay Confidence</div>
+            <div className="text-2xl font-bold text-blue-700">{combinedConfidence}%</div>
           </div>
         ) : (
-          <div style={{ color: '#6b7280', fontSize: 12 }}>Add 2-3 legs and click Review Parlay to see combined confidence.</div>
+          <div className="text-sm text-gray-600">Add 2-3 legs and click Review Parlay to see combined confidence.</div>
         )}
       </div>
+    </div>
     </div>
   )
 }
