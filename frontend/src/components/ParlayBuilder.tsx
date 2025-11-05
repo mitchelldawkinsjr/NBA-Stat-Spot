@@ -13,14 +13,15 @@ type Leg = {
   season?: string
   lastN?: number | ''
   home?: 'any' | 'home' | 'away'
+  direction?: 'over' | 'under'
   result?: any
 }
 
 export function ParlayBuilder() {
   const { season: globalSeason } = useSeason()
   const [legs, setLegs] = useState<Leg[]>([
-    { player: null, type: 'PTS', line: '' },
-    { player: null, type: 'REB', line: '' },
+    { player: null, type: 'PTS', line: '', season: globalSeason, direction: 'over' },
+    { player: null, type: 'REB', line: '', season: globalSeason, direction: 'over' },
   ])
 
   const canCompute = useMemo(() =>
@@ -50,7 +51,7 @@ export function ParlayBuilder() {
 
   function addLeg() {
     if (legs.length >= 3) return
-    setLegs((p) => [...p, { player: null, type: 'AST', line: '' }])
+    setLegs((p) => [...p, { player: null, type: 'AST', line: '', season: globalSeason, direction: 'over' }])
   }
   function removeLeg(i: number) {
     setLegs((p) => p.filter((_, idx) => idx !== i))
@@ -64,14 +65,21 @@ export function ParlayBuilder() {
 
   const combinedConfidence = useMemo(() => {
     if (perLegSuggestions.length < 2) return null
-    const ps = perLegSuggestions.map((s: any) => {
-      const c = s.confidence
-      const p = c > 1 ? c / 100 : c
-      return Math.max(0, Math.min(1, p || 0))
+    const ps = perLegSuggestions.map((s: any, idx: number) => {
+      const leg = legs[idx]
+      const conf = s.confidence
+      const pRaw = conf > 1 ? conf / 100 : conf
+      const p = Math.max(0, Math.min(1, pRaw || 0))
+      const fair = s.fairLine
+      const market = s.marketLine
+      const suggestedOver = (fair != null && market != null) ? (fair - market) >= 0 : true
+      const wantsOver = (leg?.direction ?? 'over') === 'over'
+      const chooseP = (wantsOver === suggestedOver) ? p : (1 - p)
+      return chooseP
     })
     const prod = ps.reduce((acc: number, v: number) => acc * v, 1)
     return Math.round(prod * 100)
-  }, [perLegSuggestions])
+  }, [perLegSuggestions, legs])
 
   return (
     <div className="p-4 md:p-5" style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff' }}>
@@ -92,7 +100,7 @@ export function ParlayBuilder() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4" style={{ marginTop: 8 }}>
               <PlayerSearch onSelect={(p) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, player: p } : x))} />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
                 <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as any } : x))} className="px-3 py-2 rounded border border-gray-300 bg-white" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
                   {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
@@ -103,6 +111,10 @@ export function ParlayBuilder() {
                   <option value="home">Venue: Home</option>
                   <option value="away">Venue: Away</option>
                 </select>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, direction: 'over' } : x))} className="px-3 py-2 rounded border border-gray-300" style={{ background: (leg.direction ?? 'over') === 'over' ? '#17408B' : '#fff', color: (leg.direction ?? 'over') === 'over' ? '#fff' : '#111827' }}>Over</button>
+                  <button onClick={() => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, direction: 'under' } : x))} className="px-3 py-2 rounded border border-gray-300" style={{ background: (leg.direction ?? 'over') === 'under' ? '#17408B' : '#fff', color: (leg.direction ?? 'over') === 'under' ? '#fff' : '#111827' }}>Under</button>
+                </div>
               </div>
             </div>
             {leg.result && leg.result.suggestions && leg.result.suggestions.length > 0 && (
