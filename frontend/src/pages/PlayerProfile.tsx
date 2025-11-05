@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSeason } from '../context/SeasonContext'
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Line, LabelList, ReferenceLine } from 'recharts'
 import { useMutation } from '@tanstack/react-query'
 import { SuggestionCards } from '../components/SuggestionCards'
 import { PropCard } from '../components/PropCard'
 import { calculateConfidenceBasic } from '../utils/confidence'
+import { TrendChart } from '../components/TrendChart'
 
 type GameLog = {
   game_id: string
@@ -274,74 +274,24 @@ export default function PlayerProfile() {
 
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3" style={{ marginTop: 12 }}>
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff', padding: 12 }}>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>Points - Last 10 Games</div>
-              <div style={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="idx" tick={false} axisLine={false} tickLine={false} />
-                    <YAxis allowDecimals />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="PTS" fill="#2563eb" name="PTS">
-                      <LabelList dataKey="PTS" position="bottom" offset={8} />
-                    </Bar>
-                    {hrStat === 'PTS' && hrLine && (
-                      <ReferenceLine y={Number(hrLine)} stroke="#ef4444" strokeDasharray="3 3" label={{ value: `Line ${hrLine}` as any, position: 'right', fill: '#ef4444' }} />
-                    )}
-                    <Line type="monotone" dataKey={() => avg(recentN.map(g=>g.pts))} stroke="#059669" name={`${windowN}g avg`} dot={false} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff', padding: 12 }}>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>Rebounds/Assists - Last 10</div>
-              <div style={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="idx" tick={false} axisLine={false} tickLine={false} />
-                    <YAxis allowDecimals />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="REB" fill="#10B981" name="REB">
-                      <LabelList dataKey="REB" position="bottom" offset={8} />
-                    </Bar>
-                    <Bar dataKey="AST" fill="#F59E0B" name="AST">
-                      <LabelList dataKey="AST" position="bottom" offset={8} />
-                    </Bar>
-                    {hrStat === 'REB' && hrLine && (
-                      <ReferenceLine y={Number(hrLine)} stroke="#ef4444" strokeDasharray="3 3" label={{ value: `REB ${hrLine}` as any, position: 'right', fill: '#ef4444' }} />
-                    )}
-                    {hrStat === 'AST' && hrLine && (
-                      <ReferenceLine y={Number(hrLine)} stroke="#ef4444" strokeDasharray="3 3" label={{ value: `AST ${hrLine}` as any, position: 'right', fill: '#ef4444' }} />
-                    )}
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff', padding: 12 }}>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>PRA - Last 10</div>
-              <div style={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="idx" tick={false} axisLine={false} tickLine={false} />
-                    <YAxis allowDecimals />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="PRA" fill="#7c3aed" name="PRA">
-                      <LabelList dataKey="PRA" position="bottom" offset={8} />
-                    </Bar>
-                    {hrStat === 'PRA' && hrLine && (
-                      <ReferenceLine y={Number(hrLine)} stroke="#ef4444" strokeDasharray="3 3" label={{ value: `PRA ${hrLine}` as any, position: 'right', fill: '#ef4444' }} />
-                    )}
-                    <Line type="monotone" dataKey={() => avg(recentN.map(g=> (g.pra as number)))} stroke="#111827" name={`${windowN}g avg`} dot={false} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+            <TrendChart
+              title="Points - Last 10 Games"
+              data={chartData.map(d => ({ idx: d.idx, value: d.PTS, propLine: (hrStat==='PTS' && hrLine) ? Number(hrLine) : Math.round(seasonAverages.pts*2)/2 }))}
+              color="#2563eb"
+              yLabel="PTS"
+            />
+            <TrendChart
+              title="Assists - Last 10 Games"
+              data={chartData.map(d => ({ idx: d.idx, value: d.AST, propLine: (hrStat==='AST' && hrLine) ? Number(hrLine) : Math.round(seasonAverages.ast*2)/2 }))}
+              color="#F59E0B"
+              yLabel="AST"
+            />
+            <TrendChart
+              title="Rebounds - Last 10 Games"
+              data={chartData.map(d => ({ idx: d.idx, value: d.REB, propLine: (hrStat==='REB' && hrLine) ? Number(hrLine) : Math.round(seasonAverages.reb*2)/2 }))}
+              color="#10B981"
+              yLabel="REB"
+            />
           </div>
 
           
