@@ -8,7 +8,7 @@ export function EnhancedSuggest({ player, filters }: { player: { id: number; nam
     mutationFn: async () => {
       if (!player || !player.id) return null
       const marketLines = Object.fromEntries(Object.entries(filters.marketLines || {}).filter(([_, v]) => v !== ''))
-      const res = await fetch('/api/v1/props/player/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      const res = await fetch('/api/v1/props/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         playerId: player.id,
         season: filters.season || undefined,
         lastN: filters.lastN || undefined,

@@ -27,7 +27,7 @@ export function QuickPropLab() {
         home: home === 'any' ? undefined : home,
         marketLines: { [propType]: line },
       }
-      const res = await fetch('/api/v1/props/player/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const res = await fetch('/api/v1/props/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       return res.json()
     },
     onSuccess: (data) => setResult(data)
