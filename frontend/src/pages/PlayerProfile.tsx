@@ -7,6 +7,7 @@ import { PropCard } from '../components/PropCard'
 import { calculateConfidenceBasic } from '../utils/confidence'
 import { TrendChart } from '../components/TrendChart'
 import { SplitsTable } from '../components/SplitsTable'
+import { MatchupCard } from '../components/MatchupCard'
 
 type GameLog = {
   game_id: string
@@ -296,6 +297,52 @@ export default function PlayerProfile() {
             return (
               <div style={{ marginTop: 12 }}>
                 <SplitsTable rows={rows} />
+              </div>
+            )
+          })()}
+
+          {/* Matchup Analysis - placeholders for ranks/pace; real data TBD */}
+          {(() => {
+            const homeGames = enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('vs'))
+            const awayGames = enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('@'))
+            const homePts = avg(homeGames.map(g=>g.pts))
+            const awayPts = avg(awayGames.map(g=>g.pts))
+            const ptsRecent = avg(recentN.map(g=>g.pts))
+            const ptsSeason = seasonAverages.pts
+            const trend = ptsRecent - ptsSeason
+            const trendTag = trend > 0.8 ? 'HOT' : trend < -0.8 ? 'COLD' : 'NEUTRAL'
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4" style={{ marginTop: 12 }}>
+                <MatchupCard
+                  title="Opponent Defense Rank"
+                  stats={[
+                    { label: 'Points Allowed to Pos', value: '—' },
+                    { label: 'Assists Allowed', value: '—' },
+                    { label: 'Rebounds Allowed', value: '—' },
+                  ]}
+                />
+                <MatchupCard
+                  title="Pace & Style"
+                  stats={[
+                    { label: 'Expected Pace', value: '—' },
+                    { label: 'Expected Possessions', value: '—' },
+                  ]}
+                />
+                <MatchupCard
+                  title="Recent Form"
+                  stats={[
+                    { label: `L${windowN} PTS Avg`, value: ptsRecent.toFixed(1), valueColor: trend >= 0 ? 'text-green-700' : 'text-red-700' },
+                    { label: 'Season PTS Avg', value: ptsSeason.toFixed(1) },
+                  ]}
+                  tags={[trendTag]}
+                />
+                <MatchupCard
+                  title="Game Context"
+                  stats={[
+                    { label: 'Home PTS', value: homeGames.length ? homePts.toFixed(1) : '—' },
+                    { label: 'Away PTS', value: awayGames.length ? awayPts.toFixed(1) : '—' },
+                  ]}
+                />
               </div>
             )
           })()}
