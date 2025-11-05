@@ -30,9 +30,11 @@ export default function AppLayout({ children }: { children: any }) {
             </ul>
           </div>
         </aside>
-        <main className="mx-auto w-full px-4 py-4 md:px-6 lg:px-8 md:ml-64 overflow-x-hidden">
-          {children}
-        </main>
+        <div className="w-full md:ml-64">
+          <main className="max-w-screen-2xl mx-auto w-full px-4 py-4 md:px-6 lg:px-8 overflow-x-hidden">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   )
