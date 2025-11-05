@@ -72,31 +72,31 @@ export function ParlayBuilder() {
   }, [perLegSuggestions])
 
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff', padding: 12 }}>
+    <div className="p-4 md:p-5" style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ fontWeight: 600 }}>Parlay Builder</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={addLeg} disabled={legs.length >= 3} style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>Add Leg</button>
-          <button onClick={() => compute.mutate()} disabled={!canCompute || compute.isPending} style={{ padding: '6px 10px', borderRadius: 6, background: '#17408B', color: '#fff', border: '1px solid #17408B', opacity: canCompute ? 1 : 0.6 }}>{compute.isPending ? 'Reviewing…' : 'Review Parlay'}</button>
+        <div className="flex gap-2 md:gap-3">
+          <button onClick={addLeg} disabled={legs.length >= 3} className="px-3 py-1.5 rounded border border-gray-300 bg-white">Add Leg</button>
+          <button onClick={() => compute.mutate()} disabled={!canCompute || compute.isPending} className="px-3 py-1.5 rounded border border-[color:var(--tw-shadow-color)]" style={{ background: '#17408B', color: '#fff', border: '1px solid #17408B', opacity: canCompute ? 1 : 0.6 }}>{compute.isPending ? 'Reviewing…' : 'Review Parlay'}</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3" style={{ marginTop: 10 }}>
+      <div className="grid grid-cols-1 gap-3 md:gap-4" style={{ marginTop: 10 }}>
         {legs.map((leg, idx) => (
-          <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 10, background: '#fff' }}>
+          <div key={idx} className="p-3 md:p-4" style={{ border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
               <div style={{ fontWeight: 500 }}>Leg {idx + 1}</div>
-              <button onClick={() => removeLeg(idx)} disabled={legs.length <= 2} style={{ padding: '4px 8px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>Remove</button>
+              <button onClick={() => removeLeg(idx)} disabled={legs.length <= 2} className="px-2 py-1 rounded border border-gray-300 bg-white">Remove</button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3" style={{ marginTop: 8 }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4" style={{ marginTop: 8 }}>
               <PlayerSearch onSelect={(p) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, player: p } : x))} />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as any } : x))} style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+                <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as any } : x))} className="px-3 py-2 rounded border border-gray-300 bg-white" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
                   {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <input value={leg.line} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, line: e.target.value } : x))} placeholder={`${leg.type} line e.g. 24.5`} inputMode="decimal" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
-                <input value={leg.season || ''} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, season: e.target.value } : x))} placeholder="Season (e.g. 2024-25)" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
-                <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as any } : x))} style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
+                <input value={leg.line} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, line: e.target.value } : x))} placeholder={`${leg.type} line e.g. 24.5`} inputMode="decimal" className="px-3 py-2 rounded border border-gray-300" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
+                <input value={leg.season || ''} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, season: e.target.value } : x))} placeholder="Season (e.g. 2024-25)" className="px-3 py-2 rounded border border-gray-300" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
+                <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as any } : x))} className="px-3 py-2 rounded border border-gray-300 bg-white" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
                   <option value="any">Venue: Any</option>
                   <option value="home">Venue: Home</option>
                   <option value="away">Venue: Away</option>
@@ -112,7 +112,7 @@ export function ParlayBuilder() {
         ))}
       </div>
 
-      <div style={{ marginTop: 10, borderTop: '1px solid #e5e7eb', paddingTop: 10 }}>
+      <div className="mt-3 md:mt-4 pt-3 md:pt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
         {combinedConfidence != null ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontWeight: 600 }}>Parlay Confidence</div>

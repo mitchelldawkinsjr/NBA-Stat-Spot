@@ -14,18 +14,18 @@ export function GoodBetsDashboard() {
   return (
     <div>
       <h2>Dashboard</h2>
-      <div className="grid grid-cols-1 lg:[grid-template-columns:minmax(320px,420px)_1fr] gap-4 items-start">
+      <div className="grid grid-cols-1 gap-4 lg:gap-6 lg:[grid-template-columns:minmax(360px,420px)_1fr] items-start">
         <div>
           <QuickPropLab />
         </div>
-        <div className="grid gap-3">
+        <div className="grid gap-3 md:gap-4">
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff', padding: 12 }}>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Today's Games</div>
             {isLoading ? <div>Loading…</div> : error ? <div>Error loading schedule</div> : (
               games.length === 0 ? <div>No games available.</div> : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
                   {games.map((g: any, idx: number) => (
-                    <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, background: '#fff' }}>
+                    <div key={idx} className="p-4 md:p-5" style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff' }}>
                       <div style={{ fontSize: 12, color: '#6b7280' }}>{new Date(g.gameTimeUTC).toLocaleString()}</div>
                       <div style={{ marginTop: 6, fontWeight: 600 }}>{g.away} @ {g.home}</div>
                     </div>

@@ -31,22 +31,24 @@ function ExplorePage() {
 
 function App() {
   return (
-    <div className="px-4 md:px-6">
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: '#ffffff', borderBottom: '1px solid #e5e7eb', marginLeft: '-16px', marginRight: '-16px', padding: '12px 16px 10px 16px' }}>
-        <div style={{ padding: '6px 8px', background: '#fff7e6', border: '1px solid #ffe58f', fontSize: 13, borderRadius: 6 }}>Disclaimer: Informational purposes only. Not financial advice.</div>
-        <div className="flex flex-col md:flex-row md:items-baseline md:justify-between mt-2 gap-2">
-          <div>
-            <h1 style={{ margin: 0 }}>NBA Stat Spot</h1>
-            <p style={{ color: '#666', margin: '2px 0 0 0', fontSize: 14 }}>Lightweight player prop analysis with transparent rationale.</p>
+    <div>
+      <div className="sticky top-0 z-20 bg-white border-b border-gray-200">
+        <div className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-8 py-2.5">
+          <div style={{ padding: '6px 8px', background: '#fff7e6', border: '1px solid #ffe58f', fontSize: 13, borderRadius: 6 }}>Disclaimer: Informational purposes only. Not financial advice.</div>
+          <div className="flex flex-col md:flex-row md:items-baseline md:justify-between mt-2 gap-3">
+            <div>
+              <h1 style={{ margin: 0 }}>NBA Stat Spot</h1>
+              <p style={{ color: '#666', margin: '2px 0 0 0', fontSize: 14 }}>Lightweight player prop analysis with transparent rationale.</p>
+            </div>
+            <nav className="flex gap-4 md:gap-6">
+              <Link className="px-2 py-1 rounded hover:bg-gray-100" to="/dashboard">Dashboard</Link>
+              <Link className="px-2 py-1 rounded hover:bg-gray-100" to="/explore">Explore</Link>
+              <Link className="px-2 py-1 rounded hover:bg-gray-100" to="/parlay">Parlay</Link>
+            </nav>
           </div>
-          <nav className="flex gap-3">
-            <Link to="/dashboard">Dashboard</Link>
-            <Link to="/explore">Explore</Link>
-            <Link to="/parlay">Parlay</Link>
-          </nav>
         </div>
       </div>
-      <div style={{ marginTop: 16 }}>
+      <div className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-8 mt-4">
         <Routes>
           <Route path="/" element={<GoodBetsDashboard />} />
           <Route path="/dashboard" element={<GoodBetsDashboard />} />
