@@ -17,7 +17,17 @@ def search(q: str = Query(..., min_length=1)):
 
 @router.get("/{player_id}")
 def detail(player_id: int):
-    return {"player": {"id": player_id}}
+    # Attempt to include player name from active roster
+    name = None
+    try:
+        players = NBADataService.fetch_active_players() or []
+        for p in players:
+            if int(p.get("id")) == int(player_id):
+                name = p.get("full_name")
+                break
+    except Exception:
+        pass
+    return {"player": {"id": player_id, "name": name}}
 
 @router.get("/{player_id}/stats")
 def stats(player_id: int, games: int = 10, season: Optional[str] = None):

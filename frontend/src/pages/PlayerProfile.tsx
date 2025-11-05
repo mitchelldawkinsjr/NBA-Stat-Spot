@@ -20,6 +20,7 @@ export default function PlayerProfile() {
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [fallbackUsed, setFallbackUsed] = useState<string | null>(null)
+  const [playerName, setPlayerName] = useState<string>('')
 
   useEffect(() => {
     (async () => {
@@ -27,6 +28,14 @@ export default function PlayerProfile() {
       setLoading(true)
       setError(null)
       try {
+        // Fetch player detail for display name
+        try {
+          const rName = await fetch(`/api/v1/players/${id}`)
+          if (rName.ok) {
+            const j = await rName.json()
+            if (j?.player?.name) setPlayerName(String(j.player.name))
+          }
+        } catch {}
         const res = await fetch(`/api/v1/players/${id}/stats?games=20&season=${encodeURIComponent(season)}`)
         if (!res.ok) throw new Error('Failed to load stats')
         const data = await res.json()
@@ -92,21 +101,10 @@ export default function PlayerProfile() {
     pra: avg(enrichedLogs.map(g => g.pra as number)),
   }), [enrichedLogs])
 
-  const last5 = useMemo(() => enrichedLogs.slice(-5), [enrichedLogs])
-  const last10 = useMemo(() => enrichedLogs.slice(-10), [enrichedLogs])
-  // Keep recent averages for potential display/overlays
-  const recentAverages = useMemo(() => ({
-    pts5: avg(last5.map(g => g.pts)),
-    reb5: avg(last5.map(g => g.reb)),
-    ast5: avg(last5.map(g => g.ast)),
-    tpm5: avg(last5.map(g => g.tpm)),
-    pts10: avg(last10.map(g => g.pts)),
-    reb10: avg(last10.map(g => g.reb)),
-    ast10: avg(last10.map(g => g.ast)),
-    tpm10: avg(last10.map(g => g.tpm)),
-    pra5: avg(last5.map(g => (g.pra as number))),
-    pra10: avg(last10.map(g => (g.pra as number))),
-  }), [last5, last10])
+  // Keep last N slices for quick calculations if needed
+  // (Replaced by windowN controls in charts/tiles)
+  // const last5 = useMemo(() => enrichedLogs.slice(-5), [enrichedLogs])
+  // const last10 = useMemo(() => enrichedLogs.slice(-10), [enrichedLogs])
 
   const chartData = useMemo(() => enrichedLogs.slice(-10).map((g, i) => ({
     idx: i + 1,
@@ -151,7 +149,7 @@ export default function PlayerProfile() {
 
   return (
     <div>
-      <h2>Player Profile</h2>
+      <h2>{playerName ? playerName : 'Player'} Profile</h2>
       <div style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>Season: {fallbackUsed ? fallbackUsed : season}</div>
       {fallbackUsed && (
         <div style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>No recent logs for {season}. Showing {fallbackUsed}.</div>
