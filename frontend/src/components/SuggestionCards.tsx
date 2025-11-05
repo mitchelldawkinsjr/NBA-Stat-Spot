@@ -1,11 +1,4 @@
 export function SuggestionCards({ suggestions }: { suggestions: any[] }) {
-  function colorFor(conf?: number | null) {
-    if (conf == null) return '#6b7280'
-    if (conf >= 0.6) return '#065f46' // green
-    if (conf >= 0.55) return '#2563eb' // blue
-    if (conf >= 0.5) return '#374151' // gray
-    return '#b91c1c' // red
-  }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
       {suggestions.map((s, idx) => (
