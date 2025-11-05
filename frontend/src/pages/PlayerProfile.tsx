@@ -183,7 +183,8 @@ export default function PlayerProfile() {
 
   return (
     <div>
-      <h2>{playerName ? playerName : 'Player'} Profile</h2>
+      <a href="#player-profile-main" className="sr-only focus:not-sr-only">Skip to player content</a>
+      <h2 id="player-profile-title">{playerName ? playerName : 'Player'} Profile</h2>
       <div style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>Season: {fallbackUsed ? fallbackUsed : season}</div>
       {fallbackUsed && (
         <div style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>No recent logs for {season}. Showing {fallbackUsed}.</div>
@@ -193,7 +194,7 @@ export default function PlayerProfile() {
       ) : error ? (
         <div style={{ marginTop: 12, color: '#b91c1c' }}>Error: {error}</div>
       ) : (
-        <div>
+        <div id="player-profile-main" role="main" aria-labelledby="player-profile-title">
           {/* Controls */}
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 12, color: '#6b7280' }}>Window</div>
@@ -206,10 +207,10 @@ export default function PlayerProfile() {
             </select>
             <input value={hrLine} onChange={(e) => setHrLine(e.target.value)} inputMode="decimal" placeholder="Line (e.g. 24.5)" style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 6 }} />
             <div className="flex items-center gap-2">
-              <button onClick={() => setHrDir('over')} className="px-3 py-2 rounded border border-gray-300" style={{ background: hrDir === 'over' ? '#17408B' : '#fff', color: hrDir === 'over' ? '#fff' : '#111827' }}>Over</button>
-              <button onClick={() => setHrDir('under')} className="px-3 py-2 rounded border border-gray-300" style={{ background: hrDir === 'under' ? '#17408B' : '#fff', color: hrDir === 'under' ? '#fff' : '#111827' }}>Under</button>
+              <button onClick={() => setHrDir('over')} aria-pressed={hrDir==='over'} aria-label="Select Over" className="px-3 py-2 rounded border border-gray-300 focus:outline-none focus-visible:outline-2 focus-visible:outline-blue-600" style={{ background: hrDir === 'over' ? '#17408B' : '#fff', color: hrDir === 'over' ? '#fff' : '#111827' }}>Over</button>
+              <button onClick={() => setHrDir('under')} aria-pressed={hrDir==='under'} aria-label="Select Under" className="px-3 py-2 rounded border border-gray-300 focus:outline-none focus-visible:outline-2 focus-visible:outline-blue-600" style={{ background: hrDir === 'under' ? '#17408B' : '#fff', color: hrDir === 'under' ? '#fff' : '#111827' }}>Under</button>
             </div>
-            <button onClick={() => evalLine.mutate()} disabled={!hrLine || evalLine.isPending} className="px-3 py-2 rounded" style={{ background: '#17408B', color: '#fff', opacity: (!hrLine || evalLine.isPending) ? 0.7 : 1 }}>{evalLine.isPending ? 'Evaluating…' : 'Evaluate Line'}</button>
+            <button onClick={() => evalLine.mutate()} aria-label="Evaluate line against recent performance" disabled={!hrLine || evalLine.isPending} className="px-3 py-2 rounded focus:outline-none focus-visible:outline-2 focus-visible:outline-blue-600" style={{ background: '#17408B', color: '#fff', opacity: (!hrLine || evalLine.isPending) ? 0.7 : 1 }}>{evalLine.isPending ? 'Evaluating…' : 'Evaluate Line'}</button>
           </div>
 
           {/* Hit rate cards (single row) - moved above season averages */}
@@ -499,18 +500,21 @@ export default function PlayerProfile() {
               data={chartData.map(d => ({ idx: d.idx, value: d.PTS, propLine: (hrStat==='PTS' && hrLine) ? Number(hrLine) : Math.round(seasonAverages.pts*2)/2 }))}
               color="#2563eb"
               yLabel="PTS"
+              ariaLabel={`Points last 10 games compared to line`}
             />
             <TrendChart
               title="Assists - Last 10 Games"
               data={chartData.map(d => ({ idx: d.idx, value: d.AST, propLine: (hrStat==='AST' && hrLine) ? Number(hrLine) : Math.round(seasonAverages.ast*2)/2 }))}
               color="#F59E0B"
               yLabel="AST"
+              ariaLabel={`Assists last 10 games compared to line`}
             />
             <TrendChart
               title="Rebounds - Last 10 Games"
               data={chartData.map(d => ({ idx: d.idx, value: d.REB, propLine: (hrStat==='REB' && hrLine) ? Number(hrLine) : Math.round(seasonAverages.reb*2)/2 }))}
               color="#10B981"
               yLabel="REB"
+              ariaLabel={`Rebounds last 10 games compared to line`}
             />
           </div>
 
