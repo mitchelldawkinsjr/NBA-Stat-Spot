@@ -78,20 +78,61 @@ def suggest_player_props(req: PlayerSuggestRequest):
     return {"suggestions": suggestions}
 
 @router.get("/daily")
-def daily_props(date: Optional[str] = None, min_confidence: Optional[float] = None):
-    featured = [2544, 201939, 203507, 1629029, 203076]
+def daily_props(date: Optional[str] = None, min_confidence: Optional[float] = None, limit: int = 50):
+    # Determine today's teams from live scoreboard
+    try:
+        games = NBADataService.fetch_todays_games()
+    except Exception:
+        games = []
+
+    team_abbrs = set()
+    for g in games:
+        if g.get("home"):
+            team_abbrs.add(g.get("home"))
+        if g.get("away"):
+            team_abbrs.add(g.get("away"))
+
     items: List[Dict] = []
-    for pid in featured:
-        try:
-            sugs = build_suggestions_for_player(pid, "2025-26")
-            if min_confidence:
-                sugs = PropFilter.filter_by_confidence(sugs, min_confidence)
-            for s in sugs:
-                s.update({"playerId": pid})
-            items.extend(sugs)
-        except Exception:
-            continue
-    items = PropFilter.rank_suggestions(items, "confidence")
+    if team_abbrs:
+        # Map abbr -> team id
+        teams = NBADataService.fetch_all_teams() or []
+        abbr_to_id = {t.get("abbreviation"): t.get("id") for t in teams}
+        team_ids_today = {abbr_to_id.get(ab) for ab in team_abbrs if ab in abbr_to_id}
+
+        # Filter active players on today's teams
+        active = NBADataService.fetch_active_players() or []
+        todays_players = [p for p in active if p.get("team_id") in team_ids_today]
+
+        # Limit to reasonable number
+        todays_players = todays_players[:60]
+
+        for p in todays_players:
+            pid = p.get("id")
+            pname = p.get("full_name")
+            try:
+                sugs = build_suggestions_for_player(int(pid), "2025-26")
+                if min_confidence:
+                    sugs = PropFilter.filter_by_confidence(sugs, min_confidence)
+                for s in sugs:
+                    s.update({"playerId": pid, "playerName": pname})
+                items.extend(sugs)
+            except Exception:
+                continue
+    else:
+        # Fallback to a small featured set if no games found
+        featured = [2544, 201939, 203507, 1629029, 203076]
+        for pid in featured:
+            try:
+                sugs = build_suggestions_for_player(pid, "2025-26")
+                if min_confidence:
+                    sugs = PropFilter.filter_by_confidence(sugs, min_confidence)
+                for s in sugs:
+                    s.update({"playerId": pid})
+                items.extend(sugs)
+            except Exception:
+                continue
+
+    items = PropFilter.rank_suggestions(items, "confidence")[: max(1, limit)]
     return {"items": items}
 
 @router.get("/player/{player_id}")
