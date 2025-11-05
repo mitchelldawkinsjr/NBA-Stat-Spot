@@ -14,16 +14,16 @@ export function GoodBetsDashboard() {
   return (
     <div>
       <h2>Dashboard</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 420px) 1fr', gap: 16, alignItems: 'start' }}>
+      <div className="grid grid-cols-1 lg:[grid-template-columns:minmax(320px,420px)_1fr] gap-4 items-start">
         <div>
           <QuickPropLab />
         </div>
-        <div style={{ display: 'grid', gap: 12 }}>
+        <div className="grid gap-3">
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff', padding: 12 }}>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Today's Games</div>
             {isLoading ? <div>Loading…</div> : error ? <div>Error loading schedule</div> : (
               games.length === 0 ? <div>No games available.</div> : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                   {games.map((g: any, idx: number) => (
                     <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, background: '#fff' }}>
                       <div style={{ fontSize: 12, color: '#6b7280' }}>{new Date(g.gameTimeUTC).toLocaleString()}</div>
