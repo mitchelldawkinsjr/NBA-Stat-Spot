@@ -4,8 +4,9 @@ import { GoodBetsDashboard } from './components/GoodBetsDashboard'
 import { PlayerSearch } from './components/PlayerSearch'
 import { FiltersPanel } from './components/FiltersPanel'
 import { useState } from 'react'
-import PlayerTrends from './pages/PlayerTrends'
+// Trends removed per request
 import { EnhancedSuggest } from './components/EnhancedSuggest'
+import { ParlayBuilder } from './components/ParlayBuilder'
 
 function ExplorePage() {
   const [player, setPlayer] = useState<{ id: number; name: string } | null>(null)
@@ -41,7 +42,7 @@ function App() {
           <nav className="flex gap-3">
             <Link to="/dashboard">Dashboard</Link>
             <Link to="/explore">Explore</Link>
-            <Link to="/trends">Player Trends</Link>
+            <Link to="/parlay">Parlay</Link>
           </nav>
         </div>
       </div>
@@ -50,7 +51,7 @@ function App() {
           <Route path="/" element={<GoodBetsDashboard />} />
           <Route path="/dashboard" element={<GoodBetsDashboard />} />
           <Route path="/explore" element={<ExplorePage />} />
-          <Route path="/trends" element={<PlayerTrends />} />
+          <Route path="/parlay" element={<ParlayBuilder />} />
           {/* Back-compat alias */}
           <Route path="/suggest" element={<ExplorePage />} />
         </Routes>

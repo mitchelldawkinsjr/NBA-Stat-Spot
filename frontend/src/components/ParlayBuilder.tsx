@@ -1,0 +1,127 @@
+import { useMemo, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { PlayerSearch } from './PlayerSearch'
+import { SuggestionCards } from './SuggestionCards'
+
+const TYPES = ['PTS','REB','AST','3PM','PRA'] as const
+
+type Leg = {
+  player: { id: number; name: string } | null
+  type: typeof TYPES[number]
+  line: string
+  season?: string
+  lastN?: number | ''
+  home?: 'any' | 'home' | 'away'
+  result?: any
+}
+
+export function ParlayBuilder() {
+  const [legs, setLegs] = useState<Leg[]>([
+    { player: null, type: 'PTS', line: '' },
+    { player: null, type: 'REB', line: '' },
+  ])
+
+  const canCompute = useMemo(() =>
+    legs.filter(l => l.player?.id && l.line !== '').length >= 2 && legs.filter(Boolean).length <= 3
+  , [legs])
+
+  const compute = useMutation({
+    mutationFn: async () => {
+      const resps = await Promise.all(legs.map(async (l) => {
+        if (!l.player?.id || l.line === '') return { suggestions: [] }
+        const body: any = {
+          playerId: l.player.id,
+          season: l.season || '2024-25',
+          lastN: l.lastN || undefined,
+          home: l.home && l.home !== 'any' ? l.home : undefined,
+          marketLines: { [l.type]: l.line },
+        }
+        const r = await fetch('/api/v1/props/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        return r.json()
+      }))
+      return resps
+    },
+    onSuccess: (datas) => {
+      setLegs((prev) => prev.map((l, idx) => ({ ...l, result: datas[idx] })))
+    }
+  })
+
+  function addLeg() {
+    if (legs.length >= 3) return
+    setLegs((p) => [...p, { player: null, type: 'AST', line: '' }])
+  }
+  function removeLeg(i: number) {
+    setLegs((p) => p.filter((_, idx) => idx !== i))
+  }
+
+  // Build cards and compute combined confidence
+  const perLegSuggestions = legs.map((l) => {
+    const items = l.result?.suggestions || []
+    return items.find((s: any) => s.type === l.type)
+  }).filter(Boolean)
+
+  const combinedConfidence = useMemo(() => {
+    if (perLegSuggestions.length < 2) return null
+    const ps = perLegSuggestions.map((s: any) => {
+      const c = s.confidence
+      const p = c > 1 ? c / 100 : c
+      return Math.max(0, Math.min(1, p || 0))
+    })
+    const prod = ps.reduce((acc: number, v: number) => acc * v, 1)
+    return Math.round(prod * 100)
+  }, [perLegSuggestions])
+
+  return (
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff', padding: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ fontWeight: 600 }}>Parlay Builder</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={addLeg} disabled={legs.length >= 3} style={{ padding: '6px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>Add Leg</button>
+          <button onClick={() => compute.mutate()} disabled={!canCompute || compute.isPending} style={{ padding: '6px 10px', borderRadius: 6, background: '#17408B', color: '#fff', border: '1px solid #17408B', opacity: canCompute ? 1 : 0.6 }}>{compute.isPending ? 'Reviewing…' : 'Review Parlay'}</button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3" style={{ marginTop: 10 }}>
+        {legs.map((leg, idx) => (
+          <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 10, background: '#fff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ fontWeight: 500 }}>Leg {idx + 1}</div>
+              <button onClick={() => removeLeg(idx)} disabled={legs.length <= 2} style={{ padding: '4px 8px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>Remove</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3" style={{ marginTop: 8 }}>
+              <PlayerSearch onSelect={(p) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, player: p } : x))} />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as any } : x))} style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
+                  {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <input value={leg.line} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, line: e.target.value } : x))} placeholder={`${leg.type} line e.g. 24.5`} inputMode="decimal" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
+                <input value={leg.season || ''} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, season: e.target.value } : x))} placeholder="Season (e.g. 2024-25)" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
+                <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as any } : x))} style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
+                  <option value="any">Venue: Any</option>
+                  <option value="home">Venue: Home</option>
+                  <option value="away">Venue: Away</option>
+                </select>
+              </div>
+            </div>
+            {leg.result && leg.result.suggestions && leg.result.suggestions.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <SuggestionCards suggestions={leg.result.suggestions} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 10, borderTop: '1px solid #e5e7eb', paddingTop: 10 }}>
+        {combinedConfidence != null ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontWeight: 600 }}>Parlay Confidence</div>
+            <div style={{ fontSize: 18 }}>{combinedConfidence}%</div>
+          </div>
+        ) : (
+          <div style={{ color: '#6b7280', fontSize: 12 }}>Add 2-3 legs and click Review Parlay to see combined confidence.</div>
+        )}
+      </div>
+    </div>
+  )
+}
