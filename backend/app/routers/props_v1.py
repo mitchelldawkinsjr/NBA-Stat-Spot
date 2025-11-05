@@ -28,7 +28,13 @@ class PlayerSuggestRequest(BaseModel):
 
 @router.post("/player")
 def suggest_player_props(req: PlayerSuggestRequest):
-    logs = NBADataService.fetch_player_game_log(req.playerId, req.season)
+    # Default season fallback to last known season if not provided
+    season = req.season or "2024-25"
+    try:
+        logs = NBADataService.fetch_player_game_log(req.playerId, season)
+    except Exception:
+        # Gracefully degrade instead of 500
+        return {"suggestions": []}
     # Optional venue filter
     if req.home in ("home", "away"):
         is_home = req.home == "home"
