@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from .database import Base, engine
 from .api.players import router as players_router
 from .api.teams import router as teams_router
 from .api.schedule import router as schedule_router
 from .api.props import router as props_router
 
 app = FastAPI(title="NBA Stat Spot API", version="1.0")
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
