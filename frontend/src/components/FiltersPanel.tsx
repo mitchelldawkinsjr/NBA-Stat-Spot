@@ -49,12 +49,13 @@ export function FiltersPanel({ value, onChange }: { value: Filters; onChange: (f
       </div>
       <div style={{ gridColumn: '1 / -1' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: '#111827' }}>Market Lines:</span>
+          <span title="Optional. Add your book's lines to compute edge/confidence." style={{ fontSize: 12, color: '#111827' }}>Market Lines:</span>
           {['PTS','REB','AST','3PM','PRA'].map((k) => (
             <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <label style={{ width: 36 }}>{k}</label>
               <input
                 inputMode="decimal"
+                aria-label={`${k} market line`}
                 value={local.marketLines?.[k] ?? ''}
                 onChange={(e) => setLocal((p) => ({ ...p, marketLines: { ...(p.marketLines ?? {}), [k]: e.target.value } }))}
                 placeholder="e.g. 24.5"

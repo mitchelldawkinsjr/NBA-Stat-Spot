@@ -68,6 +68,7 @@ export default function PlayerTrends() {
         <PlayerSearch onSelect={setPlayer} />
         <input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="Season (e.g. 2024-25)" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
       </div>
+      <div style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>Rolling averages: 5-game and 10-game overlays for quick trend reading.</div>
       {player && (
         <div style={{ marginTop: 16, display: 'grid', gap: 12 }}>
           <Chart keys={["PTS","PTS5","PTS10"]} title="Points (game, 5g, 10g)" />
