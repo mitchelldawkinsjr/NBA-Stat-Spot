@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { EnhancedSuggest } from './components/EnhancedSuggest'
 import { ParlayBuilder } from './components/ParlayBuilder'
 import { useSeason } from './context/SeasonContext'
+import AppLayout from './layouts/AppLayout'
 
 function ExplorePage() {
   const [player, setPlayer] = useState<{ id: number; name: string } | null>(null)
@@ -34,38 +35,21 @@ function ExplorePage() {
 function App() {
   const { season, setSeason } = useSeason()
   return (
-    <div>
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-200">
-        <div className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-8 py-2.5">
-          <div style={{ padding: '6px 8px', background: '#fff7e6', border: '1px solid #ffe58f', fontSize: 13, borderRadius: 6 }}>Disclaimer: Informational purposes only. Not financial advice.</div>
-          <div className="flex flex-col md:flex-row md:items-baseline md:justify-between mt-2 gap-3">
-            <div>
-              <h1 style={{ margin: 0 }}>NBA Stat Spot</h1>
-              <p style={{ color: '#666', margin: '2px 0 0 0', fontSize: 14 }}>Lightweight player prop analysis with transparent rationale.</p>
-            </div>
-            <nav className="flex gap-4 md:gap-6 items-center">
-              <Link className="px-2 py-1 rounded hover:bg-gray-100" to="/dashboard">Dashboard</Link>
-              <Link className="px-2 py-1 rounded hover:bg-gray-100" to="/explore">Explore</Link>
-              <Link className="px-2 py-1 rounded hover:bg-gray-100" to="/parlay">Parlay</Link>
-              <div className="hidden sm:flex items-center gap-2">
-                <span style={{ fontSize: 12, color: '#6b7280' }}>Season</span>
-                <input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="2025-26" className="px-2 py-1 rounded border border-gray-300" style={{ width: 100 }} />
-              </div>
-            </nav>
-          </div>
-        </div>
+    <AppLayout>
+      <div style={{ padding: '6px 8px', background: '#fff7e6', border: '1px solid #ffe58f', fontSize: 13, borderRadius: 6, marginBottom: 12 }}>Disclaimer: Informational purposes only. Not financial advice.</div>
+      <Routes>
+        <Route path="/" element={<GoodBetsDashboard />} />
+        <Route path="/dashboard" element={<GoodBetsDashboard />} />
+        <Route path="/explore" element={<ExplorePage />} />
+        <Route path="/parlay" element={<ParlayBuilder />} />
+        {/* Back-compat alias */}
+        <Route path="/suggest" element={<ExplorePage />} />
+      </Routes>
+      <div className="mt-4 hidden sm:flex items-center gap-2">
+        <span style={{ fontSize: 12, color: '#6b7280' }}>Season</span>
+        <input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="2025-26" className="px-2 py-1 rounded border border-gray-300" style={{ width: 100 }} />
       </div>
-      <div className="max-w-screen-2xl mx-auto px-4 md:px-6 lg:px-8 mt-4">
-        <Routes>
-          <Route path="/" element={<GoodBetsDashboard />} />
-          <Route path="/dashboard" element={<GoodBetsDashboard />} />
-          <Route path="/explore" element={<ExplorePage />} />
-          <Route path="/parlay" element={<ParlayBuilder />} />
-          {/* Back-compat alias */}
-          <Route path="/suggest" element={<ExplorePage />} />
-        </Routes>
-      </div>
-    </div>
+    </AppLayout>
   )
 }
 
