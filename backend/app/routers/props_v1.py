@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from pydantic import BaseModel
 from typing import Optional, List, Dict
 from ..services.nba_api_service import NBADataService
 from ..services.prop_engine import PropBetEngine
@@ -16,6 +17,59 @@ def build_suggestions_for_player(player_id: int, season: Optional[str]) -> List[
         line = PropBetEngine.determine_line_value(logs, sk)
         suggestions.append(PropBetEngine.evaluate_prop(logs, sk, line))
     return suggestions
+
+
+class PlayerSuggestRequest(BaseModel):
+    playerId: int
+    season: Optional[str] = None
+    lastN: Optional[int] = None
+    home: Optional[str] = None  # 'home' | 'away' | None
+    marketLines: Optional[Dict[str, float]] = None  # e.g., {"PTS": 24.5}
+
+@router.post("/player")
+def suggest_player_props(req: PlayerSuggestRequest):
+    logs = NBADataService.fetch_player_game_log(req.playerId, req.season)
+    # Optional venue filter
+    if req.home in ("home", "away"):
+        is_home = req.home == "home"
+        filtered: List[Dict] = []
+        for g in logs:
+            matchup = (g.get("matchup") or "").lower()
+            at_away = "@" in matchup
+            vs_home = "vs" in matchup
+            if is_home and vs_home:
+                filtered.append(g)
+            elif (not is_home) and at_away:
+                filtered.append(g)
+        logs = filtered
+    # Optional lastN slice
+    if req.lastN and req.lastN > 0:
+        logs = logs[-req.lastN:]
+    # Enrich PRA
+    for g in logs:
+        g["pra"] = float(g.get("pts", 0) or 0) + float(g.get("reb", 0) or 0) + float(g.get("ast", 0) or 0)
+
+    suggestions: List[Dict] = []
+    lines = req.marketLines or {}
+    # Map display -> stat key
+    key_map = {"PTS": "pts", "REB": "reb", "AST": "ast", "3PM": "tpm", "PRA": "pra"}
+    for disp_key, market_line in lines.items():
+        stat_key = key_map.get(disp_key)
+        if stat_key is None:
+            continue
+        try:
+            fair = PropBetEngine.determine_line_value(logs, stat_key)
+            ev = PropBetEngine.evaluate_prop(logs, stat_key, float(market_line))
+            suggestions.append({
+                "type": disp_key,
+                "marketLine": float(market_line),
+                "fairLine": float(fair),
+                "confidence": ev.get("confidence"),
+                "rationale": [ev.get("rationale", {}).get("summary", "Based on recent form and hit rate")],
+            })
+        except Exception:
+            continue
+    return {"suggestions": suggestions}
 
 @router.get("/daily")
 def daily_props(date: Optional[str] = None, min_confidence: Optional[float] = None):
