@@ -446,6 +446,50 @@ export default function PlayerProfile() {
             )
           })()}
 
+          {/* Betting Recommendation */}
+          {(() => {
+            function roundHalf(x: number) { return Math.round(x * 2) / 2 }
+            const stats = [
+              { key: 'PTS', vals: enrichedLogs.map(g=>g.pts), season: seasonAverages.pts },
+              { key: 'AST', vals: enrichedLogs.map(g=>g.ast), season: seasonAverages.ast },
+              { key: 'REB', vals: enrichedLogs.map(g=>g.reb), season: seasonAverages.reb },
+              { key: '3PM', vals: enrichedLogs.map(g=>g.tpm), season: seasonAverages.tpm },
+              { key: 'PRA', vals: enrichedLogs.map(g=> (g.pra as number)), season: seasonAverages.pra },
+            ] as const
+            const recs = stats.map(s => {
+              const line = roundHalf(s.season)
+              const recentVals = recentN.map(g => (
+                s.key==='PTS'?g.pts : s.key==='AST'?g.ast : s.key==='REB'?g.reb : s.key==='3PM'?g.tpm : (g.pra as number)
+              ))
+              const recentAvg = recentVals.length ? recentVals.reduce((a,b)=>a+b,0)/recentVals.length : 0
+              const delta = recentAvg - line
+              const confidence = calculateConfidenceBasic(recentVals, line)
+              const hit = recentVals.filter(v => v > line).length
+              const hitRate = recentVals.length ? Math.round((hit / recentVals.length) * 100) : 0
+              const dir = delta >= 0 ? 'OVER' : 'UNDER'
+              const reason = `${s.key} L${windowN} avg ${recentAvg.toFixed(1)} vs line ${line} (${delta>=0?'+':''}${delta.toFixed(1)}), hit ${hitRate}%`
+              const risk = confidence < 60 ? 'Moderate variance in recent games' : 'Low variance'
+              return { key: s.key, dir, line, confidence, reason, risk }
+            }).sort((a,b)=> (b.confidence - a.confidence)).slice(0,3)
+
+            return (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4" style={{ marginTop: 12 }}>
+                <div className="text-lg font-semibold text-yellow-900 mb-2">Betting Recommendation</div>
+                <div className="space-y-2 text-sm text-yellow-900">
+                  {recs.map((r, i) => (
+                    <div key={i} className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold">{r.key} {r.dir} {r.line.toFixed(1)} <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-bold bg-yellow-100 text-yellow-800">{r.confidence}%</span></div>
+                        <div className="text-yellow-800">{r.reason}</div>
+                      </div>
+                      <div className="text-xs text-yellow-700">Risk: {r.risk}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
           
 
           {/* Charts */}
