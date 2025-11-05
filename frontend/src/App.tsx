@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { EnhancedSuggest } from './components/EnhancedSuggest'
 import { ParlayBuilder } from './components/ParlayBuilder'
 import { useSeason } from './context/SeasonContext'
+import PlayerProfile from './pages/PlayerProfile'
 // Flowbite layout removed
 
 function ExplorePage() {
@@ -60,6 +61,7 @@ function App() {
           <Route path="/dashboard" element={<GoodBetsDashboard />} />
           <Route path="/explore" element={<ExplorePage />} />
           <Route path="/parlay" element={<ParlayBuilder />} />
+          <Route path="/player/:id" element={<PlayerProfile />} />
           {/* Back-compat alias */}
           <Route path="/suggest" element={<ExplorePage />} />
         </Routes>

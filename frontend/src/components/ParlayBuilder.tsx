@@ -5,6 +5,16 @@ import { SuggestionCards } from './SuggestionCards'
 import { useSeason } from '../context/SeasonContext'
 
 const TYPES = ['PTS','REB','AST','3PM','PRA'] as const
+type Direction = 'over' | 'under'
+type SuggestionItem = {
+  type: string
+  marketLine?: number
+  fairLine?: number
+  confidence?: number
+  rationale?: string[]
+  chosenDirection?: Direction
+  betterDirection?: Direction
+}
 
 type Leg = {
   player: { id: number; name: string } | null
@@ -14,7 +24,7 @@ type Leg = {
   lastN?: number | ''
   home?: 'any' | 'home' | 'away'
   direction?: 'over' | 'under'
-  result?: any
+  result?: { suggestions: SuggestionItem[] }
 }
 
 export function ParlayBuilder() {
@@ -30,9 +40,9 @@ export function ParlayBuilder() {
 
   const compute = useMutation({
     mutationFn: async () => {
-      const resps = await Promise.all(legs.map(async (l) => {
+      const resps = await Promise.all(legs.map(async (l): Promise<{ suggestions: SuggestionItem[] }> => {
         if (!l.player?.id || l.line === '') return { suggestions: [] }
-        const body: any = {
+        const body: Record<string, unknown> = {
           playerId: l.player.id,
           season: l.season || globalSeason || '2025-26',
           lastN: l.lastN || undefined,
@@ -59,15 +69,15 @@ export function ParlayBuilder() {
 
   // Build cards and compute combined confidence
   const perLegSuggestions = legs.map((l) => {
-    const items = l.result?.suggestions || []
-    return items.find((s: any) => s.type === l.type)
-  }).filter(Boolean)
+    const items: SuggestionItem[] = l.result?.suggestions || []
+    return items.find((s: SuggestionItem) => s.type === l.type)
+  }).filter((x): x is SuggestionItem => Boolean(x))
 
   const combinedConfidence = useMemo(() => {
     if (perLegSuggestions.length < 2) return null
-    const ps = perLegSuggestions.map((s: any, idx: number) => {
+    const ps = perLegSuggestions.map((s: SuggestionItem, idx: number) => {
       const leg = legs[idx]
-      const conf = s.confidence
+      const conf = s.confidence ?? 0
       const pRaw = conf > 1 ? conf / 100 : conf
       const p = Math.max(0, Math.min(1, pRaw || 0))
       const fair = s.fairLine
@@ -99,14 +109,21 @@ export function ParlayBuilder() {
               <button onClick={() => removeLeg(idx)} disabled={legs.length <= 2} className="px-2 py-1 rounded border border-gray-300 bg-white">Remove</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4" style={{ marginTop: 8 }}>
-              <PlayerSearch onSelect={(p) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, player: p } : x))} />
+              <div>
+                <PlayerSearch onSelect={(p) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, player: p } : x))} />
+                {leg.player?.id ? (
+                  <div style={{ marginTop: 6, fontSize: 13 }}>
+                    <a href={`/player/${leg.player.id}`} style={{ color: '#2563eb' }}>View {leg.player.name} profile →</a>
+                  </div>
+                ) : null}
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
-                <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as any } : x))} className="px-3 py-2 rounded border border-gray-300 bg-white" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
+                <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as unknown as typeof TYPES[number] } : x))} className="px-3 py-2 rounded border border-gray-300 bg-white" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
                   {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <input value={leg.line} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, line: e.target.value } : x))} placeholder={`${leg.type} line e.g. 24.5`} inputMode="decimal" className="px-3 py-2 rounded border border-gray-300" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
                 <input value={leg.season || ''} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, season: e.target.value } : x))} placeholder="Season (e.g. 2025-26)" className="px-3 py-2 rounded border border-gray-300" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
-                <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as any } : x))} className="px-3 py-2 rounded border border-gray-300 bg-white" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
+                <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as Leg['home'] } : x))} className="px-3 py-2 rounded border border-gray-300 bg-white" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
                   <option value="any">Venue: Any</option>
                   <option value="home">Venue: Home</option>
                   <option value="away">Venue: Away</option>
@@ -118,12 +135,12 @@ export function ParlayBuilder() {
               </div>
             </div>
             {leg.result && leg.result.suggestions && leg.result.suggestions.length > 0 && (() => {
-              const items = leg.result.suggestions || []
-              const s = items.find((x: any) => x.type === leg.type)
+              const items: SuggestionItem[] = leg.result.suggestions || []
+              const s = items.find((x: SuggestionItem) => x.type === leg.type)
               if (!s) return null
               const impliedOver = (s.fairLine != null && s.marketLine != null) ? (s.fairLine - s.marketLine) >= 0 : true
-              const chosen = leg.direction || 'over'
-              const better = impliedOver ? 'over' : 'under'
+              const chosen: Direction = leg.direction || 'over'
+              const better: Direction = impliedOver ? 'over' : 'under'
               const decorated = { ...s, chosenDirection: chosen, betterDirection: chosen === better ? undefined : better }
               return (
                 <div style={{ marginTop: 8 }}>

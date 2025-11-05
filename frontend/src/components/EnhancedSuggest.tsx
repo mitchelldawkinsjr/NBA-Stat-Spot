@@ -35,6 +35,11 @@ export function EnhancedSuggest({ player, filters }: { player: { id: number; nam
           style={{ padding: '8px 12px', background: '#17408B', color: '#fff', border: '1px solid #17408B', borderRadius: 6, opacity: (!player || !player.id) ? 0.6 : 1 }}
         >{suggest.isPending ? 'Working…' : 'Suggest'}</button>
       </div>
+      {player?.id && (
+        <div style={{ marginTop: 6, fontSize: 13 }}>
+          <a href={`/player/${player.id}`} style={{ color: '#2563eb' }}>View {player.name} profile →</a>
+        </div>
+      )}
       <div style={{ marginTop: 12 }}>
         {!result ? <div style={{ color: '#111827' }}>No suggestions yet.</div> : <SuggestionCards suggestions={result.suggestions || []} />}
       </div>
