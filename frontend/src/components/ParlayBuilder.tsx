@@ -37,7 +37,7 @@ export function ParlayBuilder() {
           season: l.season || globalSeason || '2025-26',
           lastN: l.lastN || undefined,
           home: l.home && l.home !== 'any' ? l.home : undefined,
-          marketLines: { [l.type]: l.line },
+          marketLines: { [l.type]: Number(l.line) },
         }
         const r = await fetch('/api/v1/props/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         return r.json()

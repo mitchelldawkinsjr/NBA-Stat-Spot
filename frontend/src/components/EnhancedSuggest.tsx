@@ -7,7 +7,11 @@ export function EnhancedSuggest({ player, filters }: { player: { id: number; nam
   const suggest = useMutation({
     mutationFn: async () => {
       if (!player || !player.id) return null
-      const marketLines = Object.fromEntries(Object.entries(filters.marketLines || {}).filter(([_, v]) => v !== ''))
+      const marketLines = Object.fromEntries(
+        Object.entries(filters.marketLines || {})
+          .map(([k, v]: any) => [k, v === '' ? undefined : Number(v)])
+          .filter(([_, v]) => Number.isFinite(v as number))
+      )
       const res = await fetch('/api/v1/props/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         playerId: player.id,
         season: filters.season || undefined,

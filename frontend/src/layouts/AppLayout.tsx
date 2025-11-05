@@ -20,7 +20,7 @@ export default function AppLayout({ children }: { children: any }) {
           </div>
         </div>
       </nav>
-      <div className="flex pt-[52px]">
+      <div className="flex pt-[52px] min-h-screen">
         <aside className={`${open ? 'translate-x-0' : '-translate-x-full'} fixed left-0 top-[52px] z-20 h-[calc(100vh-52px)] w-64 border-r border-gray-200 bg-white transition-transform md:translate-x-0`}>
           <div className="h-full overflow-y-auto p-3">
             <ul className="space-y-1 text-sm">
@@ -30,7 +30,7 @@ export default function AppLayout({ children }: { children: any }) {
             </ul>
           </div>
         </aside>
-        <main className="mx-auto w-full px-4 py-4 md:px-6 lg:px-8 md:ml-64">
+        <main className="mx-auto w-full px-4 py-4 md:px-6 lg:px-8 md:ml-64 overflow-x-hidden">
           {children}
         </main>
       </div>
