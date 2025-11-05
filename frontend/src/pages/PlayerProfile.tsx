@@ -9,6 +9,7 @@ import { TrendChart } from '../components/TrendChart'
 import { SplitsTable } from '../components/SplitsTable'
 import { MatchupCard } from '../components/MatchupCard'
 import { PropHistoryRow } from '../components/PropHistory'
+import { OddsCard } from '../components/OddsCard'
 
 type GameLog = {
   game_id: string
@@ -385,6 +386,24 @@ export default function PlayerProfile() {
                     <PropHistoryRow key={i} prop={r.prop} hitRateText={r.hitRateText} last5={r.last5} marginText={r.marginText} trend={r.trend} />
                   ))}
                 </div>
+              </div>
+            )
+          })()}
+
+          {/* Live Odds Comparison (placeholder data) */}
+          {(() => {
+            function roundHalf(x: number) { return Math.round(x * 2) / 2 }
+            const linePts = roundHalf(seasonAverages.pts)
+            const lineAst = roundHalf(seasonAverages.ast)
+            const books = [
+              { book: 'DraftKings', over: '-115', under: '-105' },
+              { book: 'FanDuel', over: '-120', under: '+100' },
+              { book: 'BetMGM', over: '-110', under: '-110' },
+            ]
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4" style={{ marginTop: 12 }}>
+                <OddsCard title={`Points - Over/Under ${linePts}`} color="blue" odds={books} bestOver="-110" bestUnder="+100" />
+                <OddsCard title={`Assists - Over/Under ${lineAst}`} color="green" odds={books} bestOver="+100" bestUnder="-112" />
               </div>
             )
           })()}
