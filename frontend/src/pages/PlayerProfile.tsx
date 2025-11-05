@@ -6,6 +6,7 @@ import { SuggestionCards } from '../components/SuggestionCards'
 import { PropCard } from '../components/PropCard'
 import { calculateConfidenceBasic } from '../utils/confidence'
 import { TrendChart } from '../components/TrendChart'
+import { SplitsTable } from '../components/SplitsTable'
 
 type GameLog = {
   game_id: string
@@ -120,12 +121,9 @@ export default function PlayerProfile() {
     PRA: (g.pra as number),
   })), [enrichedLogs])
 
-  const homeLogs = useMemo(() => enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('vs')), [enrichedLogs])
-  const awayLogs = useMemo(() => enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('@')), [enrichedLogs])
-  const venueAverages = useMemo(() => ({
-    home: { pts: avg(homeLogs.map(g => g.pts)), reb: avg(homeLogs.map(g => g.reb)), ast: avg(homeLogs.map(g => g.ast)), tpm: avg(homeLogs.map(g => g.tpm)) },
-    away: { pts: avg(awayLogs.map(g => g.pts)), reb: avg(awayLogs.map(g => g.reb)), ast: avg(awayLogs.map(g => g.ast)), tpm: avg(awayLogs.map(g => g.tpm)) },
-  }), [homeLogs, awayLogs])
+  // Venue logs if needed later
+  // const homeLogs = useMemo(() => enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('vs')), [enrichedLogs])
+  // const awayLogs = useMemo(() => enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('@')), [enrichedLogs])
 
   function hitRate(logsIn: GameLog[], key: keyof GameLog | 'pra', line: number, dir: 'over' | 'under') {
     const vals = logsIn.map(g => key === 'pra' ? ((g.pts + g.reb + g.ast)) : Number(g[key] as number))
@@ -257,18 +255,50 @@ export default function PlayerProfile() {
                 const trend: 'up'|'down'|'neutral' = delta > 0.5 ? 'up' : delta < -0.5 ? 'down' : 'neutral'
                 const conf = calculateConfidenceBasic(c.vals as number[], Number(c.value))
                 const rec = delta >= 0 ? 'OVER' : 'UNDER'
-                return (
-                  <PropCard key={idx} label={`${c.label} Prop Line`} value={c.value} trend={trend} trendText={`L${windowN} Avg: ${recentAvg.toFixed(1)} (${delta>=0?'+':''}${delta.toFixed(1)})`} confidence={conf} recommendation={rec} />
-                )
+                if (c.label === 'Points') {
+                  const details = [
+                    { label: 'Season Avg', value: seasonAverages.pts.toFixed(1) },
+                    { label: `L${windowN} Avg`, value: recentAvg.toFixed(1) },
+                    { label: 'Diff', value: `${delta>=0?'+':''}${delta.toFixed(1)}` },
+                    { label: 'L10 Over Hit', value: `${Math.round((c.vals.filter(v=>v>Number(c.value)).length / Math.max(1,c.vals.length))*100)}%` },
+                  ]
+                  return (
+                    <div key={idx} className="md:col-span-2">
+                      <PropCard label={`Points Prop Line`} value={c.value} trend={trend} trendText={`L${windowN} Avg: ${recentAvg.toFixed(1)} (${delta>=0?'+':''}${delta.toFixed(1)})`} confidence={conf} recommendation={rec} highlight details={details} />
+                    </div>
+                  )
+                }
+                return <PropCard key={idx} label={`${c.label} Prop Line`} value={c.value} trend={trend} trendText={`L${windowN} Avg: ${recentAvg.toFixed(1)} (${delta>=0?'+':''}${delta.toFixed(1)})`} confidence={conf} recommendation={rec} />
               })
             })()}
           </div>
 
-          {/* Venue split - below season averages */}
-          <div style={{ display: 'flex', gap: 12, marginTop: 12, overflowX: 'auto', paddingBottom: 4 }}>
-            <div style={{ minWidth: 220 }}><StatCard title="Home Splits (PTS/REB/AST/3PM)" value={`${venueAverages.home.pts.toFixed(1)} / ${venueAverages.home.reb.toFixed(1)} / ${venueAverages.home.ast.toFixed(1)} / ${venueAverages.home.tpm.toFixed(1)}`} /></div>
-            <div style={{ minWidth: 220 }}><StatCard title="Away Splits (PTS/REB/AST/3PM)" value={`${venueAverages.away.pts.toFixed(1)} / ${venueAverages.away.reb.toFixed(1)} / ${venueAverages.away.ast.toFixed(1)} / ${venueAverages.away.tpm.toFixed(1)}`} /></div>
-          </div>
+          {/* Splits Table */}
+          {(() => {
+            const last5 = enrichedLogs.slice(-5)
+            const mkRow = (label: string, list: typeof enrichedLogs, highlight?: 'blue'|'green'|'purple') => ({
+              label,
+              games: list.length,
+              pts: avg(list.map(g=>g.pts)),
+              ast: avg(list.map(g=>g.ast)),
+              reb: avg(list.map(g=>g.reb)),
+              threes: avg(list.map(g=>g.tpm)),
+              pra: avg(list.map(g=> (g.pra as number))),
+              highlight
+            })
+            const rows = [
+              mkRow('Season Average', enrichedLogs),
+              mkRow(`Last ${Math.min(windowN, enrichedLogs.length)} Games`, recentN, 'blue'),
+              mkRow('Last 5 Games', last5),
+              mkRow('Home Games', enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('vs')), 'green'),
+              mkRow('Away Games', enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('@'))),
+            ]
+            return (
+              <div style={{ marginTop: 12 }}>
+                <SplitsTable rows={rows} />
+              </div>
+            )
+          })()}
 
           
 
