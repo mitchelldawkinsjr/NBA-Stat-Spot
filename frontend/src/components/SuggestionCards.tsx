@@ -1,14 +1,28 @@
-export function SuggestionCards({ suggestions }: { suggestions: any[] }) {
+type Direction = 'over' | 'under'
+type SuggestionItem = {
+  type: string
+  marketLine?: number
+  fairLine?: number
+  confidence?: number
+  rationale?: string[]
+  chosenDirection?: Direction
+  betterDirection?: Direction
+}
+
+export function SuggestionCards({ suggestions }: { suggestions: SuggestionItem[] }) {
   return (
     <div className="gap-3 md:gap-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-      {suggestions.map((s, idx) => (
+      {suggestions.map((s: SuggestionItem, idx: number) => (
         <div key={idx} className="p-4 md:p-5" style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <strong>{s.type}</strong>
             {s.marketLine != null && (
-              <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, color: '#fff', background: (s.confidence ?? 0) >= 0.5 ? '#10B981' : '#EF4444' }}>
-                {(s.confidence ?? 0) >= 0.5 ? 'Over' : 'Under'}
-              </span>
+              (() => {
+                const impliedOver = (s.fairLine != null && s.marketLine != null) ? (s.fairLine - s.marketLine) >= 0 : true
+                const dir = (s.chosenDirection === 'over' || s.chosenDirection === 'under') ? s.chosenDirection : (impliedOver ? 'over' : 'under')
+                const bg = dir === 'over' ? '#10B981' : '#EF4444'
+                return <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, color: '#fff', background: bg }}>{dir === 'over' ? 'Over' : 'Under'}</span>
+              })()
             )}
           </div>
           <div style={{ marginTop: 6, color: '#111827' }}>
@@ -18,6 +32,13 @@ export function SuggestionCards({ suggestions }: { suggestions: any[] }) {
                 <div title="Model-implied fair line"><strong>Fair:</strong> {s.fairLine != null ? s.fairLine.toFixed(1) : '—'}</div>
                 <div title="Fair - Market, positive favors Over, negative favors Under"><strong>Edge:</strong> {s.fairLine != null && s.marketLine != null ? (s.fairLine - s.marketLine >= 0 ? '+' : '') + (s.fairLine - s.marketLine).toFixed(1) : '—'}</div>
                 <div title="Confidence in recommendation"><strong>Confidence:</strong> {s.confidence != null ? Math.round((s.confidence > 1 ? s.confidence : s.confidence * 100)) + '%' : '—'}</div>
+                {s.betterDirection && s.chosenDirection && s.betterDirection !== s.chosenDirection && (
+                  <div style={{ marginTop: 6 }}>
+                    <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, color: '#111827', background: '#FDE68A' }}>
+                      Better: {s.betterDirection === 'over' ? 'Over' : 'Under'}
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (
               <div><strong>Fair Line:</strong> {s.fairLine?.toFixed?.(1) ?? '-'}</div>

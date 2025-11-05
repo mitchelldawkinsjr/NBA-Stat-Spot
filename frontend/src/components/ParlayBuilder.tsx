@@ -117,11 +117,20 @@ export function ParlayBuilder() {
                 </div>
               </div>
             </div>
-            {leg.result && leg.result.suggestions && leg.result.suggestions.length > 0 && (
-              <div style={{ marginTop: 8 }}>
-                <SuggestionCards suggestions={leg.result.suggestions} />
-              </div>
-            )}
+            {leg.result && leg.result.suggestions && leg.result.suggestions.length > 0 && (() => {
+              const items = leg.result.suggestions || []
+              const s = items.find((x: any) => x.type === leg.type)
+              if (!s) return null
+              const impliedOver = (s.fairLine != null && s.marketLine != null) ? (s.fairLine - s.marketLine) >= 0 : true
+              const chosen = leg.direction || 'over'
+              const better = impliedOver ? 'over' : 'under'
+              const decorated = { ...s, chosenDirection: chosen, betterDirection: chosen === better ? undefined : better }
+              return (
+                <div style={{ marginTop: 8 }}>
+                  <SuggestionCards suggestions={[decorated]} />
+                </div>
+              )
+            })()}
           </div>
         ))}
       </div>
