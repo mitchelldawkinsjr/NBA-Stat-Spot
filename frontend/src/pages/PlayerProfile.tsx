@@ -8,6 +8,7 @@ import { calculateConfidenceBasic } from '../utils/confidence'
 import { TrendChart } from '../components/TrendChart'
 import { SplitsTable } from '../components/SplitsTable'
 import { MatchupCard } from '../components/MatchupCard'
+import { PropHistoryRow } from '../components/PropHistory'
 
 type GameLog = {
   game_id: string
@@ -343,6 +344,47 @@ export default function PlayerProfile() {
                     { label: 'Away PTS', value: awayGames.length ? awayPts.toFixed(1) : '—' },
                   ]}
                 />
+              </div>
+            )
+          })()}
+
+          {/* Historical Prop Performance */}
+          {(() => {
+            function makeRow(label: string, vals: number[], line: number) {
+              const lastFive = vals.slice(-5)
+              const hits5 = lastFive.map(v => v > line)
+              const hitRate = vals.length ? Math.round((vals.filter(v => v > line).length / vals.length) * 100) : 0
+              const marginAvg = lastFive.length ? (lastFive.reduce((a,b)=>a+(b-line),0) / lastFive.length) : 0
+              const trend: 'Hot'|'Neutral'|'Cold'|'Fire' = hitRate >= 80 ? 'Fire' : hitRate >= 65 ? 'Hot' : hitRate >= 45 ? 'Neutral' : 'Cold'
+              return { prop: `${label} Over ${line}`, hitRateText: `${hitRate}%`, last5: hits5, marginText: `${marginAvg>=0?'+':''}${marginAvg.toFixed(1)}` , trend }
+            }
+            function roundHalf(x: number) { return Math.round(x * 2) / 2 }
+            const linePts = roundHalf(seasonAverages.pts)
+            const lineAst = roundHalf(seasonAverages.ast)
+            const lineReb = roundHalf(seasonAverages.reb)
+            const lineTpm = roundHalf(seasonAverages.tpm)
+            const linePra = roundHalf(seasonAverages.pra)
+            const rows = [
+              makeRow('PTS', enrichedLogs.map(g=>g.pts), linePts),
+              makeRow('AST', enrichedLogs.map(g=>g.ast), lineAst),
+              makeRow('REB', enrichedLogs.map(g=>g.reb), lineReb),
+              makeRow('3PM', enrichedLogs.map(g=>g.tpm), lineTpm),
+              makeRow('PRA', enrichedLogs.map(g=> (g.pra as number)), linePra),
+            ]
+            return (
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm" style={{ marginTop: 12 }}>
+                <div className="grid grid-cols-5 bg-gray-50 text-xs font-bold text-gray-700 uppercase">
+                  <div className="p-3 border-r border-gray-200">Prop Type</div>
+                  <div className="p-3 border-r border-gray-200">Hit Rate</div>
+                  <div className="p-3 border-r border-gray-200">Last 5</div>
+                  <div className="p-3 border-r border-gray-200">Avg Margin</div>
+                  <div className="p-3">Trend</div>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {rows.map((r, i) => (
+                    <PropHistoryRow key={i} prop={r.prop} hitRateText={r.hitRateText} last5={r.last5} marginText={r.marginText} trend={r.trend} />
+                  ))}
+                </div>
               </div>
             )
           })()}
