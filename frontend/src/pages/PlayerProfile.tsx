@@ -10,6 +10,7 @@ import { SplitsTable } from '../components/SplitsTable'
 import { MatchupCard } from '../components/MatchupCard'
 import { PropHistoryRow } from '../components/PropHistory'
 import { OddsCard } from '../components/OddsCard'
+import { pearsonCorrelation } from '../utils/correlation'
 
 type GameLog = {
   game_id: string
@@ -404,6 +405,43 @@ export default function PlayerProfile() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4" style={{ marginTop: 12 }}>
                 <OddsCard title={`Points - Over/Under ${linePts}`} color="blue" odds={books} bestOver="-110" bestUnder="+100" />
                 <OddsCard title={`Assists - Over/Under ${lineAst}`} color="green" odds={books} bestOver="+100" bestUnder="-112" />
+              </div>
+            )
+          })()}
+
+          {/* Advanced Metrics & Correlations */}
+          {(() => {
+            const recentPts = recentN.map(g=>g.pts)
+            const recentAst = recentN.map(g=>g.ast)
+            const recentReb = recentN.map(g=>g.reb)
+            const usageRecent = avg(recentN.map(g=> (g.pts + g.ast + g.reb)))
+            const usageSeason = seasonAverages.pra
+            const usageDelta = usageRecent - usageSeason
+            const usageTrend = usageDelta > 1 ? '↑' : usageDelta < -1 ? '↓' : '→'
+            const corrPtsAst = pearsonCorrelation(recentPts, recentAst)
+            const corrPtsReb = pearsonCorrelation(recentPts, recentReb)
+            const corrAstReb = pearsonCorrelation(recentAst, recentReb)
+            const fmt = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}`
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4" style={{ marginTop: 12 }}>
+                <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
+                  <div className="font-semibold text-purple-900 mb-3">Usage Trend (Proxy)</div>
+                  <div className="text-sm text-purple-800 flex items-center justify-between"><span>Season PRA</span><span className="font-bold">{usageSeason.toFixed(1)}</span></div>
+                  <div className="text-sm text-purple-800 flex items-center justify-between mt-1"><span>Recent PRA (L{windowN})</span><span className="font-bold">{usageRecent.toFixed(1)}</span></div>
+                  <div className="mt-2 text-purple-900 font-semibold">{usageTrend} {usageDelta >= 0 ? '+' : ''}{usageDelta.toFixed(1)} vs season</div>
+                </div>
+                <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4">
+                  <div className="font-semibold text-orange-900 mb-3">Prop Correlations (L{windowN})</div>
+                  <div className="text-sm text-orange-800 flex items-center justify-between"><span>PTS ↔ AST</span><span className="font-bold">{fmt(corrPtsAst)}</span></div>
+                  <div className="text-sm text-orange-800 flex items-center justify-between mt-1"><span>PTS ↔ REB</span><span className="font-bold">{fmt(corrPtsReb)}</span></div>
+                  <div className="text-sm text-orange-800 flex items-center justify-between mt-1"><span>AST ↔ REB</span><span className="font-bold">{fmt(corrAstReb)}</span></div>
+                </div>
+                <div className="bg-teal-50 border-2 border-teal-200 rounded-lg p-4">
+                  <div className="font-semibold text-teal-900 mb-3">Defensive Matchup</div>
+                  <div className="text-sm text-teal-800">Primary Defender: —</div>
+                  <div className="text-sm text-teal-800 mt-1">Defender Rating: —</div>
+                  <div className="text-sm text-teal-800 mt-1">Historical vs Defender: —</div>
+                </div>
               </div>
             )
           })()}
