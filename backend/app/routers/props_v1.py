@@ -28,8 +28,8 @@ class PlayerSuggestRequest(BaseModel):
 
 @router.post("/player")
 def suggest_player_props(req: PlayerSuggestRequest):
-    # Default season fallback to last known season if not provided
-    season = req.season or "2024-25"
+    # Default season fallback
+    season = req.season or "2025-26"
     try:
         logs = NBADataService.fetch_player_game_log(req.playerId, season)
     except Exception:
@@ -83,7 +83,7 @@ def daily_props(date: Optional[str] = None, min_confidence: Optional[float] = No
     items: List[Dict] = []
     for pid in featured:
         try:
-            sugs = build_suggestions_for_player(pid, None)
+            sugs = build_suggestions_for_player(pid, "2025-26")
             if min_confidence:
                 sugs = PropFilter.filter_by_confidence(sugs, min_confidence)
             for s in sugs:

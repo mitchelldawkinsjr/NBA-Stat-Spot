@@ -31,7 +31,7 @@ export function ParlayBuilder() {
         if (!l.player?.id || l.line === '') return { suggestions: [] }
         const body: any = {
           playerId: l.player.id,
-          season: l.season || '2024-25',
+          season: l.season || '2025-26',
           lastN: l.lastN || undefined,
           home: l.home && l.home !== 'any' ? l.home : undefined,
           marketLines: { [l.type]: l.line },
@@ -95,7 +95,7 @@ export function ParlayBuilder() {
                   {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <input value={leg.line} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, line: e.target.value } : x))} placeholder={`${leg.type} line e.g. 24.5`} inputMode="decimal" className="px-3 py-2 rounded border border-gray-300" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
-                <input value={leg.season || ''} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, season: e.target.value } : x))} placeholder="Season (e.g. 2024-25)" className="px-3 py-2 rounded border border-gray-300" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
+                <input value={leg.season || ''} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, season: e.target.value } : x))} placeholder="Season (e.g. 2025-26)" className="px-3 py-2 rounded border border-gray-300" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
                 <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as any } : x))} className="px-3 py-2 rounded border border-gray-300 bg-white" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
                   <option value="any">Venue: Any</option>
                   <option value="home">Venue: Home</option>

@@ -10,7 +10,7 @@ import { ParlayBuilder } from './components/ParlayBuilder'
 
 function ExplorePage() {
   const [player, setPlayer] = useState<{ id: number; name: string } | null>(null)
-  const [filters, setFilters] = useState<any>({ lastN: 10 })
+  const [filters, setFilters] = useState<any>({ lastN: 10, season: '2025-26' })
   return (
     <div>
       <h2 style={{ marginBottom: 8 }}>Explore Player Props</h2>
