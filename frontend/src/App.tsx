@@ -43,13 +43,13 @@ function App() {
             <h1 style={{ margin: 0 }}>NBA Stat Spot</h1>
             <p style={{ color: '#666', margin: '2px 0 0 0', fontSize: 14 }}>Lightweight player prop analysis with transparent rationale.</p>
           </div>
-          <nav className="flex gap-3 items-center">
-            <Link to="/dashboard" className="px-2 py-1 rounded hover:bg-gray-100">Dashboard</Link>
-            <Link to="/explore" className="px-2 py-1 rounded hover:bg-gray-100">Explore</Link>
-            <Link to="/parlay" className="px-2 py-1 rounded hover:bg-gray-100">Parlay</Link>
-            <div className="hidden sm:flex items-center gap-2">
+          <nav className="flex items-center gap-4 md:gap-6 lg:gap-8">
+            <Link to="/dashboard" className="px-3 py-2 rounded hover:bg-gray-100 text-sm md:text-base">Dashboard</Link>
+            <Link to="/explore" className="px-3 py-2 rounded hover:bg-gray-100 text-sm md:text-base">Explore</Link>
+            <Link to="/parlay" className="px-3 py-2 rounded hover:bg-gray-100 text-sm md:text-base">Parlay</Link>
+            <div className="hidden sm:flex items-center gap-3">
               <span style={{ fontSize: 12, color: '#6b7280' }}>Season</span>
-              <input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="2025-26" className="px-2 py-1 rounded border border-gray-300" style={{ width: 100 }} />
+              <input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="2025-26" className="px-3 py-2 rounded border border-gray-300 text-sm" style={{ width: 110 }} />
             </div>
           </nav>
         </div>
