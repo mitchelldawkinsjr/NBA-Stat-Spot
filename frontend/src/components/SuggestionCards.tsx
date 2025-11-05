@@ -12,14 +12,14 @@ export function SuggestionCards({ suggestions }: { suggestions: any[] }) {
         <div key={idx} style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, background: '#fff' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <strong>{s.type}</strong>
-            <span style={{ color: colorFor(s.confidence) }}>{s.confidence ? Math.round(s.confidence * 100) + '%' : '—'}</span>
+            <span style={{ color: colorFor(s.confidence) }}>{s.confidence != null ? (s.confidence > 1 ? Math.round(s.confidence) : Math.round(s.confidence * 100)) + '%' : '—'}</span>
           </div>
           <div style={{ marginTop: 6, color: '#111827' }}>
             {s.marketLine != null ? (
               <div>
                 <div><strong>Recommendation:</strong> { (s.confidence ?? 0) >= 0.5 ? 'Over' : 'Under' } {s.marketLine} {s.type}</div>
                 <div><strong>Fair vs Market:</strong> {s.fairLine != null && s.marketLine != null ? ( (s.fairLine - s.marketLine).toFixed(1) ) : '—'}</div>
-                <div><strong>Confidence:</strong> {s.confidence ? Math.round(s.confidence * 100) + '%' : '—'}</div>
+                <div><strong>Confidence:</strong> {s.confidence != null ? (s.confidence > 1 ? Math.round(s.confidence) : Math.round(s.confidence * 100)) + '%' : '—'}</div>
               </div>
             ) : (
               <div><strong>Fair Line:</strong> {s.fairLine?.toFixed?.(1) ?? '-'}</div>

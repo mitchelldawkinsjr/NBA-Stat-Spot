@@ -8,7 +8,7 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
   useEffect(() => {
     const c = setTimeout(async () => {
       if (!q) { setItems([]); setOpen(false); return }
-      const res = await fetch(`/api/players/search?q=${encodeURIComponent(q)}`)
+      const res = await fetch(`/api/v1/players/search?q=${encodeURIComponent(q)}`)
       const data = await res.json()
       setItems(data.items || [])
       setOpen(true)
