@@ -1,6 +1,16 @@
 # Deployment Guide
 
-This document covers deployment strategies for the NBA Stat Spot application.
+**Purpose**: Complete guide for deploying the NBA Stat Spot application in various environments.
+
+**Use this guide when**:
+- Setting up local development environment
+- Deploying with Docker (development or production)
+- Deploying to production servers
+- Configuring environment variables
+- Setting up databases (SQLite or PostgreSQL)
+- Understanding infrastructure requirements
+
+---
 
 ## Table of Contents
 - [Local Development](#local-development)

@@ -84,6 +84,22 @@ async function clearBestBetsCache() {
   return res.json()
 }
 
+async function fetchAIEnabled() {
+  const res = await fetch('/api/v1/admin/settings/ai-enabled')
+  if (!res.ok) throw new Error('Failed to fetch AI enabled status')
+  return res.json()
+}
+
+async function setAIEnabled(enabled: boolean) {
+  const res = await fetch('/api/v1/admin/settings/ai-enabled', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled })
+  })
+  if (!res.ok) throw new Error('Failed to set AI enabled status')
+  return res.json()
+}
+
 async function refreshDailyPropsCustom(params: { minConfidence: number; limit: number }) {
   const qs = new URLSearchParams({
     min_confidence: String(params.minConfidence),
@@ -102,6 +118,38 @@ async function refreshHighHitRateCustom(params: { minHitRate: number; limit: num
   })
   const res = await fetch(`/api/v1/admin/refresh/high-hit-rate?${qs}`, { method: 'POST' })
   if (!res.ok) throw new Error('Failed to refresh high hit rate')
+  return res.json()
+}
+
+async function runDataIntegrityCheck(season?: string) {
+  const qs = season ? new URLSearchParams({ season }) : ''
+  const res = await fetch(`/api/v1/admin/data-integrity/check?${qs}`, { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to run integrity check')
+  return res.json()
+}
+
+async function fetchDataIntegrityStatus() {
+  const res = await fetch('/api/v1/admin/data-integrity/status')
+  if (!res.ok) throw new Error('Failed to fetch integrity status')
+  return res.json()
+}
+
+async function checkPlayersIntegrity() {
+  const res = await fetch('/api/v1/admin/data-integrity/check/players', { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to check players integrity')
+  return res.json()
+}
+
+async function checkGameStatsIntegrity(season?: string) {
+  const qs = season ? new URLSearchParams({ season }) : ''
+  const res = await fetch(`/api/v1/admin/data-integrity/check/game-stats?${qs}`, { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to check game stats integrity')
+  return res.json()
+}
+
+async function checkPropSuggestionsIntegrity() {
+  const res = await fetch('/api/v1/admin/data-integrity/check/prop-suggestions', { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to check prop suggestions integrity')
   return res.json()
 }
 
@@ -145,6 +193,19 @@ export default function AdminDashboard() {
     queryFn: fetchCacheStatus, 
     refetchInterval: 15000,
     staleTime: 5000
+  })
+  const { data: aiStatus, isLoading: aiStatusLoading, refetch: refetchAIStatus } = useQuery({
+    queryKey: ['ai-enabled'],
+    queryFn: fetchAIEnabled,
+    refetchInterval: 30000,
+    staleTime: 10000
+  })
+  
+  const { data: integrityStatus, isLoading: integrityStatusLoading, refetch: refetchIntegrityStatus } = useQuery({
+    queryKey: ['data-integrity-status'],
+    queryFn: fetchDataIntegrityStatus,
+    refetchInterval: 60000, // Check every minute
+    staleTime: 30000
   })
 
   // Auto-scroll activity log
@@ -307,6 +368,24 @@ export default function AdminDashboard() {
     }
   })
 
+  const setAIEnabledMutation = useMutation({
+    mutationFn: setAIEnabled,
+    onMutate: (enabled: boolean) => {
+      addActivityLog('info', `${enabled ? 'Enabling' : 'Disabling'} AI features...`)
+    },
+    onSuccess: (data) => {
+      addActivityLog('success', `AI features ${data.aiEnabled ? 'enabled' : 'disabled'}`)
+      refetchAIStatus()
+      // Invalidate queries to refresh data with new AI setting
+      queryClient.invalidateQueries({ queryKey: ['daily-50'] })
+      queryClient.invalidateQueries({ queryKey: ['high-hit-rate'] })
+      queryClient.invalidateQueries({ queryKey: ['props'] })
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Failed to update AI setting', error.message)
+    }
+  })
+
   const refreshDailyPropsCustomMutation = useMutation({
     mutationFn: refreshDailyPropsCustom,
     onMutate: () => {
@@ -339,13 +418,85 @@ export default function AdminDashboard() {
     }
   })
 
+  const integrityCheckMutation = useMutation({
+    mutationFn: () => runDataIntegrityCheck(scanParams.season),
+    onMutate: () => {
+      addActivityLog('info', 'Running full data integrity check...', `Season: ${scanParams.season}`)
+    },
+    onSuccess: (data) => {
+      const results = data?.results
+      const summary = results?.summary || {}
+      addActivityLog(
+        summary.total_issues === 0 ? 'success' : 'warning',
+        `Integrity check completed`,
+        `Status: ${results?.overall_status || 'unknown'}, Issues: ${summary.total_issues || 0} (${summary.critical_issues || 0} critical, ${summary.high_issues || 0} high)`
+      )
+      refetchIntegrityStatus()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Integrity check failed', error.message)
+    }
+  })
+
+  const playersIntegrityMutation = useMutation({
+    mutationFn: checkPlayersIntegrity,
+    onMutate: () => {
+      addActivityLog('info', 'Checking players data integrity...')
+    },
+    onSuccess: (data) => {
+      const results = data?.results
+      addActivityLog(
+        results?.status === 'pass' ? 'success' : 'warning',
+        `Players integrity check completed`,
+        `Status: ${results?.status || 'unknown'}, Issues: ${results?.issues?.length || 0}`
+      )
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Players integrity check failed', error.message)
+    }
+  })
+
+  const gameStatsIntegrityMutation = useMutation({
+    mutationFn: () => checkGameStatsIntegrity(scanParams.season),
+    onMutate: () => {
+      addActivityLog('info', 'Checking game stats data integrity...', `Season: ${scanParams.season}`)
+    },
+    onSuccess: (data) => {
+      const results = data?.results
+      addActivityLog(
+        results?.status === 'pass' ? 'success' : 'warning',
+        `Game stats integrity check completed`,
+        `Status: ${results?.status || 'unknown'}, Issues: ${results?.issues?.length || 0}`
+      )
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Game stats integrity check failed', error.message)
+    }
+  })
+
+  const propSuggestionsIntegrityMutation = useMutation({
+    mutationFn: checkPropSuggestionsIntegrity,
+    onMutate: () => {
+      addActivityLog('info', 'Checking prop suggestions data integrity...')
+    },
+    onSuccess: (data) => {
+      const results = data?.results
+      addActivityLog(
+        results?.status === 'pass' ? 'success' : 'warning',
+        `Prop suggestions integrity check completed`,
+        `Status: ${results?.status || 'unknown'}, Issues: ${results?.issues?.length || 0}`
+      )
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Prop suggestions integrity check failed', error.message)
+    }
+  })
+
   // Monitor data changes and log them
   useEffect(() => {
     if (health && !healthLoading) {
-      const status = health.status === 'healthy' ? 'healthy' : 'degraded'
-      if (health.nbaApiAvailable) {
-        // Only log if there's a significant change
-      }
+      // Monitor health status changes if needed
+      // const status = health.status === 'healthy' ? 'healthy' : 'degraded'
     }
   }, [health, healthLoading])
 
@@ -606,6 +757,301 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Data Integrity & Checksum */}
+      <div className="mt-3 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Data Integrity & Checksum</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Validate source data cleanliness and database consistency</p>
+          </div>
+          <button
+            onClick={() => {
+              addActivityLog('info', 'Refreshing integrity status...')
+              refetchIntegrityStatus()
+            }}
+            disabled={integrityStatusLoading}
+            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            {integrityStatusLoading ? 'Refreshing...' : 'Refresh Status'}
+          </button>
+        </div>
+
+        {/* Overall Status */}
+        {integrityStatus?.status === 'no_check' ? (
+          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
+            No integrity check has been run yet. Click "Run Full Check" to validate data.
+          </div>
+        ) : integrityStatus?.results ? (
+          <div className="space-y-4">
+            {/* Overall Status Badge */}
+            <div className={`p-4 rounded-lg border-2 ${
+              integrityStatus.results.overall_status === 'pass' ? 'border-green-200 bg-green-50/50' :
+              integrityStatus.results.overall_status === 'warning' ? 'border-amber-200 bg-amber-50/50' :
+              'border-red-200 bg-red-50/50'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-semibold text-gray-900">Overall Status</div>
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                  integrityStatus.results.overall_status === 'pass' ? 'bg-green-100 text-green-700' :
+                  integrityStatus.results.overall_status === 'warning' ? 'bg-amber-100 text-amber-700' :
+                  'bg-red-100 text-red-700'
+                }`}>
+                  {integrityStatus.results.overall_status?.toUpperCase() || 'UNKNOWN'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                <div>
+                  <div className="text-gray-600">Total Issues</div>
+                  <div className="font-bold text-gray-900">{integrityStatus.results.summary?.total_issues || 0}</div>
+                </div>
+                <div>
+                  <div className="text-gray-600">Critical</div>
+                  <div className="font-bold text-red-700">{integrityStatus.results.summary?.critical_issues || 0}</div>
+                </div>
+                <div>
+                  <div className="text-gray-600">High</div>
+                  <div className="font-bold text-orange-700">{integrityStatus.results.summary?.high_issues || 0}</div>
+                </div>
+                <div>
+                  <div className="text-gray-600">Medium</div>
+                  <div className="font-bold text-amber-700">{integrityStatus.results.summary?.medium_issues || 0}</div>
+                </div>
+                <div>
+                  <div className="text-gray-600">Low</div>
+                  <div className="font-bold text-gray-700">{integrityStatus.results.summary?.low_issues || 0}</div>
+                </div>
+              </div>
+              {integrityStatus.checked_at && (
+                <div className="mt-2 text-xs text-gray-500">
+                  Last checked: {formatTimeAgo(integrityStatus.checked_at)}
+                </div>
+              )}
+            </div>
+
+            {/* Individual Checks */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Players Check */}
+              {integrityStatus.results.checks?.players && (
+                <div className={`p-3 rounded-lg border ${
+                  integrityStatus.results.checks.players.status === 'pass' ? 'border-green-200 bg-green-50/30' : 'border-red-200 bg-red-50/30'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-semibold text-gray-900">Players</div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      integrityStatus.results.checks.players.status === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {integrityStatus.results.checks.players.status?.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-600 space-y-0.5">
+                    <div>Source: {integrityStatus.results.checks.players.stats?.source_count || 0}</div>
+                    <div>DB: {integrityStatus.results.checks.players.stats?.db_count || 0}</div>
+                    <div>Missing: {integrityStatus.results.checks.players.stats?.missing_in_db || 0}</div>
+                    {integrityStatus.results.checks.players.stats?.checksum_source && (
+                      <div className="text-[10px] text-gray-500 mt-1 font-mono truncate" title={integrityStatus.results.checks.players.stats.checksum_source}>
+                        Source: {integrityStatus.results.checks.players.stats.checksum_source.slice(0, 8)}...
+                      </div>
+                    )}
+                    {integrityStatus.results.checks.players.stats?.checksum_db && (
+                      <div className="text-[10px] text-gray-500 font-mono truncate" title={integrityStatus.results.checks.players.stats.checksum_db}>
+                        DB: {integrityStatus.results.checks.players.stats.checksum_db.slice(0, 8)}...
+                      </div>
+                    )}
+                  </div>
+                  {integrityStatus.results.checks.players.issues?.length > 0 && (
+                    <div className="mt-2 text-[10px] text-red-700">
+                      {integrityStatus.results.checks.players.issues.length} issue(s)
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Game Stats Check */}
+              {integrityStatus.results.checks?.game_stats && (
+                <div className={`p-3 rounded-lg border ${
+                  integrityStatus.results.checks.game_stats.status === 'pass' ? 'border-green-200 bg-green-50/30' : 'border-red-200 bg-red-50/30'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-semibold text-gray-900">Game Stats</div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      integrityStatus.results.checks.game_stats.status === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {integrityStatus.results.checks.game_stats.status?.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-600 space-y-0.5">
+                    <div>Source: {integrityStatus.results.checks.game_stats.stats?.source_count || 0}</div>
+                    <div>DB: {integrityStatus.results.checks.game_stats.stats?.db_count || 0}</div>
+                    <div>Missing: {integrityStatus.results.checks.game_stats.stats?.missing_in_db || 0}</div>
+                    <div>Invalid: {integrityStatus.results.checks.game_stats.stats?.invalid_data || 0}</div>
+                  </div>
+                  {integrityStatus.results.checks.game_stats.issues?.length > 0 && (
+                    <div className="mt-2 text-[10px] text-red-700">
+                      {integrityStatus.results.checks.game_stats.issues.length} issue(s)
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Prop Suggestions Check */}
+              {integrityStatus.results.checks?.prop_suggestions && (
+                <div className={`p-3 rounded-lg border ${
+                  integrityStatus.results.checks.prop_suggestions.status === 'pass' ? 'border-green-200 bg-green-50/30' : 'border-red-200 bg-red-50/30'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-semibold text-gray-900">Prop Suggestions</div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      integrityStatus.results.checks.prop_suggestions.status === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {integrityStatus.results.checks.prop_suggestions.status?.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-600 space-y-0.5">
+                    <div>Total: {integrityStatus.results.checks.prop_suggestions.stats?.total_suggestions || 0}</div>
+                    <div>Recent: {integrityStatus.results.checks.prop_suggestions.stats?.recent_suggestions || 0}</div>
+                    <div>Stale: {integrityStatus.results.checks.prop_suggestions.stats?.stale_suggestions || 0}</div>
+                    <div>Invalid: {integrityStatus.results.checks.prop_suggestions.stats?.invalid_confidence || 0}</div>
+                  </div>
+                  {integrityStatus.results.checks.prop_suggestions.issues?.length > 0 && (
+                    <div className="mt-2 text-[10px] text-red-700">
+                      {integrityStatus.results.checks.prop_suggestions.issues.length} issue(s)
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Issues List */}
+            {integrityStatus.results.all_issues && integrityStatus.results.all_issues.length > 0 && (
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="text-xs font-semibold text-gray-900 mb-2">Issues Found ({integrityStatus.results.all_issues.length})</div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {integrityStatus.results.all_issues.slice(0, 10).map((issue: any, idx: number) => (
+                    <div key={idx} className={`text-xs p-2 rounded border ${
+                      issue.severity === 'critical' ? 'border-red-300 bg-red-50' :
+                      issue.severity === 'high' ? 'border-orange-300 bg-orange-50' :
+                      issue.severity === 'medium' ? 'border-amber-300 bg-amber-50' :
+                      'border-gray-300 bg-gray-50'
+                    }`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">{issue.message}</div>
+                          {issue.details && (
+                            <div className="text-[10px] text-gray-600 mt-0.5">
+                              {typeof issue.details === 'string' ? issue.details : JSON.stringify(issue.details).slice(0, 100)}
+                            </div>
+                          )}
+                        </div>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                          issue.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                          issue.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                          issue.severity === 'medium' ? 'bg-amber-100 text-amber-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {issue.severity}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {integrityStatus.results.all_issues.length > 10 && (
+                    <div className="text-xs text-gray-500 text-center">
+                      ... and {integrityStatus.results.all_issues.length - 10} more issues
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {/* Action Buttons */}
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-2">
+          <button
+            onClick={() => integrityCheckMutation.mutate()}
+            disabled={integrityCheckMutation.isPending}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {integrityCheckMutation.isPending ? (
+              <>
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Checking...
+              </>
+            ) : (
+              'Run Full Check'
+            )}
+          </button>
+          <button
+            onClick={() => playersIntegrityMutation.mutate()}
+            disabled={playersIntegrityMutation.isPending}
+            className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {playersIntegrityMutation.isPending ? 'Checking...' : 'Check Players'}
+          </button>
+          <button
+            onClick={() => gameStatsIntegrityMutation.mutate()}
+            disabled={gameStatsIntegrityMutation.isPending}
+            className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {gameStatsIntegrityMutation.isPending ? 'Checking...' : 'Check Game Stats'}
+          </button>
+          <button
+            onClick={() => propSuggestionsIntegrityMutation.mutate()}
+            disabled={propSuggestionsIntegrityMutation.isPending}
+            className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {propSuggestionsIntegrityMutation.isPending ? 'Checking...' : 'Check Props'}
+          </button>
+        </div>
+      </div>
+
+      {/* AI Features Toggle */}
+      <div className="mt-3 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">AI Features Control</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Enable or disable AI features (ML models and LLM rationale)</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex-1">
+            <div className="text-sm font-medium text-gray-900">Enable AI Features</div>
+            <div className="text-xs text-gray-600 mt-0.5">
+              When enabled, prop evaluations use ML models for confidence prediction and LLM for rationale generation.
+              When disabled, the system uses rule-based calculations only.
+            </div>
+          </div>
+          <div className="ml-4">
+            <button
+              onClick={() => {
+                const newValue = !(aiStatus?.aiEnabled ?? false)
+                setAIEnabledMutation.mutate(newValue)
+              }}
+              disabled={setAIEnabledMutation.isPending || aiStatusLoading}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                (aiStatus?.aiEnabled ?? false) ? 'bg-blue-600' : 'bg-gray-300'
+              } ${setAIEnabledMutation.isPending || aiStatusLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  (aiStatus?.aiEnabled ?? false) ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+        <div className="mt-3 text-xs text-gray-600">
+          Status: <span className={`font-medium ${(aiStatus?.aiEnabled ?? false) ? 'text-green-600' : 'text-gray-500'}`}>
+            {(aiStatus?.aiEnabled ?? false) ? 'Enabled' : 'Disabled'}
+          </span>
+          {setAIEnabledMutation.isPending && (
+            <span className="ml-2 text-blue-600">Updating...</span>
+          )}
+        </div>
       </div>
 
       {/* Data Refresh Controls */}

@@ -1,12 +1,15 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict
+from sqlalchemy.orm import Session
+from ..database import get_db
 from ..services.nba_api_service import NBADataService
 from ..services.prop_engine import PropBetEngine
 from ..services.prop_filter import PropFilter
 from ..services.daily_props_service import DailyPropsService
 from ..services.high_hit_rate_service import HighHitRateService
 from ..services.stats_calculator import StatsCalculator
+from ..services.settings_service import SettingsService
 
 router = APIRouter(prefix="/api/v1/props", tags=["props_v1"])
 
@@ -29,9 +32,12 @@ class PlayerSuggestRequest(BaseModel):
     home: Optional[str] = None  # 'home' | 'away' | None
     marketLines: Optional[Dict[str, float]] = None  # e.g., {"PTS": 24.5}
     direction: Optional[str] = None  # 'over' | 'under' - applies to all market lines
+    use_ai: Optional[bool] = True  # Enable AI features (ML + LLM)
+    game_date: Optional[str] = None  # Game date (YYYY-MM-DD) for context
+    opponent_team_id: Optional[int] = None  # Opponent team ID for context
 
 @router.post("/player")
-def suggest_player_props(req: PlayerSuggestRequest):
+def suggest_player_props(req: PlayerSuggestRequest, db: Session = Depends(get_db)):
     # Default season fallback
     season = req.season or "2025-26"
     try:
@@ -66,6 +72,28 @@ def suggest_player_props(req: PlayerSuggestRequest):
     if direction not in ("over", "under"):
         direction = "over"
     
+    # Get player name for LLM rationale
+    player_name = None
+    try:
+        all_players = NBADataService.fetch_all_players_including_rookies()
+        player = next((p for p in all_players if p.get("id") == req.playerId), None)
+        if player:
+            player_name = player.get("full_name")
+    except Exception:
+        pass
+    
+    # Parse game_date if provided
+    game_date_obj = None
+    if req.game_date:
+        try:
+            from datetime import datetime
+            game_date_obj = datetime.strptime(req.game_date, "%Y-%m-%d").date()
+        except Exception:
+            pass
+    
+    # Determine if home game (simplified - would need game context)
+    is_home_game = True  # Default assumption
+    
     # Map display -> stat key
     key_map = {"PTS": "pts", "REB": "reb", "AST": "ast", "3PM": "tpm", "PRA": "pra"}
     for disp_key, market_line in lines.items():
@@ -74,24 +102,66 @@ def suggest_player_props(req: PlayerSuggestRequest):
             continue
         try:
             fair = PropBetEngine.determine_line_value(logs, stat_key)
-            # Evaluate with the specified direction
-            ev = PropBetEngine.evaluate_prop(logs, stat_key, float(market_line), direction)
+            
+            # Check global AI setting (overrides request parameter)
+            ai_enabled_globally = SettingsService.get_ai_enabled(db)
+            use_ai = req.use_ai and ai_enabled_globally
+            
+            # Use AI-enhanced evaluation if enabled and context available
+            if use_ai and game_date_obj:
+                ev = PropBetEngine.evaluate_prop_with_ml(
+                    logs, stat_key, float(market_line), direction,
+                    player_id=req.playerId,
+                    game_date=game_date_obj,
+                    opponent_team_id=req.opponent_team_id,
+                    is_home_game=is_home_game,
+                    season=season
+                )
+            else:
+                # Fallback to rule-based evaluation
+                ev = PropBetEngine.evaluate_prop(logs, stat_key, float(market_line), direction)
+            
             # Always calculate both hit rates for completeness
             hit_rate_over = StatsCalculator.calculate_hit_rate(logs, float(market_line), stat_key, "over")
             hit_rate_under = StatsCalculator.calculate_hit_rate(logs, float(market_line), stat_key, "under")
-            suggestions.append({
+            
+            # Build suggestion response
+            suggestion = {
                 "type": disp_key,
                 "marketLine": float(market_line),
                 "fairLine": float(fair),
-                "direction": direction,  # Include the direction used
+                "direction": direction,
                 "confidence": ev.get("confidence"),
-                "suggestion": ev.get("suggestion"),  # Include suggestion to match PlayerProfile
-                "hitRate": ev.get("stats", {}).get("hit_rate"),  # Hit rate for the specified direction
-                "hitRateOver": hit_rate_over,  # Always include over hit rate
-                "hitRateUnder": hit_rate_under,  # Always include under hit rate
-                "rationale": [ev.get("rationale", {}).get("summary", "Based on recent form and hit rate")],
-            })
-        except Exception:
+                "suggestion": ev.get("suggestion"),
+                "hitRate": ev.get("stats", {}).get("hit_rate"),
+                "hitRateOver": hit_rate_over,
+                "hitRateUnder": hit_rate_under,
+            }
+            
+            # Add AI-enhanced fields if available
+            if use_ai:
+                if ev.get("ml_available"):
+                    suggestion["mlConfidence"] = ev.get("ml_confidence")
+                    suggestion["mlPredictedLine"] = ev.get("ml_predicted_line")
+                    suggestion["confidenceSource"] = ev.get("confidence_source", "rule_based")
+                
+                # Add LLM rationale if available
+                rationale = ev.get("rationale", {})
+                if rationale.get("llm"):
+                    suggestion["rationale"] = [
+                        rationale.get("summary", "Based on recent form and hit rate"),
+                        rationale.get("llm")
+                    ]
+                    suggestion["rationaleSource"] = rationale.get("source", "rule_based")
+                else:
+                    suggestion["rationale"] = [rationale.get("summary", "Based on recent form and hit rate")]
+                    suggestion["rationaleSource"] = "rule_based"
+            else:
+                suggestion["rationale"] = [ev.get("rationale", {}).get("summary", "Based on recent form and hit rate")]
+            
+            suggestions.append(suggestion)
+        except Exception as e:
+            print(f"Error evaluating prop {disp_key}: {e}")
             continue
     return {"suggestions": suggestions}
 

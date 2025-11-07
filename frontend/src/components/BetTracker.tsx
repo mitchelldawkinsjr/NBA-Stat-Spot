@@ -555,13 +555,13 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
   const [playerSuggestions, setPlayerSuggestions] = useState<Array<{id: number; name: string}>>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
-  const searchTimeoutRef = useRef<NodeJS.Timeout>()
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Parlay leg autocomplete state (per leg)
   const [parlayLegSuggestions, setParlayLegSuggestions] = useState<Record<number, Array<{id: number; name: string}>>>({})
   const [parlayLegShowSuggestions, setParlayLegShowSuggestions] = useState<Record<number, boolean>>({})
   const [parlayLegSearchQuery, setParlayLegSearchQuery] = useState<Record<number, string>>({})
-  const parlayLegSearchTimeoutRef = useRef<Record<number, NodeJS.Timeout>>({})
+  const parlayLegSearchTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
 
   // Debounced player search
   useEffect(() => {

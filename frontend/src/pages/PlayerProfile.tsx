@@ -425,10 +425,11 @@ export default function PlayerProfile() {
               const cards = selectedCard
                 ? selectedLabel === 'Points'
                   ? [selectedCard, ...otherCards] // Points is selected, so don't duplicate it
-                  : [selectedCard, pointsCard, ...otherCards] // Selected is different from Points
+                  : [selectedCard, pointsCard, ...otherCards].filter((c): c is NonNullable<typeof c> => c !== undefined) // Selected is different from Points
                 : allCards
               
               return cards.map((c, idx) => {
+                if (!c) return null
                 const recentAvg = c.vals.length ? c.vals.reduce((a,b)=>a+b,0)/c.vals.length : 0
                 const delta = recentAvg - (Number(c.value) || 0)
                 const trend: 'up'|'down'|'neutral' = delta > 0.5 ? 'up' : delta < -0.5 ? 'down' : 'neutral'
@@ -472,7 +473,7 @@ export default function PlayerProfile() {
                   )
                 }
                 return <PropCard key={idx} label={`${c.label} Prop Line`} value={c.value} trend={trend} trendText={`L${windowN} Avg: ${recentAvg.toFixed(1)} (${delta>=0?'+':''}${delta.toFixed(1)})`} confidence={conf} recommendation={rec} details={details as Array<{ label: string; value: string }>} />
-              })
+              }).filter(Boolean)
             })()}
           </div>
 
