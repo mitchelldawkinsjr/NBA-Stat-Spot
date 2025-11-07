@@ -66,9 +66,16 @@ Backend runs on http://localhost:8000, Frontend on http://localhost:5173
 - docs/: API contracts and ops notes
 
 ## Documentation
-- **API Contracts**: See `docs/api-contracts.md`
-- **Deployment Guide**: See `docs/deployment.md`
-- **Operations Runbook**: See `docs/runbook.md`
+
+All documentation is located in the `docs/` directory. See [docs/README.md](docs/README.md) for a complete index.
+
+**Quick Links**:
+- 📖 [Documentation Index](docs/README.md) - Overview of all guides
+- 🚀 [Deployment Guide](docs/deployment.md) - How to deploy the application
+- 📡 [API Contracts](docs/api-contracts.md) - API endpoint reference
+- 🔧 [Operations Runbook](docs/runbook.md) - Operations and troubleshooting
+- 🌐 [GitHub Pages Deployment](docs/github-pages-deployment.md) - Frontend-only deployment
+- 🎨 [Theme Setup](docs/theme-setup.md) - Sliced Pro theme configuration
 
 ## Disclaimer
 This app provides informational analysis only and is not financial advice.

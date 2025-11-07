@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
+from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import datetime, date
+from sqlalchemy.orm import Session
+from ..database import get_db
 from ..services.prop_scanner import PropScannerService
 from ..services.nba_api_service import NBADataService
 from ..services.daily_props_service import DailyPropsService
 from ..services.high_hit_rate_service import HighHitRateService
+from ..services.settings_service import SettingsService
+from ..services.data_integrity_service import DataIntegrityService
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin_v1"])
 
@@ -321,3 +326,109 @@ def cache_status():
             "count": len(_best_bets_cache)
         }
     }
+
+@router.get("/settings/ai-enabled")
+def get_ai_enabled(db: Session = Depends(get_db)):
+    """Get AI enabled status"""
+    try:
+        enabled = SettingsService.get_ai_enabled(db)
+        return {
+            "aiEnabled": enabled,
+            "status": "enabled" if enabled else "disabled"
+        }
+    except Exception as e:
+        return {"aiEnabled": False, "status": "error", "error": str(e)}
+
+class AIEnabledRequest(BaseModel):
+    enabled: bool
+
+@router.post("/settings/ai-enabled")
+def set_ai_enabled(request: AIEnabledRequest, db: Session = Depends(get_db)):
+    """Enable or disable AI features"""
+    try:
+        SettingsService.set_ai_enabled(request.enabled, db)
+        return {
+            "status": "success",
+            "aiEnabled": request.enabled,
+            "message": f"AI features {'enabled' if request.enabled else 'disabled'}"
+        }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+@router.get("/settings")
+def get_all_settings(db: Session = Depends(get_db)):
+    """Get all application settings"""
+    try:
+        settings = SettingsService.get_all_settings(db)
+        return {"settings": settings}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+# Data Integrity & Checksum Endpoints
+_last_integrity_check: Optional[Dict] = None
+_last_integrity_check_time: Optional[datetime] = None
+
+@router.post("/data-integrity/check")
+def run_data_integrity_check(
+    season: Optional[str] = Query(None, description="Season to check"),
+    db: Session = Depends(get_db)
+):
+    """Run full data integrity check comparing source data with database"""
+    global _last_integrity_check, _last_integrity_check_time
+    try:
+        results = DataIntegrityService.run_full_integrity_check(db, season)
+        _last_integrity_check = results
+        _last_integrity_check_time = datetime.now()
+        return {
+            "status": "success",
+            "results": results,
+            "checked_at": _last_integrity_check_time.isoformat()
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.get("/data-integrity/status")
+def get_data_integrity_status():
+    """Get last data integrity check results"""
+    global _last_integrity_check, _last_integrity_check_time
+    if not _last_integrity_check:
+        return {
+            "status": "no_check",
+            "message": "No integrity check has been run yet"
+        }
+    return {
+        "status": "success",
+        "results": _last_integrity_check,
+        "checked_at": _last_integrity_check_time.isoformat() if _last_integrity_check_time else None
+    }
+
+@router.post("/data-integrity/check/players")
+def check_players_integrity(db: Session = Depends(get_db)):
+    """Check only players data integrity"""
+    try:
+        results = DataIntegrityService.check_players_integrity(db)
+        return {"status": "success", "results": results}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.post("/data-integrity/check/game-stats")
+def check_game_stats_integrity(
+    season: Optional[str] = Query(None),
+    player_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Check only game stats data integrity"""
+    try:
+        results = DataIntegrityService.check_game_stats_integrity(db, season, player_id)
+        return {"status": "success", "results": results}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.post("/data-integrity/check/prop-suggestions")
+def check_prop_suggestions_integrity(db: Session = Depends(get_db)):
+    """Check only prop suggestions data integrity"""
+    try:
+        results = DataIntegrityService.check_prop_suggestions_integrity(db)
+        return {"status": "success", "results": results}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

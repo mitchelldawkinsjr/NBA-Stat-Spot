@@ -43,3 +43,6 @@ Thumbs.db
 .env
 celerybeat-schedule
 
+# Theme source files (built assets are in frontend/public/sliced/)
+THEME/
+

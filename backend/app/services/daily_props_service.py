@@ -75,7 +75,32 @@ class DailyPropsService:
                     fair_line = PropBetEngine.determine_line_value(logs, stat_key)
                     
                     # Evaluate prop using the fair line as the market line
-                    evaluation = PropBetEngine.evaluate_prop(logs, stat_key, fair_line)
+                    # Check if AI is enabled globally
+                    try:
+                        from ..services.settings_service import SettingsService
+                        ai_enabled = SettingsService.get_ai_enabled()
+                    except Exception:
+                        ai_enabled = False
+                    
+                    # Try AI-enhanced evaluation if enabled and we have game context
+                    if ai_enabled and game_date:
+                        try:
+                            from datetime import datetime
+                            game_date_obj = datetime.strptime(game_date, "%Y-%m-%d").date() if isinstance(game_date, str) else game_date
+                            # Try to get opponent team ID from game context (simplified)
+                            evaluation = PropBetEngine.evaluate_prop_with_ml(
+                                logs, stat_key, fair_line, "over",
+                                player_id=player_id,
+                                game_date=game_date_obj,
+                                opponent_team_id=None,  # Would need to extract from game context
+                                is_home_game=True,  # Would need to extract from game context
+                                season=season
+                            )
+                        except Exception:
+                            # Fallback to rule-based
+                            evaluation = PropBetEngine.evaluate_prop(logs, stat_key, fair_line)
+                    else:
+                        evaluation = PropBetEngine.evaluate_prop(logs, stat_key, fair_line)
                     
                     # Map stat key to display format
                     display_map = {
