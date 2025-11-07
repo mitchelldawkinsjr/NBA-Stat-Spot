@@ -5,25 +5,37 @@ import { SuggestionCards } from './SuggestionCards'
 const TYPES = ['All','PTS','REB','AST','3PM','PRA'] as const
 type TypeFilter = typeof TYPES[number]
 
-async function fetchDaily(minConfidence?: number) {
-  const url = minConfidence ? `/api/v1/props/daily?min_confidence=${minConfidence}` : '/api/v1/props/daily'
+async function fetchDaily(minConfidence?: number, date?: string) {
+  const params = new URLSearchParams()
+  if (minConfidence) params.append('min_confidence', minConfidence.toString())
+  if (date) params.append('date', date)
+  const url = `/api/v1/props/daily${params.toString() ? '?' + params.toString() : ''}`
   const res = await fetch(url)
   if (!res.ok) throw new Error('Failed to load')
   return res.json()
 }
 
 export function DailyPropsPanel() {
+  // Get today's date for filtering - use local date to match what user sees
+  const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD format in local timezone
   const [minConf, setMinConf] = useState<number>(50)
   const [type, setType] = useState<TypeFilter>('All')
   const [q, setQ] = useState<string>('')
-  const { data, isLoading, error, refetch } = useQuery({ queryKey: ['daily-props', minConf], queryFn: () => fetchDaily(minConf) })
+  const { data, isLoading, error, refetch } = useQuery({ queryKey: ['daily-props', minConf, today], queryFn: () => fetchDaily(minConf, today) })
 
-  useEffect(() => { refetch() }, [minConf])
+  useEffect(() => { refetch() }, [minConf, today])
 
   const items = (data?.items ?? []) as any[]
   const filtered = useMemo(() => {
-    return items.filter((s) => (type === 'All' || s.type === type) && (!q || (s.playerName || '').toLowerCase().includes(q.toLowerCase())))
-  }, [items, type, q])
+    // First filter by date to ensure we only show props for today
+    const todayItems = items.filter((item: any) => {
+      const itemDate = item.gameDate || item.game_date
+      // Must have a date and it must match today
+      return itemDate && (itemDate === today || itemDate.startsWith(today))
+    })
+    // Then apply type and search filters
+    return todayItems.filter((s) => (type === 'All' || s.type === type) && (!q || (s.playerName || '').toLowerCase().includes(q.toLowerCase())))
+  }, [items, type, q, today])
 
   return (
     <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff', padding: 12 }}>

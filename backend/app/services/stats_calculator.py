@@ -8,11 +8,26 @@ class StatsCalculator:
         return sum(vals) / len(vals) if vals else 0.0
 
     @staticmethod
-    def calculate_hit_rate(player_stats: List[Dict], line_value: float, stat_type: str) -> float:
+    def calculate_hit_rate(player_stats: List[Dict], line_value: float, stat_type: str, direction: str = "over") -> float:
+        """
+        Calculate hit rate for a prop line.
+        
+        Args:
+            player_stats: List of game stat dictionaries
+            line_value: The line value to check against
+            stat_type: The stat type (pts, reb, ast, tpm, pra)
+            direction: "over" or "under" (default: "over")
+        
+        Returns:
+            Hit rate as a float between 0.0 and 1.0
+        """
         vals = [float(g.get(stat_type, 0) or 0) for g in player_stats]
         if not vals:
             return 0.0
-        hits = sum(1 for v in vals if v > line_value)
+        if direction.lower() == "under":
+            hits = sum(1 for v in vals if v < line_value)
+        else:  # "over" is default
+            hits = sum(1 for v in vals if v > line_value)
         return hits / len(vals)
 
     @staticmethod

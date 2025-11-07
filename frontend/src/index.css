@@ -2,5 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color: #111827; background-color: #ffffff; }
+:root {
+  color: #111827; /* text-gray-900 */
+  background-color: #ffffff;
+  /* Theme tokens for charts */
+  --chart-primary: #2D68F8; /* Sliced Pro blue */
+  --chart-accent-1: #F59E0B; /* amber */
+  --chart-accent-2: #10B981; /* emerald */
+  --chart-danger: #EF4444; /* red */
+  --panel-bg: #ffffff;
+  --panel-border: #e5e7eb; /* gray-200 */
+}
 body { margin: 0; min-width: 320px; min-height: 100vh; }

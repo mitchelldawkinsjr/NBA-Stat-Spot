@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { PlayerSearch } from './PlayerSearch'
 import { SuggestionCards } from './SuggestionCards'
 import { useSeason } from '../context/SeasonContext'
@@ -65,7 +66,37 @@ export function QuickPropLab() {
           <span style={{ marginLeft: 8, fontSize: 12, color: '#6b7280' }}>Enter your book's line to see Over/Under + Edge/Confidence.</span>
         </div>
         <div>
-          {suggestions.length === 0 ? <div style={{ color: '#6b7280' }}>No result yet.</div> : <SuggestionCards suggestions={suggestions} />}
+          {suggestions.length === 0 ? (
+            <div style={{ color: '#6b7280' }}>No result yet.</div>
+          ) : (
+            <>
+              <SuggestionCards suggestions={suggestions} />
+              {player && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #e5e7eb' }}>
+                  <Link
+                    to={`/player/${player.id}`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 12px',
+                      background: '#f3f4f6',
+                      color: '#2563eb',
+                      borderRadius: 6,
+                      textDecoration: 'none',
+                      fontSize: 14,
+                      fontWeight: 500,
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: 16, height: 16 }}>
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                    </svg>
+                    View {player.name}'s Profile
+                  </Link>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

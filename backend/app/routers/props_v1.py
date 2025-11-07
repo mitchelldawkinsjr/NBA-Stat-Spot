@@ -4,6 +4,9 @@ from typing import Optional, List, Dict
 from ..services.nba_api_service import NBADataService
 from ..services.prop_engine import PropBetEngine
 from ..services.prop_filter import PropFilter
+from ..services.daily_props_service import DailyPropsService
+from ..services.high_hit_rate_service import HighHitRateService
+from ..services.stats_calculator import StatsCalculator
 
 router = APIRouter(prefix="/api/v1/props", tags=["props_v1"])
 
@@ -25,6 +28,7 @@ class PlayerSuggestRequest(BaseModel):
     lastN: Optional[int] = None
     home: Optional[str] = None  # 'home' | 'away' | None
     marketLines: Optional[Dict[str, float]] = None  # e.g., {"PTS": 24.5}
+    direction: Optional[str] = None  # 'over' | 'under' - applies to all market lines
 
 @router.post("/player")
 def suggest_player_props(req: PlayerSuggestRequest):
@@ -57,6 +61,11 @@ def suggest_player_props(req: PlayerSuggestRequest):
 
     suggestions: List[Dict] = []
     lines = req.marketLines or {}
+    # Use provided direction or default to "over"
+    direction = (req.direction or "over").lower()
+    if direction not in ("over", "under"):
+        direction = "over"
+    
     # Map display -> stat key
     key_map = {"PTS": "pts", "REB": "reb", "AST": "ast", "3PM": "tpm", "PRA": "pra"}
     for disp_key, market_line in lines.items():
@@ -65,12 +74,21 @@ def suggest_player_props(req: PlayerSuggestRequest):
             continue
         try:
             fair = PropBetEngine.determine_line_value(logs, stat_key)
-            ev = PropBetEngine.evaluate_prop(logs, stat_key, float(market_line))
+            # Evaluate with the specified direction
+            ev = PropBetEngine.evaluate_prop(logs, stat_key, float(market_line), direction)
+            # Always calculate both hit rates for completeness
+            hit_rate_over = StatsCalculator.calculate_hit_rate(logs, float(market_line), stat_key, "over")
+            hit_rate_under = StatsCalculator.calculate_hit_rate(logs, float(market_line), stat_key, "under")
             suggestions.append({
                 "type": disp_key,
                 "marketLine": float(market_line),
                 "fairLine": float(fair),
+                "direction": direction,  # Include the direction used
                 "confidence": ev.get("confidence"),
+                "suggestion": ev.get("suggestion"),  # Include suggestion to match PlayerProfile
+                "hitRate": ev.get("stats", {}).get("hit_rate"),  # Hit rate for the specified direction
+                "hitRateOver": hit_rate_over,  # Always include over hit rate
+                "hitRateUnder": hit_rate_under,  # Always include under hit rate
                 "rationale": [ev.get("rationale", {}).get("summary", "Based on recent form and hit rate")],
             })
         except Exception:
@@ -78,62 +96,62 @@ def suggest_player_props(req: PlayerSuggestRequest):
     return {"suggestions": suggestions}
 
 @router.get("/daily")
-def daily_props(date: Optional[str] = None, min_confidence: Optional[float] = None, limit: int = 50):
-    # Determine today's teams from live scoreboard
-    try:
-        games = NBADataService.fetch_todays_games()
-    except Exception:
-        games = []
-
-    team_abbrs = set()
-    for g in games:
-        if g.get("home"):
-            team_abbrs.add(g.get("home"))
-        if g.get("away"):
-            team_abbrs.add(g.get("away"))
-
-    items: List[Dict] = []
-    if team_abbrs:
-        # Map abbr -> team id
-        teams = NBADataService.fetch_all_teams() or []
-        abbr_to_id = {t.get("abbreviation"): t.get("id") for t in teams}
-        team_ids_today = {abbr_to_id.get(ab) for ab in team_abbrs if ab in abbr_to_id}
-
-        # Filter active players on today's teams
-        active = NBADataService.fetch_active_players() or []
-        todays_players = [p for p in active if p.get("team_id") in team_ids_today]
-
-        # Limit to reasonable number
-        todays_players = todays_players[:60]
-
-        for p in todays_players:
-            pid = p.get("id")
-            pname = p.get("full_name")
-            try:
-                sugs = build_suggestions_for_player(int(pid), "2025-26")
-                if min_confidence:
-                    sugs = PropFilter.filter_by_confidence(sugs, min_confidence)
-                for s in sugs:
-                    s.update({"playerId": pid, "playerName": pname})
-                items.extend(sugs)
-            except Exception:
-                continue
+def daily_props(
+    date: Optional[str] = None, 
+    min_confidence: Optional[float] = None, 
+    limit: int = 50,
+    season: Optional[str] = None,
+    last_n: Optional[int] = None
+):
+    """
+    Get top daily props for all players playing today.
+    Uses cached data if available (cached for today), otherwise fetches fresh data.
+    """
+    from datetime import date as date_type, datetime
+    from ..routers.admin_v1 import _daily_props_cache, _daily_props_cache_date, _daily_props_cache_time, _is_cache_valid
+    
+    # Determine the target date - use provided date or today
+    if date:
+        target_date_str = date
     else:
-        # Fallback to a small featured set if no games found
-        featured = [2544, 201939, 203507, 1629029, 203076]
-        for pid in featured:
-            try:
-                sugs = build_suggestions_for_player(pid, "2025-26")
-                if min_confidence:
-                    sugs = PropFilter.filter_by_confidence(sugs, min_confidence)
-                for s in sugs:
-                    s.update({"playerId": pid})
-                items.extend(sugs)
-            except Exception:
-                continue
-
-    items = PropFilter.rank_suggestions(items, "confidence")[: max(1, limit)]
-    return {"items": items}
+        target_date_str = datetime.now().strftime("%Y-%m-%d")
+    
+    # Check if we have valid cached data for the requested date
+    cache_date_str = _daily_props_cache_date.strftime("%Y-%m-%d") if _daily_props_cache_date else None
+    cache_is_for_requested_date = cache_date_str == target_date_str
+    
+    if _is_cache_valid(_daily_props_cache_date, _daily_props_cache_time) and _daily_props_cache and cache_is_for_requested_date:
+        # Return cached data, but filter by gameDate to ensure we only return props for the requested date
+        items = _daily_props_cache.get("items", [])
+        # Filter by gameDate to ensure we only return props for today
+        # If gameDate is not set, include the item (assume it's for today since cache is for today)
+        filtered_items = []
+        for item in items:
+            item_date = item.get("gameDate") or item.get("game_date")
+            if item_date:
+                # If gameDate exists, it must match the target date
+                if item_date == target_date_str or item_date.startswith(target_date_str):
+                    filtered_items.append(item)
+            else:
+                # If no gameDate, include it (cache is for today, so items should be for today)
+                filtered_items.append(item)
+        items = filtered_items
+        # Apply filters if provided
+        if min_confidence:
+            items = [item for item in items if (item.get("confidence") or 0) >= min_confidence]
+        if limit:
+            items = items[:limit]
+        return {"items": items, "cached": True, "cachedAt": _daily_props_cache_time.isoformat() if _daily_props_cache_time else None}
+    
+    # No valid cache for requested date, fetch fresh data
+    result = DailyPropsService.get_top_props_for_date(
+        date=date,
+        season=season,
+        min_confidence=min_confidence,
+        limit=limit,
+        last_n=last_n
+    )
+    return {"items": result.get("items", []), "cached": False}
 
 @router.get("/player/{player_id}")
 def player_props(player_id: int, date: Optional[str] = None, season: Optional[str] = None):
@@ -148,6 +166,76 @@ def game_props(game_id: str):
 def trending_props(limit: int = 10):
     items = daily_props().get("items", [])[:limit]
     return {"items": items}
+
+@router.get("/high-hit-rate")
+def high_hit_rate_props(
+    date: Optional[str] = None,
+    season: Optional[str] = None,
+    min_hit_rate: float = 0.75,
+    limit: int = 10,
+    last_n: Optional[int] = None
+):
+    """
+    Get props with high historical hit rates for players playing today.
+    Uses cached data if available (cached for today), otherwise fetches fresh data.
+    
+    Args:
+        date: Date to check (YYYY-MM-DD), defaults to today
+        season: Season string, defaults to current season
+        min_hit_rate: Minimum hit rate threshold (0.0-1.0), default 0.75 (75%)
+        limit: Maximum number of results to return
+        last_n: Number of recent games to consider for hit rate calculation
+    """
+    from datetime import datetime
+    from ..routers.admin_v1 import _high_hit_rate_cache, _high_hit_rate_cache_date, _high_hit_rate_cache_time, _is_cache_valid
+    
+    # Determine the target date - use provided date or today
+    if date:
+        target_date_str = date
+    else:
+        target_date_str = datetime.now().strftime("%Y-%m-%d")
+    
+    # Check if we have valid cached data for the requested date
+    cache_date_str = _high_hit_rate_cache_date.strftime("%Y-%m-%d") if _high_hit_rate_cache_date else None
+    cache_is_for_requested_date = cache_date_str == target_date_str
+    
+    if _is_cache_valid(_high_hit_rate_cache_date, _high_hit_rate_cache_time) and _high_hit_rate_cache and cache_is_for_requested_date:
+        # Return cached data, but filter by gameDate to ensure we only return props for the requested date
+        items = _high_hit_rate_cache.get("items", [])
+        # Filter by gameDate to ensure we only return props for today
+        # If gameDate is not set, include the item (assume it's for today since cache is for today)
+        filtered_items = []
+        for item in items:
+            item_date = item.get("gameDate") or item.get("game_date")
+            if item_date:
+                # If gameDate exists, it must match the target date
+                if item_date == target_date_str or item_date.startswith(target_date_str):
+                    filtered_items.append(item)
+            else:
+                # If no gameDate, include it (cache is for today, so items should be for today)
+                filtered_items.append(item)
+        items = filtered_items
+        # Apply filters if provided (cache uses default 0.75, but we can filter further)
+        if min_hit_rate > 0.75:
+            items = [item for item in items if (item.get("hitRate", 0) / 100) >= min_hit_rate]
+        if limit:
+            items = items[:limit]
+        result = _high_hit_rate_cache.copy()
+        result["items"] = items
+        result["cached"] = True
+        result["cachedAt"] = _high_hit_rate_cache_time.isoformat() if _high_hit_rate_cache_time else None
+        return result
+    
+    # No valid cache for requested date, fetch fresh data
+    result = HighHitRateService.get_high_hit_rate_bets(
+        date=date,
+        season=season,
+        min_hit_rate=min_hit_rate,
+        limit=limit,
+        last_n=last_n
+    )
+    result["cached"] = False
+    return result
 
 @router.get("/types")
 def prop_types():
