@@ -38,3 +38,8 @@ Thumbs.db
 
 # Misc
 *.local
+*.db
+*.db-journal
+.env
+celerybeat-schedule
+

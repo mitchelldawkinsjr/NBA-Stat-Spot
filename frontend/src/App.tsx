@@ -1,37 +1,33 @@
-import './App.css'
-import { Link, Routes, Route } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import { GoodBetsDashboard } from './components/GoodBetsDashboard'
-import { PlayerSearch } from './components/PlayerSearch'
-import { SuggestionsTable } from './components/SuggestionsTable'
-import { useState } from 'react'
-
-function SuggestPage() {
-  const [player, setPlayer] = useState<{ id: number; name: string } | null>(null)
-  return (
-    <div>
-      <h2>Suggest Props</h2>
-      <PlayerSearch onSelect={setPlayer} />
-      <div style={{ marginTop: 12 }} />
-      <SuggestionsTable player={player} />
-    </div>
-  )
-}
+import { ParlayBuilder } from './components/ParlayBuilder'
+import { BetTracker } from './components/BetTracker'
+import PlayerProfile from './pages/PlayerProfile'
+import TeamProfile from './pages/TeamProfile'
+import ExplorePage from './pages/ExplorePage'
+import AdminDashboard from './pages/AdminDashboard'
+import SliceProLayout from './layouts/SliceProLayout'
+import { SnackbarProvider } from './context/SnackbarContext'
+// Flowbite layout removed
 
 function App() {
   return (
-    <div style={{ padding: 16 }}>
-      <h1>NBA Stat Spot</h1>
-      <nav style={{ display: 'flex', gap: 12 }}>
-        <Link to="/">Dashboard</Link>
-        <Link to="/suggest">Suggest Props</Link>
-      </nav>
-      <div style={{ marginTop: 12 }}>
-        <Routes>
-          <Route path="/" element={<GoodBetsDashboard />} />
-          <Route path="/suggest" element={<SuggestPage />} />
-        </Routes>
-      </div>
-    </div>
+    <SnackbarProvider>
+      <SliceProLayout>
+          <Routes>
+            <Route path="/" element={<GoodBetsDashboard />} />
+            <Route path="/dashboard" element={<GoodBetsDashboard />} />
+            <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/parlay" element={<ParlayBuilder />} />
+            <Route path="/bets" element={<BetTracker />} />
+            <Route path="/player/:id" element={<PlayerProfile />} />
+            <Route path="/team/:id" element={<TeamProfile />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            {/* Back-compat alias */}
+            <Route path="/suggest" element={<ExplorePage />} />
+          </Routes>
+      </SliceProLayout>
+    </SnackbarProvider>
   )
 }
 

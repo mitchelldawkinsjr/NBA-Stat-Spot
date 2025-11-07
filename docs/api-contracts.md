@@ -8,4 +8,4 @@
 - GET /api/schedule/upcoming?hours=24 → 200 { games: Game[] }
 - POST /api/props/good-bets → 200 { games: Array<{ game: Game; top: PropSuggestion[] }> }
 
-See PropBetApp_Waterfall_Plan.html for fields.
+For detailed field definitions, see the Pydantic models in `backend/app/api/` and SQLAlchemy models in `backend/app/models/`.
