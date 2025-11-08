@@ -14,6 +14,7 @@ import { OddsCard } from '../components/OddsCard'
 import { DataTable } from '../components/ui/DataTable'
 import type { DataTableColumn } from '../components/ui/DataTable'
 import { pearsonCorrelation } from '../utils/correlation'
+import { PageLoader } from '../components/LoadingSpinner'
 
 type GameLog = {
   game_id: string
@@ -38,46 +39,125 @@ export default function PlayerProfile() {
 
   useEffect(() => {
     (async () => {
-      if (!id) return
+      if (!id) {
+        setError('Player ID is required')
+        setLoading(false)
+        return
+      }
+      
+      // Validate player ID is a number
+      const playerIdNum = parseInt(id, 10)
+      if (isNaN(playerIdNum)) {
+        setError(`Invalid player ID: ${id}`)
+        setLoading(false)
+        return
+      }
+      
       setLoading(true)
       setError(null)
       try {
         // Fetch player detail for display name and team
         try {
-          const rName = await fetch(`/api/v1/players/${id}`)
+          const rName = await fetch(`/api/v1/players/${playerIdNum}`)
           if (rName.ok) {
             const j = await rName.json()
             if (j?.player?.name) setPlayerName(String(j.player.name))
             if (j?.player?.team_id) setTeamId(Number(j.player.team_id))
             if (j?.player?.team_name) setTeamName(String(j.player.team_name))
+          } else if (rName.status === 404) {
+            // Player not found - set error but continue to try stats
+            setError(`Player ${playerIdNum} not found`)
           }
-        } catch { /* ignore name fetch failure */ }
-        const res = await fetch(`/api/v1/players/${id}/stats?games=20&season=${encodeURIComponent(season)}`)
-        if (!res.ok) throw new Error('Failed to load stats')
+        } catch (e) {
+          // Ignore name fetch failure, but log it
+          // Failed to fetch player details - will continue with stats fetch
+        }
+        
+        // Add timeout to prevent hanging
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+        
+        let res
+        try {
+          res = await fetch(`/api/v1/players/${playerIdNum}/stats?games=20&season=${encodeURIComponent(season)}`, {
+            signal: controller.signal
+          })
+        } catch (fetchError: unknown) {
+          clearTimeout(timeoutId)
+          if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+            throw new Error('Request timed out. Please try again.')
+          }
+          throw fetchError
+        }
+        clearTimeout(timeoutId)
+        
+        if (!res.ok) {
+          // Try to get error message from response
+          let errorMessage = 'Failed to load stats'
+          try {
+            const errorData = await res.json()
+            errorMessage = errorData.detail || errorData.message || errorMessage
+          } catch {
+            // If response isn't JSON, use status-based message
+            if (res.status === 404) {
+              errorMessage = 'Player not found'
+            } else if (res.status >= 500) {
+              errorMessage = 'Server error. The player may not have game data available.'
+            } else if (res.status === 422) {
+              errorMessage = 'Invalid player ID format'
+            }
+          }
+          throw new Error(errorMessage)
+        }
         const data = await res.json()
-        const base: GameLog[] = (data.items || []).map((g: any) => ({
-          game_id: String(g.game_id || g.gameId || g.Game_ID || ''),
-          game_date: String(g.game_date || g.gameDate || g.GAME_DATE || ''),
-          matchup: String(g.matchup || g.MATCHUP || ''),
-          pts: Number(g.pts ?? g.PTS ?? 0),
-          reb: Number(g.reb ?? g.REB ?? 0),
-          ast: Number(g.ast ?? g.AST ?? 0),
-          tpm: Number(g.tpm ?? g.FG3M ?? 0),
-        }))
+        // Add null checks and filter to prevent errors
+        const base: GameLog[] = (data.items || [])
+          .map((g: unknown): GameLog | null => {
+            // Skip null/undefined items
+            if (!g || typeof g !== 'object') return null
+            const game = g as Record<string, unknown>
+            return {
+              game_id: String(game.game_id || game.gameId || game.Game_ID || ''),
+              game_date: String(game.game_date || game.gameDate || game.GAME_DATE || ''),
+              matchup: String(game.matchup || game.MATCHUP || ''),
+              pts: Number(game.pts ?? game.PTS ?? 0),
+              reb: Number(game.reb ?? game.REB ?? 0),
+              ast: Number(game.ast ?? game.AST ?? 0),
+              tpm: Number(game.tpm ?? game.FG3M ?? 0),
+            }
+          })
+          .filter((g: GameLog | null): g is GameLog => g !== null) // Filter out nulls
         if (base.length === 0 && season !== '2024-25') {
           // Fallback to prior season if current season has no logs
-          const res2 = await fetch(`/api/v1/players/${id}/stats?games=20&season=${encodeURIComponent('2024-25')}`)
-          if (res2.ok) {
+          const controller2 = new AbortController()
+          const timeoutId2 = setTimeout(() => controller2.abort(), 15000)
+          let res2
+          try {
+            res2 = await fetch(`/api/v1/players/${playerIdNum}/stats?games=20&season=${encodeURIComponent('2024-25')}`, {
+              signal: controller2.signal
+            })
+            clearTimeout(timeoutId2)
+          } catch {
+            clearTimeout(timeoutId2)
+            res2 = null
+          }
+          if (res2 && res2.ok) {
             const d2 = await res2.json()
-            const base2: GameLog[] = (d2.items || []).map((g: any) => ({
-              game_id: String(g.game_id || g.gameId || g.Game_ID || ''),
-              game_date: String(g.game_date || g.gameDate || g.GAME_DATE || ''),
-              matchup: String(g.matchup || g.MATCHUP || ''),
-              pts: Number(g.pts ?? g.PTS ?? 0),
-              reb: Number(g.reb ?? g.REB ?? 0),
-              ast: Number(g.ast ?? g.AST ?? 0),
-              tpm: Number(g.tpm ?? g.FG3M ?? 0),
-            }))
+            const base2: GameLog[] = (d2.items || [])
+              .map((g: unknown): GameLog | null => {
+                if (!g || typeof g !== 'object') return null
+                const game = g as Record<string, unknown>
+                return {
+                  game_id: String(game.game_id || game.gameId || game.Game_ID || ''),
+                  game_date: String(game.game_date || game.gameDate || game.GAME_DATE || ''),
+                  matchup: String(game.matchup || game.MATCHUP || ''),
+                  pts: Number(game.pts ?? game.PTS ?? 0),
+                  reb: Number(game.reb ?? game.REB ?? 0),
+                  ast: Number(game.ast ?? game.AST ?? 0),
+                  tpm: Number(game.tpm ?? game.FG3M ?? 0),
+                }
+              })
+              .filter((g: GameLog | null): g is GameLog => g !== null) // Filter out nulls
             setLogs(base2)
             if (base2.length > 0) setFallbackUsed('2024-25')
             else setLogs(base)
@@ -87,8 +167,14 @@ export default function PlayerProfile() {
         } else {
           setLogs(base)
         }
-      } catch (e: any) {
-        setError(e?.message || 'Error')
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : 'Error loading player stats'
+        if (logs.length === 0) {
+          setError(errorMessage)
+        } else {
+          // If we have some logs, just log the error but don't show it
+          // Error loading additional data - logged but not shown to user
+        }
       } finally {
         setLoading(false)
       }
@@ -158,12 +244,12 @@ export default function PlayerProfile() {
 
   // Evaluate the entered line using backend suggestion engine
   const apiKeyMap: Record<'PTS'|'REB'|'AST'|'3PM'|'PRA', 'pts'|'reb'|'ast'|'tpm'|'pra'> = { PTS: 'pts', REB: 'reb', AST: 'ast', '3PM': 'tpm', PRA: 'pra' }
-  const [evalResult, setEvalResult] = useState<any>(null)
+  const [evalResult, setEvalResult] = useState<{ suggestions?: Array<{ type: string; [key: string]: unknown }> } | null>(null)
   const evalLine = useMutation({
     mutationFn: async () => {
       if (!id || !hrLine) return null
       const seasonToUse = (fallbackUsed || season || '2025-26') as string
-      const body: any = {
+      const body: Record<string, unknown> = {
         playerId: Number(id),
         season: seasonToUse,
         lastN: windowN,
@@ -200,11 +286,11 @@ export default function PlayerProfile() {
   // Last N games selector for Historical Prop Performance
   const [histLastN, setHistLastN] = useState<5 | 10>(5)
 
-  const selectedSuggestion: any | null = useMemo(() => {
+  const selectedSuggestion: { type: string; chosenDirection: 'over' | 'under'; [key: string]: unknown } | null = useMemo(() => {
     const items = evalResult?.suggestions || []
-    const match = items.find((s: any) => s.type === hrStat)
+    const match = items.find((s: { type: string; [key: string]: unknown }) => s.type === hrStat)
     if (!match) return null
-    return { ...match, chosenDirection: hrDir }
+    return { ...match, chosenDirection: hrDir as 'over' | 'under' }
   }, [evalResult, hrStat, hrDir])
 
   
@@ -274,9 +360,43 @@ export default function PlayerProfile() {
       
       
       {loading ? (
-        <div className="mt-3 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700">Loading…</div>
+        <div className="mt-4">
+          <PageLoader message="Loading player stats..." />
+        </div>
       ) : error ? (
-        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">Error: {error}</div>
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <div className="font-semibold mb-2">Error loading player data</div>
+          <div>{error}</div>
+          <div className="mt-3">
+            <Link to="/explore" className="text-blue-600 hover:underline text-sm">
+              ← Return to Explore
+            </Link>
+          </div>
+        </div>
+      ) : logs.length === 0 && !loading ? (
+        <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 p-6 text-center">
+          <div className="font-semibold text-yellow-800 mb-2">No Game Data Available</div>
+          <div className="text-sm text-yellow-700 mb-4">
+            {playerName || `Player ${id}`} doesn't have game statistics for the {season} season yet.
+          </div>
+          <div className="flex gap-3 justify-center">
+            <Link to="/explore" className="text-blue-600 hover:underline text-sm">
+              ← Return to Explore
+            </Link>
+            {season !== '2024-25' && (
+              <button
+                onClick={() => {
+                  // Try to trigger a refetch with fallback season
+                  setError(null)
+                  setLoading(true)
+                }}
+                className="text-blue-600 hover:underline text-sm"
+              >
+                Try Previous Season
+              </button>
+            )}
+          </div>
+        </div>
       ) : (
         <div id="player-profile-main" role="main" aria-labelledby="player-profile-title" className="space-y-4">
           {/* Controls (TailGrids: Toolbar) */}
@@ -294,7 +414,24 @@ export default function PlayerProfile() {
               <button onClick={() => setHrDir('over')} aria-pressed={hrDir==='over'} aria-label="Select Over" className={`px-3 py-2 rounded-lg border text-sm font-medium shadow-sm ${hrDir==='over' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-900 border-gray-300'}`}>Over</button>
               <button onClick={() => setHrDir('under')} aria-pressed={hrDir==='under'} aria-label="Select Under" className={`px-3 py-2 rounded-lg border text-sm font-medium shadow-sm ${hrDir==='under' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-900 border-gray-300'}`}>Under</button>
             </div>
-            <button onClick={() => evalLine.mutate()} aria-label="Evaluate line against recent performance" disabled={!hrLine || evalLine.isPending} className={`px-4 py-2 rounded-lg text-sm font-semibold ${(!hrLine || evalLine.isPending) ? 'opacity-70 cursor-not-allowed' : ''} bg-blue-600 hover:bg-blue-700 text-white shadow-sm`}>{evalLine.isPending ? 'Evaluating…' : 'Evaluate Line'}</button>
+            <button 
+              onClick={() => evalLine.mutate()} 
+              aria-label="Evaluate line against recent performance" 
+              disabled={!hrLine || evalLine.isPending} 
+              className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${(!hrLine || evalLine.isPending) ? 'opacity-70 cursor-not-allowed' : ''} bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all`}
+            >
+              {evalLine.isPending ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Evaluating…</span>
+                </>
+              ) : (
+                'Evaluate Line'
+              )}
+            </button>
           </div>
 
           {/* Betting Recommendations */}

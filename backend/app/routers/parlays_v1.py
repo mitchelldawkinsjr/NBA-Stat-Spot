@@ -2,7 +2,7 @@
 Parlays API Router - Track user parlay bets
 """
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import date, datetime
@@ -190,7 +190,7 @@ def list_parlays(
     db: Session = Depends(get_db)
 ):
     """List all parlays with optional filters"""
-    query = db.query(UserParlay)
+    query = db.query(UserParlay).options(joinedload(UserParlay.legs))
     
     if result:
         query = query.filter(UserParlay.result == result.lower())
@@ -199,7 +199,8 @@ def list_parlays(
     
     result_list = []
     for parlay in parlays:
-        legs = db.query(UserParlayLeg).filter(UserParlayLeg.parlay_id == parlay.id).all()
+        # Use eager-loaded legs instead of querying separately
+        legs = parlay.legs
         result_list.append(
             ParlayResponse(
                 id=parlay.id,
@@ -242,11 +243,12 @@ def list_parlays(
 @router.get("/{parlay_id}", response_model=ParlayResponse)
 def get_parlay(parlay_id: int, db: Session = Depends(get_db)):
     """Get a specific parlay by ID"""
-    parlay = db.query(UserParlay).filter(UserParlay.id == parlay_id).first()
+    parlay = db.query(UserParlay).options(joinedload(UserParlay.legs)).filter(UserParlay.id == parlay_id).first()
     if not parlay:
         raise HTTPException(status_code=404, detail="Parlay not found")
     
-    legs = db.query(UserParlayLeg).filter(UserParlayLeg.parlay_id == parlay_id).all()
+    # Use eager-loaded legs instead of querying separately
+    legs = parlay.legs
     
     return ParlayResponse(
         id=parlay.id,
@@ -287,7 +289,7 @@ def get_parlay(parlay_id: int, db: Session = Depends(get_db)):
 @router.patch("/{parlay_id}", response_model=ParlayResponse)
 def update_parlay(parlay_id: int, update: UpdateParlayRequest, db: Session = Depends(get_db)):
     """Update a parlay (typically to mark as won/lost)"""
-    parlay = db.query(UserParlay).filter(UserParlay.id == parlay_id).first()
+    parlay = db.query(UserParlay).options(joinedload(UserParlay.legs)).filter(UserParlay.id == parlay_id).first()
     if not parlay:
         raise HTTPException(status_code=404, detail="Parlay not found")
     
@@ -307,7 +309,8 @@ def update_parlay(parlay_id: int, update: UpdateParlayRequest, db: Session = Dep
     db.commit()
     db.refresh(parlay)
     
-    legs = db.query(UserParlayLeg).filter(UserParlayLeg.parlay_id == parlay_id).all()
+    # Use eager-loaded legs instead of querying separately
+    legs = parlay.legs
     
     return ParlayResponse(
         id=parlay.id,

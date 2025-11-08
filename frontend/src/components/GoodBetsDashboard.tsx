@@ -5,27 +5,58 @@ import { DailyPropsPanel } from './DailyPropsPanel'
 import { SuggestionCards } from './SuggestionCards'
 import { useSeason } from '../context/SeasonContext'
 import { useSnackbar } from '../context/SnackbarContext'
+import { getCache, setCache, clearCache, getTodayDate } from '../utils/cache'
 
 async function fetchToday(date?: string) {
   const params = new URLSearchParams()
   if (date) params.append('date', date)
   const url = `/api/v1/games/today${params.toString() ? '?' + params.toString() : ''}`
   const res = await fetch(url)
-  if (!res.ok) throw new Error('Failed to load')
-  return res.json()
+  if (!res.ok) {
+    const errorText = await res.text()
+    // Error handled by React Query - no console logging needed
+    throw new Error(`Failed to load games: ${res.status}`)
+  }
+  const data = await res.json()
+  return data
 }
 
 async function fetchDaily(minConfidence?: number, date?: string) {
+  const targetDate = date || getTodayDate()
+  const cacheKey = `daily-props-${minConfidence || 50}`
+  
+  // Check cache first
+  const cached = getCache(cacheKey, targetDate)
+  if (cached) {
+    return cached
+  }
+  
+  // Fetch from API
   const params = new URLSearchParams()
   if (minConfidence) params.append('min_confidence', minConfidence.toString())
   if (date) params.append('date', date)
   const url = `/api/v1/props/daily${params.toString() ? '?' + params.toString() : ''}`
   const res = await fetch(url)
   if (!res.ok) throw new Error('Failed to load daily')
-  return res.json()
+  const data = await res.json()
+  
+  // Cache the result
+  setCache(cacheKey, data, targetDate)
+  
+  return data
 }
 
 async function fetchHighHitRate(date?: string) {
+  const targetDate = date || getTodayDate()
+  const cacheKey = 'high-hit-rate-0.75-6-10'
+  
+  // Check cache first
+  const cached = getCache(cacheKey, targetDate)
+  if (cached) {
+    return cached
+  }
+  
+  // Fetch from API
   const params = new URLSearchParams()
   params.append('min_hit_rate', '0.75')
   params.append('limit', '6')
@@ -34,7 +65,12 @@ async function fetchHighHitRate(date?: string) {
   const url = `/api/v1/props/high-hit-rate?${params.toString()}`
   const res = await fetch(url)
   if (!res.ok) throw new Error('Failed to load high hit rate bets')
-  return res.json()
+  const data = await res.json()
+  
+  // Cache the result
+  setCache(cacheKey, data, targetDate)
+  
+  return data
 }
 
 async function fetchStatLeaders(season?: string) {
@@ -63,15 +99,18 @@ export function GoodBetsDashboard() {
     queryFn: () => fetchToday(today),
     staleTime: 0, // Always refetch
     refetchOnMount: true,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    gcTime: 0, // Don't cache - always fetch fresh
   })
   
   const { data: dailyData, isLoading: dailyLoading, error: dailyError, refetch: refetchDaily } = useQuery({ 
     queryKey: ['daily-50', today], 
     queryFn: () => fetchDaily(50, today),
-    staleTime: 0, // Always refetch
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
+    staleTime: 30 * 60 * 1000, // 30 minutes - daily props only change once per day
+    gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours (entire day)
+    refetchOnMount: false, // Use cache first, don't refetch on mount
+    refetchOnWindowFocus: false, // Don't refetch when window gains focus
+    refetchOnReconnect: false, // Don't refetch on reconnect
   })
   
   // Lazy load high hit rate after main dashboard loads
@@ -90,7 +129,11 @@ export function GoodBetsDashboard() {
     queryKey: ['high-hit-rate', today], 
     queryFn: () => fetchHighHitRate(today),
     enabled: shouldLoadHighHitRate, // Only load when enabled
-    staleTime: 0, // Refetch when enabled
+    staleTime: 30 * 60 * 1000, // 30 minutes - high hit rate only changes once per day
+    gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours (entire day)
+    refetchOnMount: false, // Use cache first
+    refetchOnWindowFocus: false, // Don't refetch when window gains focus
+    refetchOnReconnect: false, // Don't refetch on reconnect
     retry: 1,
   })
   
@@ -115,6 +158,10 @@ export function GoodBetsDashboard() {
         { name: 'High Hit Rate', fn: () => shouldLoadHighHitRate ? refetchHighHitRate() : Promise.resolve() },
       ]
 
+      // Clear local storage cache for today
+      clearCache('daily-props-50', today)
+      clearCache('high-hit-rate-0.75-6-10', today)
+      
       // Invalidate queries first
       queryClient.invalidateQueries({ queryKey: ['games-today', today] })
       queryClient.invalidateQueries({ queryKey: ['daily-50', today] })
@@ -129,7 +176,7 @@ export function GoodBetsDashboard() {
           // Update progress after task completes
           updateProgress(((i + 1) / tasks.length) * 100)
         } catch (error) {
-          console.error(`Error refreshing ${task.name}:`, error)
+          // Error handled - no console logging needed
           // Still update progress even if task fails
           updateProgress(((i + 1) / tasks.length) * 100)
         }
@@ -145,7 +192,7 @@ export function GoodBetsDashboard() {
       showSnackbar('Data refreshed successfully!', 'success', { duration: 3000 })
       
     } catch (error) {
-      console.error('Error refreshing data:', error)
+      // Error handled - no console logging needed
       hideSnackbar()
       showSnackbar('Failed to refresh data. Please try again.', 'error', { duration: 5000 })
     } finally {
@@ -154,6 +201,8 @@ export function GoodBetsDashboard() {
   }
   
   const games = gamesData?.games ?? []
+  
+  // Removed debug logging - use browser dev tools if needed
 
   const bestBets = useMemo(() => {
     // Only show bets if there are games today
@@ -197,15 +246,23 @@ export function GoodBetsDashboard() {
       // Must have a date and it must match today
       return itemDate && (itemDate === today || itemDate.startsWith(today))
     })
-    const byPlayer = new Map<number, { id: number; name: string; tags: string[]; highlight: any }>()
+    const byPlayer = new Map<number, { id: number; name: string; tags: string[]; highlight: any; confidence: number }>()
     for (const s of todayItems) {
       if (!s.playerId) continue
-      const entry = byPlayer.get(s.playerId) || { id: s.playerId, name: s.playerName || 'Player', tags: [] as string[], highlight: s }
+      const entry = byPlayer.get(s.playerId) || { id: s.playerId, name: s.playerName || 'Player', tags: [] as string[], highlight: s, confidence: s.confidence ?? 0 }
+      // Update highlight if this prop has higher confidence
+      if ((s.confidence ?? 0) > entry.confidence) {
+        entry.highlight = s
+        entry.confidence = s.confidence ?? 0
+      }
       if (s.type === 'PTS' && !entry.tags.includes('🔥 Hot Scoring')) entry.tags.push('🔥 Hot Scoring')
       if ((s.confidence ?? 0) >= 65 && !entry.tags.includes('📈 Trending')) entry.tags.push('📈 Trending')
       byPlayer.set(s.playerId, entry)
     }
-    return Array.from(byPlayer.values()).slice(0, 6)
+    // Sort by confidence (highest first) so top props appear on the left
+    return Array.from(byPlayer.values())
+      .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+      .slice(0, 6)
   }, [dailyData, today, games.length])
 
   const statLeaders = useMemo(() => {
@@ -412,67 +469,98 @@ export function GoodBetsDashboard() {
         </div>
       )}
 
-      {/* Stats Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-6">
-        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Suggestions</div>
-          <div className="text-2xl font-extrabold text-blue-900">{stats.count}</div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Avg Confidence</div>
-          <div className="text-2xl font-extrabold text-blue-900">{stats.avg}%</div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Top Confidence</div>
-          <div className="text-2xl font-extrabold text-blue-900">{stats.top}%</div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Games Today</div>
-          <div className="text-2xl font-extrabold text-blue-900">{stats.games}</div>
-        </div>
-        <div className="hidden lg:block bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Season</div>
-          <div className="text-2xl font-extrabold text-blue-900">{season}</div>
-        </div>
-      </div>
-
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Today's Games */}
           <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
-            <h3 className="text-lg font-semibold mb-3 text-gray-800">Today's Games</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-800">Today's Games</h3>
+              {games.length > 0 && (
+                <span className="text-xs text-gray-500">{games.length} game{games.length !== 1 ? 's' : ''}</span>
+              )}
+            </div>
             {gamesLoading ? (
-              <p className="text-gray-600">Loading games…</p>
+              <div className="flex items-center justify-center py-8">
+                <svg className="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="ml-2 text-sm text-gray-600">Loading games…</span>
+              </div>
             ) : gamesError ? (
-              <p className="text-red-600">Error loading schedule</p>
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+                <p className="font-medium">Error loading schedule</p>
+                {gamesError instanceof Error && (
+                  <p className="text-xs mt-1">{gamesError.message}</p>
+                )}
+              </div>
             ) : games.length === 0 ? (
-              <p className="text-gray-600">No games available.</p>
+              <div className="p-6 text-center bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-gray-600 font-medium">No games scheduled</p>
+                <p className="text-xs mt-1 text-gray-500">Date: {today}</p>
+              </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time (Local)</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Matchup</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {games.map((g: any, idx: number) => (
-                      <tr key={idx}>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-800">
-                          {g.gameTimeUTC ? new Date(g.gameTimeUTC).toLocaleTimeString('en-US', { 
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                          }) : 'TBD'}
-                        </td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{g.away} @ {g.home}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="overflow-x-auto -mx-4 px-4 pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" style={{ scrollbarWidth: 'thin' }}>
+                <div className="flex gap-3 min-w-max">
+                  {games.map((g: any, idx: number) => {
+                    const gameTime = g.gameTimeUTC ? new Date(g.gameTimeUTC).toLocaleTimeString('en-US', { 
+                      hour: '2-digit', 
+                      minute: '2-digit',
+                      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    }) : 'TBD'
+                    const statusColor = g.status === 'FINAL' ? 'bg-gray-100 text-gray-700 border-gray-300' :
+                                       g.status === 'LIVE' ? 'bg-red-100 text-red-700 border-red-300' :
+                                       'bg-blue-100 text-blue-700 border-blue-300'
+                    const cardBorder = g.status === 'LIVE' ? 'border-red-300 ring-1 ring-red-200' :
+                                      g.status === 'FINAL' ? 'border-gray-300' :
+                                      'border-gray-200'
+                    
+                    return (
+                      <div 
+                        key={g.gameId || idx} 
+                        className={`flex-none w-52 bg-white border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-4 ${cardBorder} ${g.status === 'LIVE' ? 'animate-pulse' : ''}`}
+                      >
+                        {/* Status Badge */}
+                        <div className="flex items-center justify-between mb-3">
+                          <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${statusColor}`}>
+                            {g.status || 'SCHEDULED'}
+                          </span>
+                          {g.status === 'LIVE' && (
+                            <div className="flex items-center gap-1">
+                              <span className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></span>
+                              <span className="text-[10px] font-semibold text-red-600">LIVE</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Matchup */}
+                        <div className="space-y-2.5 mb-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-gray-900">{g.away}</span>
+                          </div>
+                          <div className="flex items-center justify-center py-1">
+                            <span className="text-xs font-medium text-gray-400">@</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-gray-900">{g.home}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Time */}
+                        <div className="pt-3 border-t border-gray-100">
+                          <div className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-xs font-semibold text-gray-700">{gameTime}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -481,24 +569,54 @@ export function GoodBetsDashboard() {
           <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
             <h3 className="text-lg font-semibold mb-3 text-gray-800">Players to Watch</h3>
             {dailyLoading ? (
-              <p className="text-gray-600">Loading…</p>
+              <div className="flex items-center justify-center py-8">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-sm text-gray-600">Loading players…</p>
+                </div>
+              </div>
             ) : games.length === 0 ? (
               <p className="text-gray-600">No games scheduled for today.</p>
             ) : playersToWatch.length === 0 ? (
               <p className="text-gray-600">No players to watch for today's games.</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {playersToWatch.map((p) => (
-                  <a key={p.id} href={`/player/${p.id}`} className="rounded-xl border border-gray-200 p-4 hover:shadow-sm transition bg-gray-50">
-                    <div className="text-sm font-semibold text-gray-900">{p.name}</div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {p.tags.map((t, i) => (
-                        <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[11px] font-medium">{t}</span>
-                      ))}
-                    </div>
-                    <div className="mt-2 text-xs text-gray-600">Top prop: {p.highlight?.type} {p.highlight?.marketLine ?? p.highlight?.fairLine ?? '—'} ({Math.round(p.highlight?.confidence ?? 0)}%)</div>
-                  </a>
-                ))}
+              <div className="overflow-x-auto -mx-4 px-4">
+                <div className="flex gap-3 min-w-max">
+                  {playersToWatch.map((p) => {
+                    const topConfidence = Math.round(p.highlight?.confidence ?? 0)
+                    const hasTopProp = topConfidence > 0
+                    return (
+                      <a key={p.id} href={`/player/${p.id}`} className={`flex-shrink-0 w-[200px] rounded-xl border p-3 hover:shadow-sm transition ${hasTopProp ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200 bg-gray-50'}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-gray-900 truncate">{p.name}</div>
+                            {hasTopProp && (
+                              <div className="mt-1 flex items-center gap-1.5">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-[10px] font-bold shadow-sm">
+                                  ⭐ TOP PROP
+                                </span>
+                                <span className="text-xs font-semibold text-blue-700">{topConfidence}%</span>
+                              </div>
+                            )}
+                            {hasTopProp && (
+                              <div className="mt-1.5 text-xs font-medium text-gray-700">
+                                {p.highlight?.type} {p.highlight?.marketLine ?? p.highlight?.fairLine ?? '—'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {p.tags.map((t, i) => (
+                            <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[11px] font-medium">{t}</span>
+                          ))}
+                        </div>
+                        {!hasTopProp && (
+                          <div className="mt-2 text-xs text-gray-500">No top prop available</div>
+                        )}
+                      </a>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>

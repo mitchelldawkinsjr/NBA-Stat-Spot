@@ -29,7 +29,7 @@ def search_players_api(q: str) -> List[Dict[str, Any]]:
 
 @cached(logs_cache, key=lambda player_id, season: hashkey(player_id, season))
 def get_player_gamelogs(player_id: int, season: str | None = None) -> List[Dict[str, Any]]:
-    season = season or last_season_str()
+    season = season or "2025-26"  # Default to 2025-26 season
     gl = playergamelog.PlayerGameLog(player_id=player_id, season=season)
     df = gl.get_data_frames()[0]
     # Map to minimal fields

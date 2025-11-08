@@ -74,33 +74,12 @@ class DailyPropsService:
                     # Determine fair line based on player's recent performance
                     fair_line = PropBetEngine.determine_line_value(logs, stat_key)
                     
-                    # Evaluate prop using the fair line as the market line
                     # Check if AI is enabled globally
                     try:
                         from ..services.settings_service import SettingsService
                         ai_enabled = SettingsService.get_ai_enabled()
                     except Exception:
                         ai_enabled = False
-                    
-                    # Try AI-enhanced evaluation if enabled and we have game context
-                    if ai_enabled and game_date:
-                        try:
-                            from datetime import datetime
-                            game_date_obj = datetime.strptime(game_date, "%Y-%m-%d").date() if isinstance(game_date, str) else game_date
-                            # Try to get opponent team ID from game context (simplified)
-                            evaluation = PropBetEngine.evaluate_prop_with_ml(
-                                logs, stat_key, fair_line, "over",
-                                player_id=player_id,
-                                game_date=game_date_obj,
-                                opponent_team_id=None,  # Would need to extract from game context
-                                is_home_game=True,  # Would need to extract from game context
-                                season=season
-                            )
-                        except Exception:
-                            # Fallback to rule-based
-                            evaluation = PropBetEngine.evaluate_prop(logs, stat_key, fair_line)
-                    else:
-                        evaluation = PropBetEngine.evaluate_prop(logs, stat_key, fair_line)
                     
                     # Map stat key to display format
                     display_map = {
@@ -110,41 +89,84 @@ class DailyPropsService:
                         "tpm": "3PM"
                     }
                     
-                    suggestion = {
-                        "type": display_map.get(stat_key, stat_key.upper()),
-                        "playerId": player_id,
-                        "playerName": player_name,
-                        "marketLine": fair_line,
-                        "fairLine": fair_line,
-                        "confidence": evaluation.get("confidence", 0),
-                        "suggestion": evaluation.get("suggestion", "over"),
-                        "rationale": evaluation.get("rationale", {}).get("summary", "Based on recent form and hit rate"),
-                        "stats": evaluation.get("stats", {}),
-                        "gameDate": game_date,  # Add game date for today's games
-                    }
-                    
-                    suggestions.append(suggestion)
+                    # Evaluate BOTH over and under to find the best suggestions
+                    for direction in ["over", "under"]:
+                        try:
+                            # Use AI-enhanced evaluation if enabled for better accuracy
+                            # For comprehensive league-wide scan, we want the best predictions
+                            if ai_enabled and game_date:
+                                try:
+                                    from datetime import datetime
+                                    game_date_obj = datetime.strptime(game_date, "%Y-%m-%d").date() if isinstance(game_date, str) else game_date
+                                    evaluation = PropBetEngine.evaluate_prop_with_ml(
+                                        logs, stat_key, fair_line, direction,
+                                        player_id=player_id,
+                                        game_date=game_date_obj,
+                                        opponent_team_id=None,
+                                        is_home_game=True,
+                                        season=season
+                                    )
+                                except Exception:
+                                    # Fallback to rule-based if AI fails
+                                    evaluation = PropBetEngine.evaluate_prop(logs, stat_key, fair_line, direction)
+                            else:
+                                evaluation = PropBetEngine.evaluate_prop(logs, stat_key, fair_line, direction)
+                            
+                            # Only include if the evaluation suggests this direction and has reasonable confidence
+                            eval_suggestion = evaluation.get("suggestion", "over")
+                            confidence = evaluation.get("confidence", 0)
+                            
+                            # Include if:
+                            # 1. The evaluation suggests this direction, OR
+                            # 2. The confidence is high enough (>= 50) regardless of default suggestion
+                            if eval_suggestion == direction or confidence >= 50:
+                                suggestion = {
+                                    "type": display_map.get(stat_key, stat_key.upper()),
+                                    "playerId": player_id,
+                                    "playerName": player_name,
+                                    "marketLine": fair_line,
+                                    "fairLine": fair_line,
+                                    "confidence": confidence,
+                                    "suggestion": direction,
+                                    "rationale": evaluation.get("rationale", {}).get("summary", "Based on recent form and hit rate"),
+                                    "stats": evaluation.get("stats", {}),
+                                    "gameDate": game_date,
+                                }
+                                suggestions.append(suggestion)
+                        except Exception:
+                            # Skip this direction if evaluation fails
+                            continue
                 except Exception:
                     # Skip this stat type if computation fails
                     continue
             
-            # Also compute PRA prop
+            # Also compute PRA prop - evaluate both over and under
             try:
                 fair_line_pra = PropBetEngine.determine_line_value(logs, "pra")
-                evaluation_pra = PropBetEngine.evaluate_prop(logs, "pra", fair_line_pra)
-                suggestion_pra = {
-                    "type": "PRA",
-                    "playerId": player_id,
-                    "playerName": player_name,
-                    "marketLine": fair_line_pra,
-                    "fairLine": fair_line_pra,
-                    "confidence": evaluation_pra.get("confidence", 0),
-                    "suggestion": evaluation_pra.get("suggestion", "over"),
-                    "rationale": evaluation_pra.get("rationale", {}).get("summary", "Based on recent form and hit rate"),
-                    "stats": evaluation_pra.get("stats", {}),
-                    "gameDate": game_date,  # Add game date for today's games
-                }
-                suggestions.append(suggestion_pra)
+                
+                for direction in ["over", "under"]:
+                    try:
+                        evaluation_pra = PropBetEngine.evaluate_prop(logs, "pra", fair_line_pra, direction)
+                        eval_suggestion = evaluation_pra.get("suggestion", "over")
+                        confidence = evaluation_pra.get("confidence", 0)
+                        
+                        # Include if evaluation suggests this direction or confidence is high enough
+                        if eval_suggestion == direction or confidence >= 50:
+                            suggestion_pra = {
+                                "type": "PRA",
+                                "playerId": player_id,
+                                "playerName": player_name,
+                                "marketLine": fair_line_pra,
+                                "fairLine": fair_line_pra,
+                                "confidence": confidence,
+                                "suggestion": direction,
+                                "rationale": evaluation_pra.get("rationale", {}).get("summary", "Based on recent form and hit rate"),
+                                "stats": evaluation_pra.get("stats", {}),
+                                "gameDate": game_date,
+                            }
+                            suggestions.append(suggestion_pra)
+                    except Exception:
+                        continue
             except Exception:
                 pass
                 
@@ -175,7 +197,7 @@ class DailyPropsService:
         Returns:
             Dictionary with "items" list of top props
         """
-        season = season or current_candidate_season()
+        season = season or "2025-26"  # Default to 2025-26 season
         
         # Get the date for game_date field - use provided date or today in UTC
         from datetime import datetime, timezone
@@ -225,23 +247,16 @@ class DailyPropsService:
             all_players = NBADataService.fetch_all_players_including_rookies() or []
             
             # Filter to players on today's teams
-            # Normalize team_ids to integers for comparison
-            team_ids_today_int = {int(tid) for tid in team_ids_today if tid is not None}
+            # Use TeamPlayerService to normalize team IDs
+            from .team_player_service import TeamPlayerService
+            team_ids_today_int = {TeamPlayerService.normalize_team_id(tid) for tid in team_ids_today}
+            team_ids_today_int.discard(None)  # Remove None values
             
             todays_players = []
             for p in all_players:
-                player_team_id = p.get("team_id")
-                if player_team_id is None:
-                    continue
-                try:
-                    # Try both int and direct comparison
-                    player_team_id_int = int(player_team_id) if player_team_id is not None else None
-                    if player_team_id_int in team_ids_today_int or player_team_id in team_ids_today:
-                        todays_players.append(p)
-                except (ValueError, TypeError):
-                    # If conversion fails, try direct comparison
-                    if player_team_id in team_ids_today:
-                        todays_players.append(p)
+                player_team_id = TeamPlayerService.normalize_team_id(p.get("team_id"))
+                if player_team_id is not None and player_team_id in team_ids_today_int:
+                    todays_players.append(p)
             
             # If still no players found, but we have games, try to match by team abbreviation
             # This is a last resort when team ID mapping completely fails
@@ -263,17 +278,25 @@ class DailyPropsService:
                         if len(todays_players) >= 60:
                             break
             
-            # Limit to reasonable number to avoid timeout
-            if len(todays_players) > 60:
-                todays_players = todays_players[:60]
+            # Process ALL players on today's teams - comprehensive league-wide scan
+            # No limit on players - we want to check everyone playing today
             
-            # Process each player
-            for player in todays_players:
+            # Process players in parallel for better performance
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            import threading
+            
+            # Use a lock to safely append to all_props
+            props_lock = threading.Lock()
+            # Collect enough props for comprehensive results
+            max_props_needed = limit * 5 if limit else 1000  # Collect more for better sorting
+            
+            def process_player(player):
+                """Process a single player and return props"""
                 player_id = player.get("id")
                 player_name = player.get("full_name", "Unknown Player")
                 
                 if not player_id:
-                    continue
+                    return []
                 
                 try:
                     # Compute props for this player
@@ -281,15 +304,39 @@ class DailyPropsService:
                         player_id=player_id,
                         player_name=player_name,
                         season=season,
-                        last_n=last_n,
+                        last_n=last_n or 10,  # Use 10 games for comprehensive analysis
                         game_date=target_date
                     )
-                    
-                    if props:
-                        all_props.extend(props)
+                    return props or []
                 except Exception:
-                    # Skip this player if computation fails, continue with others
-                    continue
+                    # Skip this player if computation fails
+                    return []
+            
+            # Process players in parallel with more workers for comprehensive scan
+            # Use more workers since we're processing all players
+            with ThreadPoolExecutor(max_workers=12) as executor:  # Increased workers for comprehensive scan
+                # Submit all player processing tasks
+                future_to_player = {
+                    executor.submit(process_player, player): player 
+                    for player in todays_players
+                }
+                
+                # Collect results as they complete
+                for future in as_completed(future_to_player):
+                    try:
+                        props = future.result(timeout=5.0)  # Longer timeout for comprehensive scan
+                        if props:
+                            with props_lock:
+                                all_props.extend(props)
+                                # Only stop early if we have way more than needed (for efficiency)
+                                if limit and len(all_props) >= max_props_needed:
+                                    # Cancel remaining tasks only if we have way more than needed
+                                    for f in future_to_player:
+                                        f.cancel()
+                                    break
+                    except Exception:
+                        # Skip failed players
+                        continue
         
         # If we have games but no props yet, try fallback featured players
         # ONLY include featured players if they're actually on today's teams
@@ -306,17 +353,15 @@ class DailyPropsService:
                     continue
                 
                 # ONLY include featured players if they're on today's teams
-                player_team_id = player.get("team_id")
-                if not player_team_id:
+                # Use TeamPlayerService to normalize team_id
+                from .team_player_service import TeamPlayerService
+                player_team_id = TeamPlayerService.normalize_team_id(player.get("team_id"))
+                if player_team_id is None:
                     continue
                 
-                # Check if player's team is in today's teams
-                try:
-                    player_team_id_int = int(player_team_id) if player_team_id is not None else None
-                    team_ids_today_int = {int(tid) for tid in team_ids_today if tid is not None}
-                    should_include = (player_team_id_int in team_ids_today_int or player_team_id in team_ids_today)
-                except (ValueError, TypeError):
-                    should_include = player_team_id in team_ids_today
+                team_ids_today_int = {TeamPlayerService.normalize_team_id(tid) for tid in team_ids_today}
+                team_ids_today_int.discard(None)
+                should_include = player_team_id in team_ids_today_int
                 
                 if should_include:
                     try:
@@ -338,6 +383,11 @@ class DailyPropsService:
         props_before_filter = all_props.copy() if all_props else []
         if min_confidence:
             all_props = PropFilter.filter_by_confidence(all_props, min_confidence)
+        
+        # Ensure all props have gameDate set
+        for prop in all_props:
+            if not prop.get("gameDate"):
+                prop["gameDate"] = target_date
         
         # If we still have no props after all processing
         if len(all_props) == 0:
@@ -372,7 +422,8 @@ class DailyPropsService:
                             player_id=player_id,
                             player_name=player_name,
                             season=season,
-                            last_n=last_n or 10
+                            last_n=last_n or 10,
+                            game_date=target_date  # Pass game_date to featured players too
                         )
                         if props:
                             all_props.extend(props)

@@ -11,7 +11,6 @@ try:
     OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
-    print("Warning: Ollama library not available. Install with: pip install ollama")
 
 try:
     from llama_cpp import Llama
@@ -51,7 +50,9 @@ class LocalLLMService(BaseLLMService):
                 self._model = Llama(model_path=model_path, n_ctx=2048, verbose=False)
                 self._available = True
             except Exception as e:
-                print(f"Error loading LlamaCpp model: {e}")
+                import structlog
+                logger = structlog.get_logger()
+                logger.error("Error loading LlamaCpp model", error=str(e))
                 self._available = False
         else:
             raise ValueError(f"Unknown provider: {provider}")

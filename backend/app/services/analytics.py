@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 from statistics import mean, pstdev
 
-from .stats_service import get_player_gamelogs
+from .nba_api_service import NBADataService
 
 
 def _extract(values: List[dict], key: str) -> List[float]:
@@ -21,7 +21,7 @@ def _safe_variance(xs: List[float]) -> float:
 
 
 def suggest_from_gamelogs(player_id: int, season: Optional[str], lastN: Optional[int], market_lines: Optional[Dict[str, float]]) -> List[Dict]:
-    logs = get_player_gamelogs(player_id=player_id, season=season)
+    logs = NBADataService.fetch_player_game_log(player_id=player_id, season=season)
     if lastN:
         logs = logs[: lastN]
 

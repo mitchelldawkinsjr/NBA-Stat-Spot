@@ -60,6 +60,18 @@ async function syncPlayers() {
   return res.json()
 }
 
+async function syncTeams() {
+  const res = await fetch('/api/v1/admin/sync/teams', { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to sync teams')
+  return res.json()
+}
+
+async function fetchTeamsStatus() {
+  const res = await fetch('/api/v1/admin/teams/status')
+  if (!res.ok) throw new Error('Failed to fetch teams status')
+  return res.json()
+}
+
 async function clearAllCache() {
   const res = await fetch('/api/v1/admin/cache/clear', { method: 'POST' })
   if (!res.ok) throw new Error('Failed to clear cache')
@@ -194,6 +206,12 @@ export default function AdminDashboard() {
     refetchInterval: 15000,
     staleTime: 5000
   })
+  const { data: teamsStatus, isLoading: teamsStatusLoading, error: teamsStatusError, refetch: refetchTeamsStatus } = useQuery({ 
+    queryKey: ['teams-status'], 
+    queryFn: fetchTeamsStatus, 
+    refetchInterval: 20000,
+    staleTime: 10000
+  })
   const { data: aiStatus, isLoading: aiStatusLoading, refetch: refetchAIStatus } = useQuery({
     queryKey: ['ai-enabled'],
     queryFn: fetchAIEnabled,
@@ -254,6 +272,22 @@ export default function AdminDashboard() {
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Player sync failed', error.message)
+    }
+  })
+
+  const syncTeamsMutation = useMutation({
+    mutationFn: syncTeams,
+    onMutate: () => {
+      addActivityLog('info', 'Syncing teams from NBA API...')
+    },
+    onSuccess: (data) => {
+      addActivityLog('success', `Team sync completed`, `Synced ${data?.count || 0} teams`)
+      refetchHealth()
+      refetchStatus()
+      refetchTeamsStatus()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Team sync failed', error.message)
     }
   })
 
@@ -539,14 +573,14 @@ export default function AdminDashboard() {
 
   return (
     <div className="container mx-auto px-3 md:px-4 max-w-7xl">
-      <div className="mt-3">
-        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900">Admin Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-600">Monitor system health, data consistency, and refresh cached services.</p>
+      <div className="mt-2">
+        <h1 className="text-lg md:text-xl font-bold tracking-tight text-gray-900">Admin Dashboard</h1>
+        <p className="mt-0.5 text-xs text-gray-600">Monitor system health, data consistency, and refresh cached services.</p>
       </div>
 
       {/* System Health & Data Consistency */}
-      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className={`rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4 ${health?.status === 'healthy' ? 'ring-emerald-500/20' : 'ring-red-500/20'} ${healthLoading ? 'opacity-60' : ''}`}>
+      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3 ${health?.status === 'healthy' ? 'ring-emerald-500/20' : 'ring-red-500/20'} ${healthLoading ? 'opacity-60' : ''}`}>
           <div className="flex items-center justify-between">
             <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-emerald-50">
               {healthLoading ? (
@@ -574,7 +608,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className={`rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4 ${scanStatusLoading ? 'opacity-60' : ''}`}>
+        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3 ${scanStatusLoading ? 'opacity-60' : ''}`}>
           <div className="text-xs font-medium text-gray-500">Total Players</div>
           <div className="text-2xl font-semibold text-gray-900">
             {scanStatusLoading ? '...' : (scanStatus?.totalPlayers || health?.totalPlayers || 0)}
@@ -585,7 +619,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className={`rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4 ${bestBetsLoading ? 'opacity-60' : ''}`}>
+        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3 ${bestBetsLoading ? 'opacity-60' : ''}`}>
           <div className="text-xs font-medium text-gray-500">Best Bets</div>
           <div className="text-2xl font-semibold text-gray-900">
             {bestBetsLoading ? '...' : bestBets.length}
@@ -600,7 +634,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className={`rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4 ${healthLoading ? 'opacity-60' : ''}`}>
+        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3 ${healthLoading ? 'opacity-60' : ''}`}>
           <div className="text-xs font-medium text-gray-500">Last Health Check</div>
           <div className="text-sm font-semibold text-gray-900">
             {healthLoading ? '...' : (health?.timestamp ? formatTimeAgo(health.timestamp) : 'Never')}
@@ -612,88 +646,89 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Activity Log & Pipeline Status */}
-      <div className="mt-3 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">Activity Log & Pipeline</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Real-time monitoring of all operations</p>
-          </div>
-          <button
-            onClick={() => setActivityLog([])}
-            className="px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200"
-          >
-            Clear Log
-          </button>
-        </div>
-        <div className="h-32 overflow-y-auto bg-gray-50 rounded-lg p-2 border border-gray-200">
-          {activityLog.length === 0 ? (
-            <div className="text-xs text-gray-500 text-center py-8">No activity yet. Operations will appear here.</div>
-          ) : (
-            <div className="space-y-1">
-              {activityLog.map((log) => (
-                <div key={log.id} className="text-xs flex items-start gap-2 py-1">
-                  <span className="text-gray-400 font-mono">
-                    {log.timestamp.toLocaleTimeString()}
-                  </span>
-                  <span className={`font-medium ${
-                    log.type === 'success' ? 'text-green-700' :
-                    log.type === 'error' ? 'text-red-700' :
-                    log.type === 'warning' ? 'text-amber-700' :
-                    'text-blue-700'
-                  }`}>
-                    [{log.type.toUpperCase()}]
-                  </span>
-                  <span className="text-gray-700 flex-1">{log.message}</span>
-                  {log.details && (
-                    <span className="text-gray-500 text-[10px]">({log.details})</span>
-                  )}
-                </div>
-              ))}
-              <div ref={logEndRef} />
+      {/* Activity Log & Cache Status - Side by Side */}
+      <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
+        {/* Activity Log & Pipeline Status */}
+        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Activity Log</h2>
+              <p className="text-xs text-gray-600 mt-0.5">Real-time monitoring</p>
             </div>
-          )}
+            <button
+              onClick={() => setActivityLog([])}
+              className="px-2 py-1 text-xs font-medium text-gray-900 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="h-24 overflow-y-auto bg-gray-50 rounded-lg p-2 border border-gray-200">
+            {activityLog.length === 0 ? (
+              <div className="text-xs text-gray-500 text-center py-6">No activity yet</div>
+            ) : (
+              <div className="space-y-1">
+                {activityLog.map((log) => (
+                  <div key={log.id} className="text-xs flex items-start gap-2 py-0.5">
+                    <span className="text-gray-400 font-mono text-[10px]">
+                      {log.timestamp.toLocaleTimeString()}
+                    </span>
+                    <span className={`font-medium text-[10px] ${
+                      log.type === 'success' ? 'text-green-700' :
+                      log.type === 'error' ? 'text-red-700' :
+                      log.type === 'warning' ? 'text-amber-700' :
+                      'text-blue-700'
+                    }`}>
+                      [{log.type.toUpperCase()}]
+                    </span>
+                    <span className="text-gray-700 flex-1 text-[10px]">{log.message}</span>
+                    {log.details && (
+                      <span className="text-gray-500 text-[9px]">({log.details})</span>
+                    )}
+                  </div>
+                ))}
+                <div ref={logEndRef} />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Data Consistency & Cache Status */}
-      <div className="mt-3 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">Data Consistency & Cache Status</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Monitor data freshness and cache validity</p>
+        {/* Data Consistency & Cache Status */}
+        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Cache Status</h2>
+              <p className="text-xs text-gray-600 mt-0.5">Data freshness</p>
+            </div>
+            <button
+              onClick={() => {
+                addActivityLog('info', 'Manually refreshing status...')
+                refetchCacheStatus()
+                refetchHealth()
+                refetchStatus()
+                refetchBestBets()
+              }}
+              disabled={cacheStatusLoading || healthLoading}
+              className="px-2 py-1 text-xs font-medium text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+            >
+              {cacheStatusLoading ? '...' : 'Refresh'}
+            </button>
           </div>
-          <button
-            onClick={() => {
-              addActivityLog('info', 'Manually refreshing status...')
-              refetchCacheStatus()
-              refetchHealth()
-              refetchStatus()
-              refetchBestBets()
-            }}
-            disabled={cacheStatusLoading || healthLoading}
-            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            {cacheStatusLoading ? 'Refreshing...' : 'Refresh All Status'}
-          </button>
-        </div>
 
-        {cacheStatusLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <svg className="animate-spin h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span className="ml-2 text-sm text-gray-600">Loading cache status...</span>
-          </div>
-        ) : cacheStatusError ? (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
-            Error loading cache status: {String(cacheStatusError)}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {cacheStatusLoading ? (
+            <div className="flex items-center justify-center py-3">
+              <svg className="animate-spin h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+          ) : cacheStatusError ? (
+            <div className="p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+              Error: {String(cacheStatusError)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-1.5">
             {/* Daily Props Cache */}
-            <div className={`p-3 rounded-lg border-2 ${cacheStatus?.dailyProps?.valid ? 'border-green-200 bg-green-50/50' : 'border-amber-200 bg-amber-50/50'}`}>
+            <div className={`p-2 rounded-lg border-2 ${cacheStatus?.dailyProps?.valid ? 'border-green-200 bg-green-50/50' : 'border-amber-200 bg-amber-50/50'}`}>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-semibold text-gray-900">Daily Props</div>
                 {cacheStatus?.dailyProps?.valid ? (
@@ -716,7 +751,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* High Hit Rate Cache */}
-            <div className={`p-3 rounded-lg border-2 ${cacheStatus?.highHitRate?.valid ? 'border-green-200 bg-green-50/50' : 'border-amber-200 bg-amber-50/50'}`}>
+            <div className={`p-2 rounded-lg border-2 ${cacheStatus?.highHitRate?.valid ? 'border-green-200 bg-green-50/50' : 'border-amber-200 bg-amber-50/50'}`}>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-semibold text-gray-900">High Hit Rate</div>
                 {cacheStatus?.highHitRate?.valid ? (
@@ -739,7 +774,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Best Bets Cache */}
-            <div className={`p-3 rounded-lg border-2 ${cacheStatus?.bestBets?.cached ? 'border-blue-200 bg-blue-50/50' : 'border-gray-200 bg-gray-50/50'}`}>
+            <div className={`p-2 rounded-lg border-2 ${cacheStatus?.bestBets?.cached ? 'border-blue-200 bg-blue-50/50' : 'border-gray-200 bg-gray-50/50'}`}>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-sm font-semibold text-gray-900">Best Bets Scan</div>
                 {cacheStatus?.bestBets?.cached ? (
@@ -756,37 +791,40 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Data Integrity & Checksum */}
-      <div className="mt-3 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">Data Integrity & Checksum</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Validate source data cleanliness and database consistency</p>
+      {/* Data Integrity & AI Features - Side by Side */}
+      <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
+        {/* Data Integrity & Checksum */}
+        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Data Integrity</h2>
+              <p className="text-xs text-gray-600 mt-0.5">Validate data consistency</p>
+            </div>
+            <button
+              onClick={() => {
+                addActivityLog('info', 'Refreshing integrity status...')
+                refetchIntegrityStatus()
+              }}
+              disabled={integrityStatusLoading}
+              className="px-2 py-1 text-xs font-medium text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+            >
+              {integrityStatusLoading ? '...' : 'Refresh'}
+            </button>
           </div>
-          <button
-            onClick={() => {
-              addActivityLog('info', 'Refreshing integrity status...')
-              refetchIntegrityStatus()
-            }}
-            disabled={integrityStatusLoading}
-            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            {integrityStatusLoading ? 'Refreshing...' : 'Refresh Status'}
-          </button>
-        </div>
 
-        {/* Overall Status */}
-        {integrityStatus?.status === 'no_check' ? (
-          <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
-            No integrity check has been run yet. Click "Run Full Check" to validate data.
-          </div>
-        ) : integrityStatus?.results ? (
-          <div className="space-y-4">
-            {/* Overall Status Badge */}
-            <div className={`p-4 rounded-lg border-2 ${
+          {/* Overall Status */}
+          {integrityStatus?.status === 'no_check' ? (
+            <div className="p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600">
+              No check run yet. Click "Run Full Check".
+            </div>
+          ) : integrityStatus?.results ? (
+            <div className="space-y-1.5">
+              {/* Overall Status Badge */}
+              <div className={`p-2 rounded-lg border-2 ${
               integrityStatus.results.overall_status === 'pass' ? 'border-green-200 bg-green-50/50' :
               integrityStatus.results.overall_status === 'warning' ? 'border-amber-200 bg-amber-50/50' :
               'border-red-200 bg-red-50/50'
@@ -801,7 +839,7 @@ export default function AdminDashboard() {
                   {integrityStatus.results.overall_status?.toUpperCase() || 'UNKNOWN'}
                 </span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5 text-xs">
                 <div>
                   <div className="text-gray-600">Total Issues</div>
                   <div className="font-bold text-gray-900">{integrityStatus.results.summary?.total_issues || 0}</div>
@@ -830,11 +868,11 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            {/* Individual Checks */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Individual Checks */}
+              <div className="grid grid-cols-1 gap-1.5">
               {/* Players Check */}
               {integrityStatus.results.checks?.players && (
-                <div className={`p-3 rounded-lg border ${
+                <div className={`p-2 rounded-lg border ${
                   integrityStatus.results.checks.players.status === 'pass' ? 'border-green-200 bg-green-50/30' : 'border-red-200 bg-red-50/30'
                 }`}>
                   <div className="flex items-center justify-between mb-2">
@@ -923,11 +961,11 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            {/* Issues List */}
-            {integrityStatus.results.all_issues && integrityStatus.results.all_issues.length > 0 && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="text-xs font-semibold text-gray-900 mb-2">Issues Found ({integrityStatus.results.all_issues.length})</div>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
+              {/* Issues List */}
+              {integrityStatus.results.all_issues && integrityStatus.results.all_issues.length > 0 && (
+                <div className="mt-1.5 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="text-xs font-semibold text-gray-900 mb-1">Issues ({integrityStatus.results.all_issues.length})</div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
                   {integrityStatus.results.all_issues.slice(0, 10).map((issue: any, idx: number) => (
                     <div key={idx} className={`text-xs p-2 rounded border ${
                       issue.severity === 'critical' ? 'border-red-300 bg-red-50' :
@@ -962,16 +1000,16 @@ export default function AdminDashboard() {
                   )}
                 </div>
               </div>
-            )}
-          </div>
-        ) : null}
+              )}
+            </div>
+          ) : null}
 
-        {/* Action Buttons */}
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-2">
+          {/* Action Buttons */}
+          <div className="mt-2 grid grid-cols-2 gap-1.5">
           <button
             onClick={() => integrityCheckMutation.mutate()}
             disabled={integrityCheckMutation.isPending}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-900 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-blue-300"
           >
             {integrityCheckMutation.isPending ? (
               <>
@@ -988,36 +1026,34 @@ export default function AdminDashboard() {
           <button
             onClick={() => playersIntegrityMutation.mutate()}
             disabled={playersIntegrityMutation.isPending}
-            className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300"
           >
             {playersIntegrityMutation.isPending ? 'Checking...' : 'Check Players'}
           </button>
           <button
             onClick={() => gameStatsIntegrityMutation.mutate()}
             disabled={gameStatsIntegrityMutation.isPending}
-            className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300"
           >
             {gameStatsIntegrityMutation.isPending ? 'Checking...' : 'Check Game Stats'}
           </button>
           <button
             onClick={() => propSuggestionsIntegrityMutation.mutate()}
             disabled={propSuggestionsIntegrityMutation.isPending}
-            className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300"
           >
             {propSuggestionsIntegrityMutation.isPending ? 'Checking...' : 'Check Props'}
           </button>
-        </div>
-      </div>
-
-      {/* AI Features Toggle */}
-      <div className="mt-3 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">AI Features Control</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Enable or disable AI features (ML models and LLM rationale)</p>
           </div>
         </div>
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+
+        {/* AI Features Toggle */}
+        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+          <div className="mb-2">
+            <h2 className="text-sm font-semibold text-gray-900">AI Features</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Enable/disable ML & LLM</p>
+          </div>
+          <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">
           <div className="flex-1">
             <div className="text-sm font-medium text-gray-900">Enable AI Features</div>
             <div className="text-xs text-gray-600 mt-0.5">
@@ -1044,46 +1080,46 @@ export default function AdminDashboard() {
             </button>
           </div>
         </div>
-        <div className="mt-3 text-xs text-gray-600">
-          Status: <span className={`font-medium ${(aiStatus?.aiEnabled ?? false) ? 'text-green-600' : 'text-gray-500'}`}>
-            {(aiStatus?.aiEnabled ?? false) ? 'Enabled' : 'Disabled'}
-          </span>
-          {setAIEnabledMutation.isPending && (
-            <span className="ml-2 text-blue-600">Updating...</span>
-          )}
+          <div className="mt-2 text-xs text-gray-600">
+            Status: <span className={`font-medium ${(aiStatus?.aiEnabled ?? false) ? 'text-green-600' : 'text-gray-500'}`}>
+              {(aiStatus?.aiEnabled ?? false) ? 'Enabled' : 'Disabled'}
+            </span>
+            {setAIEnabledMutation.isPending && (
+              <span className="ml-2 text-blue-600">Updating...</span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Data Refresh Controls */}
-      <div className="mt-3 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">Data Refresh Controls</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Manually refresh cached data services</p>
+      {/* Data Refresh Controls & Scanning Controls - Side by Side */}
+      <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
+        {/* Data Refresh Controls */}
+        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+          <div className="mb-2">
+            <h2 className="text-sm font-semibold text-gray-900">Data Refresh</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Refresh cached services</p>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-1.5">
           <button
             onClick={() => refreshDailyPropsMutation.mutate()}
             disabled={refreshDailyPropsMutation.isPending}
-            className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
-            style={{ color: '#ffffff' }}
+            className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-900 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-blue-300"
           >
             {refreshDailyPropsMutation.isPending ? (
               <>
-                <svg className="animate-spin h-4 w-4" style={{ color: '#ffffff' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span style={{ color: '#ffffff', fontWeight: 600 }}>Refreshing...</span>
+                <span>Refreshing...</span>
               </>
             ) : (
               <>
-                <svg className="w-4 h-4" style={{ color: '#ffffff' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span style={{ color: '#ffffff', fontWeight: 600 }}>Refresh Daily Props</span>
+                <span>Refresh Daily Props</span>
               </>
             )}
           </button>
@@ -1091,23 +1127,22 @@ export default function AdminDashboard() {
           <button
             onClick={() => refreshHighHitRateMutation.mutate()}
             disabled={refreshHighHitRateMutation.isPending}
-            className="px-4 py-3 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
-            style={{ color: '#ffffff' }}
+            className="px-3 py-2 bg-green-100 hover:bg-green-200 text-green-900 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-green-300"
           >
             {refreshHighHitRateMutation.isPending ? (
               <>
-                <svg className="animate-spin h-4 w-4" style={{ color: '#ffffff' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span style={{ color: '#ffffff', fontWeight: 600 }}>Refreshing...</span>
+                <span>Refreshing...</span>
               </>
             ) : (
               <>
-                <svg className="w-4 h-4" style={{ color: '#ffffff' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span style={{ color: '#ffffff', fontWeight: 600 }}>Refresh High Hit Rate</span>
+                <span>Refresh High Hit Rate</span>
               </>
             )}
           </button>
@@ -1115,23 +1150,22 @@ export default function AdminDashboard() {
           <button
             onClick={() => refreshAllMutation.mutate()}
             disabled={refreshAllMutation.isPending || refreshDailyPropsMutation.isPending || refreshHighHitRateMutation.isPending}
-            className="px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
-            style={{ color: '#ffffff' }}
+            className="px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-900 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-purple-300"
           >
             {refreshAllMutation.isPending ? (
               <>
-                <svg className="animate-spin h-4 w-4" style={{ color: '#ffffff' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span style={{ color: '#ffffff', fontWeight: 600 }}>Refreshing All...</span>
+                <span>Refreshing All...</span>
               </>
             ) : (
               <>
-                <svg className="w-4 h-4" style={{ color: '#ffffff' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span style={{ color: '#ffffff', fontWeight: 600 }}>Refresh All Services</span>
+                <span>Refresh All Services</span>
               </>
             )}
           </button>
@@ -1139,7 +1173,7 @@ export default function AdminDashboard() {
 
         {/* Success/Error Messages */}
         {(refreshDailyPropsMutation.isSuccess || refreshHighHitRateMutation.isSuccess || refreshAllMutation.isSuccess) && (
-          <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
+          <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
             {refreshAllMutation.isSuccess && 'All services refreshed successfully! '}
             {refreshDailyPropsMutation.isSuccess && !refreshAllMutation.isSuccess && 'Daily props refreshed successfully! '}
             {refreshHighHitRateMutation.isSuccess && !refreshAllMutation.isSuccess && 'High hit rate bets refreshed successfully! '}
@@ -1148,32 +1182,32 @@ export default function AdminDashboard() {
         )}
 
         {(refreshDailyPropsMutation.isError || refreshHighHitRateMutation.isError || refreshAllMutation.isError) && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
             Error: {refreshAllMutation.error?.message || refreshDailyPropsMutation.error?.message || refreshHighHitRateMutation.error?.message}
           </div>
         )}
 
-        {/* Advanced Controls Toggle */}
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="text-xs font-medium text-gray-700 hover:text-gray-900 flex items-center gap-1"
-          >
-            <svg className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            {showAdvanced ? 'Hide' : 'Show'} Advanced Controls
-          </button>
-        </div>
+          {/* Advanced Controls Toggle */}
+          <div className="mt-2 pt-2 border-t border-gray-200">
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-xs font-medium text-gray-700 hover:text-gray-900 flex items-center gap-1"
+            >
+              <svg className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              {showAdvanced ? 'Hide' : 'Show'} Advanced
+            </button>
+          </div>
 
-        {/* Advanced Controls */}
-        {showAdvanced && (
-          <div className="mt-4 space-y-4">
+          {/* Advanced Controls */}
+          {showAdvanced && (
+            <div className="mt-2 space-y-1.5">
             {/* Custom Refresh Parameters */}
-            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
               <h3 className="text-xs font-semibold text-gray-900 mb-3">Custom Refresh Parameters</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {/* Daily Props Custom */}
                 <div className="space-y-2">
                   <div className="text-xs font-medium text-gray-700">Daily Props</div>
@@ -1204,7 +1238,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => refreshDailyPropsCustomMutation.mutate(dailyPropsParams)}
                     disabled={refreshDailyPropsCustomMutation.isPending}
-                    className="w-full px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
+                    className="w-full px-3 py-1.5 text-xs bg-blue-100 hover:bg-blue-200 text-blue-900 rounded disabled:opacity-50 border border-blue-300"
                   >
                     {refreshDailyPropsCustomMutation.isPending ? 'Refreshing...' : 'Refresh with Custom Params'}
                   </button>
@@ -1252,7 +1286,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => refreshHighHitRateCustomMutation.mutate(highHitRateParams)}
                     disabled={refreshHighHitRateCustomMutation.isPending}
-                    className="w-full px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded disabled:opacity-50"
+                    className="w-full px-3 py-1.5 text-xs bg-green-100 hover:bg-green-200 text-green-900 rounded disabled:opacity-50 border border-green-300"
                   >
                     {refreshHighHitRateCustomMutation.isPending ? 'Refreshing...' : 'Refresh with Custom Params'}
                   </button>
@@ -1261,7 +1295,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Cache Management */}
-            <div className="p-4 bg-red-50 rounded-lg border-2 border-red-200">
+            <div className="p-3 bg-red-50 rounded-lg border-2 border-red-200">
               <h3 className="text-xs font-semibold text-red-900 mb-3">⚠️ Cache Management</h3>
               <p className="text-xs text-red-700 mb-3">Clear caches to force fresh data on next request. Use with caution.</p>
               
@@ -1269,21 +1303,21 @@ export default function AdminDashboard() {
                 <button
                   onClick={() => clearDailyPropsCacheMutation.mutate()}
                   disabled={clearDailyPropsCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-600 hover:bg-red-700 text-white rounded disabled:opacity-50"
+                  className="px-3 py-2 text-xs bg-red-100 hover:bg-red-200 text-red-900 rounded disabled:opacity-50 border border-red-300"
                 >
                   Clear Daily Props
                 </button>
                 <button
                   onClick={() => clearHighHitRateCacheMutation.mutate()}
                   disabled={clearHighHitRateCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-600 hover:bg-red-700 text-white rounded disabled:opacity-50"
+                  className="px-3 py-2 text-xs bg-red-100 hover:bg-red-200 text-red-900 rounded disabled:opacity-50 border border-red-300"
                 >
                   Clear High Hit Rate
                 </button>
                 <button
                   onClick={() => clearBestBetsCacheMutation.mutate()}
                   disabled={clearBestBetsCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-600 hover:bg-red-700 text-white rounded disabled:opacity-50"
+                  className="px-3 py-2 text-xs bg-red-100 hover:bg-red-200 text-red-900 rounded disabled:opacity-50 border border-red-300"
                 >
                   Clear Best Bets
                 </button>
@@ -1294,14 +1328,14 @@ export default function AdminDashboard() {
                     }
                   }}
                   disabled={clearAllCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-700 hover:bg-red-800 text-white rounded font-bold disabled:opacity-50"
+                  className="px-3 py-2 text-xs bg-red-200 hover:bg-red-300 text-red-900 rounded font-bold disabled:opacity-50 border-2 border-red-400"
                 >
                   Clear All Caches
                 </button>
               </div>
 
               {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearHighHitRateCacheMutation.isSuccess || clearBestBetsCacheMutation.isSuccess) && (
-                <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-xs text-red-800">
+                <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-xs text-red-800">
                   Cache cleared successfully. Next request will fetch fresh data.
                 </div>
               )}
@@ -1311,33 +1345,19 @@ export default function AdminDashboard() {
       </div>
 
       {/* Scanning Controls */}
-      <div className="mt-3 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
+      <div className="mt-2 rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+          <div className="mb-2">
             <h2 className="text-sm font-semibold text-gray-900">Prop Scanner</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Scan today's games for best prop bets</p>
+            <p className="text-xs text-gray-600 mt-0.5">Scan games for best bets</p>
           </div>
-          <div className="flex items-center gap-2">
-            {scanStatusLoading && (
-              <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            )}
-            {scanStatus?.lastScan && (
-              <div className="text-xs text-gray-500">
-                Last scan: {new Date(scanStatus.lastScan).toLocaleTimeString()}
-              </div>
-            )}
-            {scanStatus?.todayGames !== undefined && (
-              <div className="text-xs text-gray-500">
-                • {scanStatus.todayGames} games today
-              </div>
-            )}
-          </div>
-        </div>
+          {scanStatus?.lastScan && (
+            <div className="text-xs text-gray-500 mb-1">
+              Last: {new Date(scanStatus.lastScan).toLocaleTimeString()}
+              {scanStatus?.todayGames !== undefined && ` • ${scanStatus.todayGames} games`}
+            </div>
+          )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-1 gap-1.5 mb-2">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Season</label>
             <input
@@ -1373,36 +1393,227 @@ export default function AdminDashboard() {
             <button
               onClick={() => scanMutation.mutate(scanParams)}
               disabled={scanMutation.isPending}
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-900 text-xs font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed border border-blue-300"
             >
               {scanMutation.isPending ? 'Scanning...' : 'Start Scan'}
             </button>
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg disabled:opacity-50"
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-medium rounded-lg disabled:opacity-50 border border-gray-300"
             >
               {syncMutation.isPending ? 'Syncing...' : 'Sync Players'}
             </button>
           </div>
         </div>
 
-        {scanMutation.isError && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
-            Error: {String(scanMutation.error)}
+      {/* Team Management */}
+      <div className="mt-3 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Team Management</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Sync and check team data from NBA API</p>
           </div>
-        )}
+          <div className="flex items-center gap-2">
+            {teamsStatusLoading && (
+              <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            )}
+            <button
+              onClick={() => {
+                addActivityLog('info', 'Refreshing teams status...')
+                refetchTeamsStatus()
+              }}
+              disabled={teamsStatusLoading}
+              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              {teamsStatusLoading ? 'Refreshing...' : 'Refresh Status'}
+            </button>
+          </div>
+        </div>
 
-        {scanMutation.isSuccess && (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
-            Scan completed! Found {scanMutation.data?.count || 0} best bets.
+        {teamsStatusLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <svg className="animate-spin h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span className="ml-2 text-sm text-gray-600">Loading teams status...</span>
+          </div>
+        ) : teamsStatusError ? (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+            Error loading teams status: {String(teamsStatusError)}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <div className="text-xs font-medium text-gray-500 mb-1">Total Teams</div>
+                <div className="text-2xl font-semibold text-gray-900">{teamsStatus?.totalTeams || 0}</div>
+                <div className="mt-1 text-xs text-gray-500">
+                  {teamsStatus?.cached ? (
+                    <span className="text-green-600">✓ Cached</span>
+                  ) : (
+                    <span className="text-amber-600">Not cached</span>
+                  )}
+                </div>
+              </div>
+              <div className={`bg-gray-50 border rounded-lg p-3 ${
+                teamsStatus?.integrity?.status === 'good' ? 'border-green-200' :
+                teamsStatus?.integrity?.status === 'warning' ? 'border-amber-200' :
+                'border-red-200'
+              }`}>
+                <div className="text-xs font-medium text-gray-500 mb-1">Data Integrity</div>
+                <div className={`text-lg font-semibold ${
+                  teamsStatus?.integrity?.status === 'good' ? 'text-green-700' :
+                  teamsStatus?.integrity?.status === 'warning' ? 'text-amber-700' :
+                  'text-red-700'
+                }`}>
+                  {teamsStatus?.integrity?.status === 'good' ? '✓ Good' :
+                   teamsStatus?.integrity?.status === 'warning' ? '⚠ Warning' :
+                   '✗ Error'}
+                </div>
+                <div className="mt-1 text-xs text-gray-500">
+                  {teamsStatus?.integrity?.coverage?.teams || 0}% teams, {teamsStatus?.integrity?.coverage?.players || 0}% players
+                </div>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <div className="text-xs font-medium text-gray-500 mb-1">Total Players</div>
+                <div className="text-2xl font-semibold text-gray-900">{teamsStatus?.totalPlayers || 0}</div>
+                <div className="mt-1 text-xs text-gray-500">
+                  {teamsStatus?.lastUpdated ? formatTimeAgo(teamsStatus.lastUpdated) : 'Never checked'}
+                </div>
+              </div>
+            </div>
+
+            {/* Integrity Details */}
+            {teamsStatus?.integrity && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="text-xs font-medium text-green-700 mb-1">Teams w/ Players</div>
+                  <div className="text-xl font-semibold text-green-900">{teamsStatus.integrity.teamsWithPlayers}</div>
+                  <div className="text-xs text-green-600 mt-1">
+                    {teamsStatus.integrity.coverage?.teams || 0}% coverage
+                  </div>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <div className="text-xs font-medium text-amber-700 mb-1">Teams w/o Players</div>
+                  <div className="text-xl font-semibold text-amber-900">{teamsStatus.integrity.teamsWithoutPlayers}</div>
+                  {teamsStatus.integrity.teamsWithoutPlayers > 0 && (
+                    <div className="text-xs text-amber-600 mt-1">
+                      {teamsStatus.teamsWithoutPlayers?.length || 0} shown
+                    </div>
+                  )}
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="text-xs font-medium text-green-700 mb-1">Players w/ Teams</div>
+                  <div className="text-xl font-semibold text-green-900">{teamsStatus.integrity.playersWithTeams}</div>
+                  <div className="text-xs text-green-600 mt-1">
+                    {teamsStatus.integrity.coverage?.players || 0}% coverage
+                  </div>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <div className="text-xs font-medium text-amber-700 mb-1">Players w/o Teams</div>
+                  <div className="text-xl font-semibold text-amber-900">{teamsStatus.integrity.playersWithoutTeams}</div>
+                  {teamsStatus.integrity.playersWithoutTeams > 0 && (
+                    <div className="text-xs text-amber-600 mt-1">
+                      {Math.round((teamsStatus.integrity.playersWithoutTeams / (teamsStatus.totalPlayers || 1)) * 100)}% of total
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Teams Without Players Warning */}
+            {teamsStatus?.teamsWithoutPlayers && teamsStatus.teamsWithoutPlayers.length > 0 && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="text-xs font-semibold text-amber-900 mb-2">
+                  ⚠ Teams Without Players ({teamsStatus.teamsWithoutPlayers.length})
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                  {teamsStatus.teamsWithoutPlayers.map((team: any) => (
+                    <div key={team.id} className="text-xs p-1.5 bg-white rounded border border-amber-200">
+                      <div className="font-medium text-amber-900">{team.abbreviation}</div>
+                      <div className="text-amber-700 truncate">{team.name}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => syncTeamsMutation.mutate()}
+                disabled={syncTeamsMutation.isPending}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {syncTeamsMutation.isPending ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Syncing...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Sync Teams</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {syncTeamsMutation.isSuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
+                Teams synced successfully! {syncTeamsMutation.data?.count || 0} teams loaded.
+              </div>
+            )}
+
+            {syncTeamsMutation.isError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                Error: {syncTeamsMutation.error?.message || 'Failed to sync teams'}
+              </div>
+            )}
+
+            {teamsStatus?.teams && teamsStatus.teams.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <div className="text-xs font-semibold text-gray-700 mb-2">Team Preview (First 10)</div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                  {teamsStatus.teams.map((team: any) => (
+                    <div key={team.id} className="text-xs p-2 bg-gray-50 rounded border border-gray-200">
+                      <div className="font-medium text-gray-900 truncate">{team.abbreviation}</div>
+                      <div className="text-gray-600 truncate">{team.full_name}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
 
+          {scanMutation.isError && (
+            <div className="p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+              Error: {String(scanMutation.error)}
+            </div>
+          )}
+
+          {scanMutation.isSuccess && (
+            <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
+              Found {scanMutation.data?.count || 0} best bets
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Best Bets Results */}
-      <div className="mt-3 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+      <div className="mt-2 rounded-lg bg-white shadow-sm ring-1 ring-gray-100">
+        <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-gray-900">Best Prop Bets</div>
             <div className="text-xs text-gray-500">
@@ -1418,60 +1629,60 @@ export default function AdminDashboard() {
               refetchBestBets()
             }}
             disabled={bestBetsLoading}
-            className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
           >
             {bestBetsLoading ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
         {bestBetsLoading && (
-          <div className="flex items-center justify-center py-8">
-            <svg className="animate-spin h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24">
+          <div className="flex items-center justify-center py-4">
+            <svg className="animate-spin h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span className="ml-2 text-sm text-gray-600">Loading best bets...</span>
+            <span className="ml-2 text-xs text-gray-600">Loading best bets...</span>
           </div>
         )}
         {bestBetsError && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg m-4 text-sm text-red-800">
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg m-3 text-xs text-red-800">
             Error loading best bets: {String(bestBetsError)}
           </div>
         )}
         {!bestBetsLoading && !bestBetsError && (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full text-xs">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-600">Player</th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-600">Prop</th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-600">Line</th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-600">Confidence</th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-600">Hit Rate</th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-600">Trend</th>
-                <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-600">Recent Avg</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Player</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Prop</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Line</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Confidence</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Hit Rate</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Trend</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Recent Avg</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {bestBets.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
                     No best bets found. Run a scan to generate suggestions.
                   </td>
                 </tr>
               ) : (
                 bestBets.slice(0, 30).map((bet: any, idx: number) => (
                   <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-4 py-2.5">
+                    <td className="px-3 py-1.5">
                       <a href={`/player/${bet.playerId}`} className="text-blue-600 hover:underline font-medium">
                         {bet.playerName}
                       </a>
                     </td>
-                    <td className="px-4 py-2.5 text-gray-900">{bet.type}</td>
-                    <td className="px-4 py-2.5 text-gray-900">
+                    <td className="px-3 py-1.5 text-gray-900">{bet.type}</td>
+                    <td className="px-3 py-1.5 text-gray-900">
                       {bet.suggestion === 'over' ? 'OVER' : 'UNDER'} {bet.marketLine}
                     </td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                    <td className="px-3 py-1.5">
+                      <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
                         bet.confidence >= 80 ? 'bg-emerald-50 text-emerald-700' :
                         bet.confidence >= 70 ? 'bg-blue-50 text-blue-700' :
                         'bg-amber-50 text-amber-700'
@@ -1479,11 +1690,11 @@ export default function AdminDashboard() {
                         {bet.confidence}%
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600">{bet.hitRate}%</td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-3 py-1.5 text-gray-600">{bet.hitRate}%</td>
+                    <td className="px-3 py-1.5">
                       {bet.trend === 'up' ? '📈' : bet.trend === 'down' ? '📉' : '➡️'}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600">{bet.recentAvg}</td>
+                    <td className="px-3 py-1.5 text-gray-600">{bet.recentAvg}</td>
                   </tr>
                 ))
               )}

@@ -10,6 +10,8 @@ from .routers.admin_v1 import router as admin_v1_router
 from .routers.bets_v1 import router as bets_v1_router
 from .routers.parlays_v1 import router as parlays_v1_router
 
+# Legacy API routers - deprecated, use /api/v1/* routes instead
+# Keeping for backward compatibility but should be removed in future version
 from .api.players import router as players_router
 from .api.teams import router as teams_router
 from .api.schedule import router as schedule_router
@@ -18,9 +20,18 @@ from .api.props import router as props_router
 app = FastAPI(title="NBA Stat Spot API", version="1.0")
 Base.metadata.create_all(bind=engine)
 
+# CORS configuration - restrict origins in production
+import os
+allowed_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+if allowed_origins == ["*"]:
+    # In production, you should set CORS_ORIGINS to specific domains
+    import structlog
+    logger = structlog.get_logger()
+    logger.warning("CORS allows all origins - consider restricting in production")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,10 +41,12 @@ app.add_middleware(
 def healthz():
     return {"status": "ok"}
 
+# Legacy routes - deprecated, use /api/v1/* instead
 app.include_router(players_router)
 app.include_router(teams_router)
 app.include_router(schedule_router)
 app.include_router(props_router)
+# Modern v1 routes
 app.include_router(props_v1_router)
 app.include_router(players_v1_router)
 app.include_router(teams_v1_router)

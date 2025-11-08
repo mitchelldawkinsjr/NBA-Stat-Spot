@@ -23,23 +23,31 @@ class RationaleGenerator:
             openai_service = OpenAIService()
             if openai_service.is_available():
                 self.services.append(openai_service)
-                print("OpenAI LLM service initialized")
+                import structlog
+                logger = structlog.get_logger()
+                logger.info("OpenAI LLM service initialized")
         except Exception as e:
-            print(f"OpenAI service not available: {e}")
+            import structlog
+            logger = structlog.get_logger()
+            logger.warning("OpenAI service not available", error=str(e))
         
         # Try local Ollama as fallback
         try:
             ollama_service = LocalLLMService(provider="ollama", model_name="llama3.2")
             if ollama_service.is_available():
                 self.services.append(ollama_service)
-                print("Ollama LLM service initialized")
+                import structlog
+                logger = structlog.get_logger()
+                logger.info("Ollama LLM service initialized")
         except Exception as e:
-            print(f"Ollama service not available: {e}")
+            import structlog
+            logger = structlog.get_logger()
+            logger.warning("Ollama service not available", error=str(e))
         
-        # Try LlamaCpp as last resort (if model path configured)
-        # This would require model_path to be set in config
+        # LlamaCpp support can be added if needed by configuring model_path
+        # Example:
         # try:
-        #     llamacpp_service = LocalLLMService(provider="llamacpp", model_path="path/to/model")
+        #     llamacpp_service = LocalLLMService(provider="llamacpp", model_path=os.getenv("LLAMA_MODEL_PATH"))
         #     if llamacpp_service.is_available():
         #         self.services.append(llamacpp_service)
         # except Exception:
@@ -82,7 +90,9 @@ class RationaleGenerator:
                     )
                     return rationale
             except Exception as e:
-                print(f"Error generating rationale with {service.__class__.__name__}: {e}")
+                import structlog
+                logger = structlog.get_logger()
+                logger.warning("Error generating rationale", service=service.__class__.__name__, error=str(e))
                 continue
         
         # Fallback to rule-based rationale

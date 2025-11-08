@@ -161,7 +161,9 @@ def suggest_player_props(req: PlayerSuggestRequest, db: Session = Depends(get_db
             
             suggestions.append(suggestion)
         except Exception as e:
-            print(f"Error evaluating prop {disp_key}: {e}")
+            import structlog
+            logger = structlog.get_logger()
+            logger.warning("Error evaluating prop", prop_type=disp_key, error=str(e))
             continue
     return {"suggestions": suggestions}
 
@@ -169,7 +171,7 @@ def suggest_player_props(req: PlayerSuggestRequest, db: Session = Depends(get_db
 def daily_props(
     date: Optional[str] = None, 
     min_confidence: Optional[float] = None, 
-    limit: int = 50,
+    limit: Optional[int] = None,  # No default limit - return all
     season: Optional[str] = None,
     last_n: Optional[int] = None
 ):
@@ -209,19 +211,69 @@ def daily_props(
         # Apply filters if provided
         if min_confidence:
             items = [item for item in items if (item.get("confidence") or 0) >= min_confidence]
-        if limit:
+        
+        # Apply limit if provided (but return all by default)
+        if limit and limit > 0:
             items = items[:limit]
-        return {"items": items, "cached": True, "cachedAt": _daily_props_cache_time.isoformat() if _daily_props_cache_time else None}
+        
+        # Return all items - frontend will handle pagination
+        return {
+            "items": items,
+            "total": len(items),
+            "cached": True,
+            "cachedAt": _daily_props_cache_time.isoformat() if _daily_props_cache_time else None
+        }
     
-    # No valid cache for requested date, fetch fresh data
-    result = DailyPropsService.get_top_props_for_date(
-        date=date,
-        season=season,
-        min_confidence=min_confidence,
-        limit=limit,
-        last_n=last_n
-    )
-    return {"items": result.get("items", []), "cached": False}
+    # No valid cache for requested date, fetch fresh data and cache it
+    # Use try/except for timeout protection
+    try:
+        # Fetch comprehensive results - scan whole league
+        # If limit is provided, use it; otherwise fetch comprehensive results for caching
+        fetch_limit = limit if limit and limit > 0 else 500  # Fetch comprehensive results
+        result = DailyPropsService.get_top_props_for_date(
+            date=date,
+            season=season,
+            min_confidence=min_confidence,
+            limit=fetch_limit,
+            last_n=last_n  # Use provided last_n or default (10 games)
+        )
+        
+        all_items = result.get("items", [])
+        
+        # Auto-populate cache if this is for today and cache is empty/invalid
+        if not date or target_date_str == datetime.now().strftime("%Y-%m-%d"):
+            from ..routers.admin_v1 import _daily_props_cache_date, _daily_props_cache_time
+            if not _is_cache_valid(_daily_props_cache_date, _daily_props_cache_time):
+                # Update cache synchronously to ensure it's populated for next request
+                # This ensures comprehensive results are cached
+                try:
+                    from ..routers.admin_v1 import _daily_props_cache, _daily_props_cache_date, _daily_props_cache_time
+                    _daily_props_cache = {"items": all_items}  # Cache all items
+                    _daily_props_cache_date = date_type.today()
+                    _daily_props_cache_time = datetime.now()
+                except Exception:
+                    pass  # Cache update failed, but don't fail the request
+        
+        # Return all items - frontend will handle pagination
+        return {
+            "items": all_items,
+            "total": len(all_items),
+            "cached": False
+        }
+    except Exception as e:
+        # If there's an error, return empty result with error message
+        import structlog
+        logger = structlog.get_logger()
+        logger.error("Error fetching daily props", error=str(e))
+        return {
+            "items": [],
+            "total": 0,
+            "returned": 0,
+            "date": date or datetime.now().strftime("%Y-%m-%d"),
+            "season": season or "2025-26",
+            "error": "Request failed. Please try again.",
+            "cached": False
+        }
 
 @router.get("/player/{player_id}")
 def player_props(player_id: int, date: Optional[str] = None, season: Optional[str] = None):
