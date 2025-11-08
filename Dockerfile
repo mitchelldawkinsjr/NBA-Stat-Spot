@@ -9,9 +9,13 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Copy application code
 COPY backend /app
 
-# Expose port (Fly.io will set PORT env var)
+# Expose port
 EXPOSE 8000
 
-# Use PORT environment variable if set, otherwise default to 8000
-CMD python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Set PORT environment variable explicitly
+ENV PORT=8000
+
+# Start uvicorn server - must listen on 0.0.0.0 for Fly.io
+# Use shell form to allow env var substitution
+CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
 

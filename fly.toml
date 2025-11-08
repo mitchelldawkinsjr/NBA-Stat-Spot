@@ -9,6 +9,7 @@ primary_region = "iad"
 
 [env]
   ENV = "production"
+  PORT = "8000"
   CORS_ORIGINS = "https://mitchelldawkinsjr.github.io,https://mitchelldawkinsjr.github.io/NBA-Stat-Spot,http://localhost:5173"
   DATABASE_URL = "sqlite:///./nba_props.db"
 
