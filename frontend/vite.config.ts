@@ -6,11 +6,15 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiTarget = env.VITE_API_TARGET || 'http://localhost:8000'
   
+  // Check if we're building for GitHub Pages
+  // If VITE_GITHUB_PAGES is set, use the repo name as base path
+  const isGitHubPages = env.VITE_GITHUB_PAGES === 'true'
+  const repoName = env.VITE_REPO_NAME || 'NBA-Stat-Spot'
+  const base = isGitHubPages ? `/${repoName}/` : '/'
+  
   return {
     plugins: [react()],
-    // Base path for GitHub Pages (if using project pages)
-    // Uncomment and set to your repo name if needed:
-    // base: '/NBA-Stat-Spot/',
+    base: base,
     server: {
       host: true,
       port: 5173,

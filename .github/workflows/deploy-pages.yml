@@ -37,6 +37,8 @@ jobs:
           # Use secret if set, otherwise you'll need to update this default
           # Go to Settings → Secrets → Actions → Add BACKEND_API_URL
           VITE_API_TARGET: ${{ secrets.BACKEND_API_URL || 'https://your-backend-url.com' }}
+          VITE_GITHUB_PAGES: 'true'
+          VITE_REPO_NAME: ${{ github.event.repository.name }}
         run: npm run build
       
       - name: Setup Pages

@@ -5,12 +5,20 @@
 
 // Get API base URL from environment or use default
 const getApiBaseUrl = (): string => {
-  // In production (GitHub Pages), use environment variable or default backend URL
-  if (import.meta.env.PROD) {
-    return import.meta.env.VITE_API_TARGET || 'https://your-backend-url.com'
+  // Always check for explicit API target first
+  if (import.meta.env.VITE_API_TARGET) {
+    return import.meta.env.VITE_API_TARGET
   }
-  // In development, use proxy or localhost
-  return import.meta.env.VITE_API_TARGET || ''
+  
+  // In production (GitHub Pages), we need an absolute URL
+  if (import.meta.env.PROD) {
+    // Default backend URL - should be set via environment variable
+    // This will be overridden by VITE_API_TARGET if set
+    return 'https://your-backend-url.com'
+  }
+  
+  // In development, use empty string to leverage Vite proxy
+  return ''
 }
 
 export const API_BASE_URL = getApiBaseUrl()

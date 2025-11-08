@@ -6,13 +6,15 @@ import { LoadingSpinner } from './LoadingSpinner'
 const TYPES = ['All','PTS','REB','AST','3PM','PRA'] as const
 type TypeFilter = typeof TYPES[number]
 
+import { apiFetch } from '../utils/api'
+
 async function fetchDaily(minConfidence?: number, date?: string) {
   // Fetch all data from API (no pagination - load everything)
   const params = new URLSearchParams()
   if (minConfidence) params.append('min_confidence', minConfidence.toString())
   if (date) params.append('date', date)
-  const url = `/api/v1/props/daily${params.toString() ? '?' + params.toString() : ''}`
-  const res = await fetch(url)
+  const endpoint = `api/v1/props/daily${params.toString() ? '?' + params.toString() : ''}`
+  const res = await apiFetch(endpoint)
   if (!res.ok) throw new Error('Failed to load')
   const data = await res.json()
   

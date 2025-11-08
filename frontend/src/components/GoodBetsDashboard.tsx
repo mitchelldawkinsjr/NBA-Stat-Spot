@@ -7,11 +7,13 @@ import { useSeason } from '../context/SeasonContext'
 import { useSnackbar } from '../context/SnackbarContext'
 import { getCache, setCache, clearCache, getTodayDate } from '../utils/cache'
 
+import { apiFetch } from '../utils/api'
+
 async function fetchToday(date?: string) {
   const params = new URLSearchParams()
   if (date) params.append('date', date)
-  const url = `/api/v1/games/today${params.toString() ? '?' + params.toString() : ''}`
-  const res = await fetch(url)
+  const endpoint = `api/v1/games/today${params.toString() ? '?' + params.toString() : ''}`
+  const res = await apiFetch(endpoint)
   if (!res.ok) {
     // Error handled by React Query - no console logging needed
     throw new Error(`Failed to load games: ${res.status}`)
@@ -34,8 +36,8 @@ async function fetchDaily(minConfidence?: number, date?: string) {
   const params = new URLSearchParams()
   if (minConfidence) params.append('min_confidence', minConfidence.toString())
   if (date) params.append('date', date)
-  const url = `/api/v1/props/daily${params.toString() ? '?' + params.toString() : ''}`
-  const res = await fetch(url)
+  const endpoint = `api/v1/props/daily${params.toString() ? '?' + params.toString() : ''}`
+  const res = await apiFetch(endpoint)
   if (!res.ok) throw new Error('Failed to load daily')
   const data = await res.json()
   
@@ -61,8 +63,8 @@ async function fetchHighHitRate(date?: string) {
   params.append('limit', '6')
   params.append('last_n', '10')
   if (date) params.append('date', date)
-  const url = `/api/v1/props/high-hit-rate?${params.toString()}`
-  const res = await fetch(url)
+  const endpoint = `api/v1/props/high-hit-rate?${params.toString()}`
+  const res = await apiFetch(endpoint)
   if (!res.ok) throw new Error('Failed to load high hit rate bets')
   const data = await res.json()
   
