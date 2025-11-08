@@ -22,8 +22,15 @@ Base.metadata.create_all(bind=engine)
 
 # CORS configuration - restrict origins in production
 import os
-allowed_origins = os.getenv("CORS_ORIGINS", "*").split(",")
-if allowed_origins == ["*"]:
+cors_origins_env = os.getenv("CORS_ORIGINS", "*")
+allowed_origins = cors_origins_env.split(",") if cors_origins_env else ["*"]
+
+# Always allow GitHub Pages frontend
+github_pages_url = "https://mitchelldawkinsjr.github.io"
+if "*" not in allowed_origins and github_pages_url not in allowed_origins:
+    allowed_origins.append(github_pages_url)
+
+if allowed_origins == ["*"] or "*" in allowed_origins:
     # In production, you should set CORS_ORIGINS to specific domains
     import structlog
     logger = structlog.get_logger()
