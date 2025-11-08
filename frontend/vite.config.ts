@@ -1,5 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { copyFileSync } from 'fs'
+import { join } from 'path'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -14,7 +16,28 @@ export default defineConfig(({ mode }) => {
   const base = isGitHubPages ? `/${repoName}/` : '/'
   
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      // Plugin to copy index.html to 404.html for GitHub Pages SPA routing
+      // This allows direct navigation to routes like /explore to work
+      {
+        name: 'copy-404-for-github-pages',
+        closeBundle() {
+          if (isGitHubPages) {
+            const distPath = join(process.cwd(), 'frontend', 'dist')
+            try {
+              copyFileSync(
+                join(distPath, 'index.html'),
+                join(distPath, '404.html')
+              )
+              console.log('✅ Copied index.html to 404.html for GitHub Pages SPA routing')
+            } catch (err) {
+              console.warn('⚠️ Could not copy index.html to 404.html:', err)
+            }
+          }
+        }
+      }
+    ],
     base: base,
     server: {
       host: true,
