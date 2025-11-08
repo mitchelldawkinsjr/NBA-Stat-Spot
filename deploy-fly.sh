@@ -42,7 +42,7 @@ fi
 # Set secrets
 echo "🔑 Setting environment variables..."
 $FLYCTL secrets set -a "$APP_NAME" \
-    CORS_ORIGINS="https://mitchelldawkinsjr.github.io,http://localhost:5173" \
+    CORS_ORIGINS="https://mitchelldawkinsjr.github.io,https://mitchelldawkinsjr.github.io/NBA-Stat-Spot,http://localhost:5173" \
     DATABASE_URL="sqlite:///./nba_props.db"
 
 # Deploy

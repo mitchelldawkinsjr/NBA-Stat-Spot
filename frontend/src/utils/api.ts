@@ -20,7 +20,7 @@ const getApiBaseUrl = (): string => {
       // Docker hostname detected - only use it if we're actually in Docker
       // For local dev outside Docker, fall back to Vite proxy
       // (We can't reliably detect if we're in Docker from browser, so default to proxy)
-      return ''
+    return ''
     }
     return apiTarget
   }
