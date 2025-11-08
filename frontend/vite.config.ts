@@ -24,12 +24,12 @@ export default defineConfig(({ mode }) => {
         name: 'copy-404-for-github-pages',
         closeBundle() {
           if (isGitHubPages) {
-            const distPath = join(process.cwd(), 'frontend', 'dist')
+            // Use the build output directory from Vite config
+            const distPath = join(process.cwd(), 'dist')
             try {
-              copyFileSync(
-                join(distPath, 'index.html'),
-                join(distPath, '404.html')
-              )
+              const indexPath = join(distPath, 'index.html')
+              const notFoundPath = join(distPath, '404.html')
+              copyFileSync(indexPath, notFoundPath)
               console.log('✅ Copied index.html to 404.html for GitHub Pages SPA routing')
             } catch (err) {
               console.warn('⚠️ Could not copy index.html to 404.html:', err)
