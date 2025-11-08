@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY backend/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy application code
+COPY backend /app
+
+# Expose port (Fly.io will set PORT env var)
+EXPOSE 8000
+
+# Use PORT environment variable if set, otherwise default to 8000
+CMD python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+

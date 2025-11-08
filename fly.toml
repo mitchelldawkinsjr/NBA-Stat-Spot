@@ -6,6 +6,13 @@
 app = 'nba-stat-spot-ai'
 primary_region = 'iad'
 
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  CORS_ORIGINS = "https://mitchelldawkinsjr.github.io,http://localhost:5173"
+  DATABASE_URL = "sqlite:///./nba_props.db"
+
 [http_service]
   internal_port = 8000
   force_https = true
