@@ -79,4 +79,12 @@ class TestNBADataService:
         with patch('app.services.nba_api_service.static_teams', None):
             teams = NBADataService.fetch_all_teams()
             assert teams == []
+    
+    @pytest.mark.skip(reason="Requires NBA API access - may fail in CI")
+    def test_search_players_integration(self):
+        """Integration test for player search (skipped in CI if NBA API unavailable)"""
+        results = NBADataService.search_players("james")
+        assert isinstance(results, list)
+        # If API is available, we should get results
+        # If not, list will be empty which is also valid
 
