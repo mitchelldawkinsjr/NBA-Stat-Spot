@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Sliced Pro Theme CSS -->
+    <link rel="stylesheet" href="./sliced/assets/css/main.css" />
+    <title>NBA Stat Spot</title>
+    <script>
+      // GitHub Pages SPA routing fix
+      // Rewrite the URL to the correct path before React Router loads
+      // This must execute synchronously before the React app initializes
+      
+      (function() {
+        var path = window.location.pathname;
+        var search = window.location.search;
+        var hash = window.location.hash;
+        
+        // Remove /404.html from path if present
+        var cleanPath = path.replace(/\/404\.html$/, '');
+        
+        // Determine base path (for project pages like /NBA-Stat-Spot/)
+        var pathSegments = cleanPath.split('/').filter(Boolean);
+        var repoName = 'NBA-Stat-Spot'; // Should match your repository name
+        var basePath = '/';
+        
+        // Check if we're on a project page
+        if (pathSegments.length > 0 && pathSegments[0] === repoName) {
+          basePath = '/' + repoName + '/';
+          // Remove repo name from path segments for routing
+          pathSegments = pathSegments.slice(1);
+        }
+        
+        // Build the correct path for React Router
+        var routerPath = basePath;
+        if (pathSegments.length > 0) {
+          routerPath += pathSegments.join('/');
+        }
+        
+        // If we're on the 404 page itself, redirect to home
+        if (path.includes('404.html')) {
+          routerPath = basePath || '/';
+        }
+        
+        // Rewrite the URL using History API before React Router loads
+        // This preserves the path so React Router can handle it
+        var newUrl = routerPath + search + hash;
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, '', newUrl);
+        }
+      })();
+    </script>
+  </head>
+  <body class="font-sans">
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>

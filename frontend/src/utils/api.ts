@@ -5,14 +5,24 @@
 
 // Get API base URL from environment or use default
 const getApiBaseUrl = (): string => {
-  // Always check for explicit API target first
-  if (import.meta.env.VITE_API_TARGET) {
-    return import.meta.env.VITE_API_TARGET
-  }
-  
   // In production, use Fly.io backend
   if (import.meta.env.PROD) {
     return 'https://nba-stat-spot-ai.fly.dev'
+  }
+  
+  // In development, check for explicit API target
+  // But ignore Docker hostnames (backend:8000) when running locally outside Docker
+  const apiTarget = import.meta.env.VITE_API_TARGET
+  if (apiTarget) {
+    // If running in browser (not in Docker), Docker hostnames won't resolve
+    // Check if it's a Docker hostname and we're likely running locally
+    if (apiTarget.includes('://backend:') || apiTarget.includes('://backend/')) {
+      // Docker hostname detected - only use it if we're actually in Docker
+      // For local dev outside Docker, fall back to Vite proxy
+      // (We can't reliably detect if we're in Docker from browser, so default to proxy)
+      return ''
+    }
+    return apiTarget
   }
   
   // In development, use empty string to leverage Vite proxy to localhost:8000

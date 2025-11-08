@@ -20,21 +20,48 @@ from .api.props import router as props_router
 app = FastAPI(title="NBA Stat Spot API", version="1.0")
 Base.metadata.create_all(bind=engine)
 
-# CORS configuration - restrict origins in production
+# CORS configuration - open in development, restricted in production
 import os
-cors_origins_env = os.getenv("CORS_ORIGINS", "*")
-allowed_origins = cors_origins_env.split(",") if cors_origins_env else ["*"]
 
-# Always allow GitHub Pages frontend
-github_pages_url = "https://mitchelldawkinsjr.github.io"
-if "*" not in allowed_origins and github_pages_url not in allowed_origins:
-    allowed_origins.append(github_pages_url)
+# Check if we're in development mode
+# Fly.io sets FLY_APP_NAME automatically, so if it's not set, we're likely in local dev
+is_fly_io = os.getenv("FLY_APP_NAME") is not None
+env_mode = os.getenv("ENV", os.getenv("ENVIRONMENT", "")).lower()
 
-if allowed_origins == ["*"] or "*" in allowed_origins:
-    # In production, you should set CORS_ORIGINS to specific domains
+# If on Fly.io, always use production mode unless explicitly set to dev
+# Otherwise, default to development for local dev
+if is_fly_io:
+    is_development = env_mode in ["development", "dev", "local"]
+else:
+    # Local dev - default to development unless explicitly set to production
+    is_development = env_mode not in ["production", "prod"]
+
+if is_development:
+    # In development, allow all origins for easy local testing
+    allowed_origins = ["*"]
     import structlog
     logger = structlog.get_logger()
-    logger.warning("CORS allows all origins - consider restricting in production")
+    logger.info("CORS: Allowing all origins (development mode)")
+else:
+    # In production, use configured origins or default to GitHub Pages
+    cors_origins_env = os.getenv("CORS_ORIGINS", "")
+    if cors_origins_env:
+        allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+    else:
+        # Default to GitHub Pages if no CORS_ORIGINS is set
+        allowed_origins = ["https://mitchelldawkinsjr.github.io"]
+    
+    # Always allow GitHub Pages frontend
+    github_pages_url = "https://mitchelldawkinsjr.github.io"
+    if github_pages_url not in allowed_origins:
+        allowed_origins.append(github_pages_url)
+    
+    if not allowed_origins:
+        # Fallback to all origins if somehow empty (shouldn't happen)
+        allowed_origins = ["*"]
+        import structlog
+        logger = structlog.get_logger()
+        logger.warning("CORS: No origins configured, allowing all (fallback)")
 
 app.add_middleware(
     CORSMiddleware,
