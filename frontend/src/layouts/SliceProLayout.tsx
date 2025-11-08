@@ -19,22 +19,38 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
       {/* Top bar styled like Sliced Pro */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-[60px] items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100" aria-label="Toggle menu">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h16v2H4v-2Z"/></svg>
+          <div className="flex h-[60px] items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button 
+                onClick={() => setSidebarOpen(!sidebarOpen)} 
+                className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100" 
+                aria-label="Toggle menu"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h16v2H4v-2Z"/>
+                </svg>
               </button>
               <Link to="/" className="inline-flex items-center gap-2">
                 <span className="text-base sm:text-lg font-bold text-slate-800">NBA Stat Spot</span>
                 <span className="hidden sm:inline text-xs text-slate-500">Sliced Pro Layout</span>
               </Link>
             </div>
-            <nav className="hidden md:flex items-center gap-2" role="navigation" aria-label="Primary">
+            <nav className="hidden md:flex items-center gap-2 flex-1 justify-center" role="navigation" aria-label="Primary">
               {nav.map(n => (
-                <Link key={n.to} to={n.to} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${pathname.startsWith(n.to) ? 'text-purple-700 bg-purple-50' : 'text-slate-700 hover:text-purple-700 hover:bg-purple-50'}`}>{n.label}</Link>
+                <Link 
+                  key={n.to} 
+                  to={n.to} 
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                    pathname.startsWith(n.to) 
+                      ? 'text-purple-700 bg-purple-50' 
+                      : 'text-slate-700 hover:text-purple-700 hover:bg-purple-50'
+                  }`}
+                >
+                  {n.label}
+                </Link>
               ))}
             </nav>
-            <div className="hidden md:block">
+            <div className="hidden md:flex items-center gap-2 flex-shrink-0">
               <SeasonControl />
             </div>
           </div>
