@@ -51,10 +51,14 @@ else:
         # Default to GitHub Pages if no CORS_ORIGINS is set
         allowed_origins = ["https://mitchelldawkinsjr.github.io"]
     
-    # Always allow GitHub Pages frontend
-    github_pages_url = "https://mitchelldawkinsjr.github.io"
-    if github_pages_url not in allowed_origins:
-        allowed_origins.append(github_pages_url)
+    # Always ensure GitHub Pages URLs are included (both root and with repo path)
+    github_pages_urls = [
+        "https://mitchelldawkinsjr.github.io",
+        "https://mitchelldawkinsjr.github.io/NBA-Stat-Spot"
+    ]
+    for url in github_pages_urls:
+        if url not in allowed_origins:
+            allowed_origins.append(url)
     
     if not allowed_origins:
         # Fallback to all origins if somehow empty (shouldn't happen)
@@ -67,8 +71,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 @app.get("/healthz")
