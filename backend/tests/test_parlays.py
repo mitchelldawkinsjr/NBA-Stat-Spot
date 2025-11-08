@@ -4,7 +4,6 @@ Tests for Parlays Router
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
-from datetime import date, datetime
 
 client = TestClient(app)
 
