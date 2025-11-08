@@ -13,7 +13,6 @@ async function fetchToday(date?: string) {
   const url = `/api/v1/games/today${params.toString() ? '?' + params.toString() : ''}`
   const res = await fetch(url)
   if (!res.ok) {
-    const errorText = await res.text()
     // Error handled by React Query - no console logging needed
     throw new Error(`Failed to load games: ${res.status}`)
   }
@@ -218,21 +217,6 @@ export function GoodBetsDashboard() {
     })
     return todayItems.slice(0, 5)
   }, [dailyData, today, games.length])
-
-  const stats = useMemo(() => {
-    const items = (dailyData?.items ?? []) as any[]
-    // Strict filter: only count props with gameDate matching today
-    const todayItems = items.filter((item: any) => {
-      const itemDate = item.gameDate || item.game_date
-      // Must have a date and it must match today
-      return itemDate && (itemDate === today || itemDate.startsWith(today))
-    })
-    const count = todayItems.length
-    const avg = count ? Math.round(todayItems.reduce((a: number, b: any) => a + (b.confidence ?? 0), 0) / count) : 0
-    const top = todayItems[0]?.confidence ? Math.round(todayItems[0].confidence) : 0
-    const gamesCount = games.length
-    return { count, avg, top, games: gamesCount }
-  }, [dailyData, games, today])
 
   const playersToWatch = useMemo(() => {
     // Only show players if there are games today

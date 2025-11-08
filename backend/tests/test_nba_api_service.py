@@ -78,14 +78,11 @@ class TestNBADataService:
     def test_fetch_all_teams_no_module(self):
         """Test fetching teams when module is not available"""
         # This test verifies graceful handling when static_teams is None
-        # We can't easily patch module-level imports, so we'll just verify
-        # the method handles None gracefully
-        try:
-            teams = NBADataService.fetch_all_teams()
-            assert isinstance(teams, list)  # Should always return a list
-        except Exception:
-            # If there's an error, that's acceptable for this test
-            pass
+        # Since the method uses caching and may have already loaded teams,
+        # we just verify it returns a list (empty or with data)
+        teams = NBADataService.fetch_all_teams()
+        assert isinstance(teams, list)  # Should always return a list
+        # Don't assert empty list since caching may have populated it
     
     @pytest.mark.skip(reason="Requires NBA API access - may fail in CI")
     def test_search_players_integration(self):

@@ -10,8 +10,9 @@
 import { setCacheProvider, type CacheProviderType } from '../utils/cache'
 
 // Get cache type from environment variable or use default
+// In Vite, use import.meta.env instead of process.env
 const cacheType: CacheProviderType = 
-  (process.env.REACT_APP_CACHE_TYPE as CacheProviderType) || 
+  (import.meta.env.VITE_CACHE_TYPE as CacheProviderType) || 
   'localStorage'
 
 // Initialize the cache provider

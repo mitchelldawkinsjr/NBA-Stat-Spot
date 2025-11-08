@@ -105,11 +105,12 @@ class TestPropsV1Router:
     def test_player_props(self):
         """Test player props endpoint"""
         response = client.get("/api/v1/props/player/2544?season=2025-26")
-        # May return empty suggestions if NBA API unavailable
+        # May return empty items if NBA API unavailable
         assert response.status_code in [200, 500]
         if response.status_code == 200:
             data = response.json()
-            assert "suggestions" in data
+            assert "items" in data
+            assert isinstance(data["items"], list)
 
 
 class TestTeamsV1Router:
