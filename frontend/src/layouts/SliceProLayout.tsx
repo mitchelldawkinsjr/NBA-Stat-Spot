@@ -35,6 +35,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
                 <span className="hidden sm:inline text-xs text-slate-500">Sliced Pro Layout</span>
               </Link>
             </div>
+            {/* Desktop Navigation - hidden on mobile, visible on md+ */}
             <nav className="hidden md:flex items-center gap-2 flex-1 justify-center" role="navigation" aria-label="Primary">
               {nav.map(n => (
                 <Link 
@@ -57,24 +58,46 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* Sidebar (mobile) */}
+      {/* Sidebar (mobile) - slides in from left */}
       {sidebarOpen && (
-        <div className="md:hidden fixed inset-0 z-30">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl ring-1 ring-black/5 p-4">
-            <div className="flex items-center justify-between">
+        <div className="md:hidden fixed inset-0 z-50">
+          {/* Backdrop overlay */}
+          <div 
+            className="absolute inset-0 bg-black/30 transition-opacity" 
+            onClick={() => setSidebarOpen(false)} 
+          />
+          {/* Sidebar panel - slides in from left */}
+          <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl ring-1 ring-black/5 p-4 transform transition-transform duration-300 ease-in-out">
+            <div className="flex items-center justify-between mb-4">
               <div className="text-sm font-semibold text-gray-900">Menu</div>
-              <button onClick={() => setSidebarOpen(false)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-md" aria-label="Close">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M6.4 5l-.7.7L11.3 11l-5.6 5.3.7.7L12 11.7l5.6 5.6.7-.7-5.6-5.6 5.6-5.6-.7-.7L12 10.3 6.4 5z"/></svg>
+              <button 
+                onClick={() => setSidebarOpen(false)} 
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded-md" 
+                aria-label="Close menu"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6.4 5l-.7.7L11.3 11l-5.6 5.3.7.7L12 11.7l5.6 5.6.7-.7-5.6-5.6 5.6-5.6-.7-.7L12 10.3 6.4 5z"/>
+                </svg>
               </button>
             </div>
-            <div className="mt-3 space-y-1">
+            <div className="space-y-1">
               {nav.map(n => (
-                <Link key={n.to} to={n.to} onClick={() => setSidebarOpen(false)} className={`block px-3 py-2 rounded-md text-sm font-medium ${pathname.startsWith(n.to) ? 'text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700 hover:bg-blue-50'}`}>{n.label}</Link>
+                <Link 
+                  key={n.to} 
+                  to={n.to} 
+                  onClick={() => setSidebarOpen(false)} 
+                  className={`block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    pathname.startsWith(n.to) 
+                      ? 'text-blue-700 bg-blue-50' 
+                      : 'text-gray-700 hover:text-blue-700 hover:bg-blue-50'
+                  }`}
+                >
+                  {n.label}
+                </Link>
               ))}
             </div>
             {/* Season Control in Mobile Sidebar */}
-            <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="mt-6 pt-4 border-t border-gray-200">
               <div className="px-3">
                 <div className="text-xs font-semibold text-gray-500 mb-2">Season</div>
                 <SeasonControl isMobile={true} />
