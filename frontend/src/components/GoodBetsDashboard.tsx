@@ -78,8 +78,8 @@ async function fetchStatLeaders(season?: string) {
   const params = new URLSearchParams()
   if (season) params.append('season', season)
   params.append('limit', '3')
-  const url = `/api/v1/players/stat-leaders${params.toString() ? '?' + params.toString() : ''}`
-  const res = await fetch(url)
+  const url = `api/v1/players/stat-leaders${params.toString() ? '?' + params.toString() : ''}`
+  const res = await apiFetch(url)
   if (!res.ok) throw new Error('Failed to load stat leaders')
   return res.json()
 }

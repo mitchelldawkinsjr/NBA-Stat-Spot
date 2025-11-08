@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { apiFetch } from '../utils/api'
 
 export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: string }) => void }) {
   const [q, setQ] = useState('')
@@ -18,7 +19,7 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
         setOpen(false)
         return 
       }
-      const res = await fetch(`/api/v1/players/search?q=${encodeURIComponent(q)}`)
+      const res = await apiFetch(`api/v1/players/search?q=${encodeURIComponent(q)}`)
       const data = await res.json()
       setItems(data.items || [])
       setOpen(true)

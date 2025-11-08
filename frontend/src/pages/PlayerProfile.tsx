@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useSeason } from '../context/SeasonContext'
+import { apiFetch, apiPost } from '../utils/api'
 import { useMutation } from '@tanstack/react-query'
 import { SuggestionCards } from '../components/SuggestionCards'
 import { PropCard } from '../components/PropCard'
@@ -58,7 +59,7 @@ export default function PlayerProfile() {
       try {
         // Fetch player detail for display name and team
         try {
-          const rName = await fetch(`/api/v1/players/${playerIdNum}`)
+          const rName = await apiFetch(`api/v1/players/${playerIdNum}`)
           if (rName.ok) {
             const j = await rName.json()
             if (j?.player?.name) setPlayerName(String(j.player.name))
@@ -79,7 +80,7 @@ export default function PlayerProfile() {
         
         let res
         try {
-          res = await fetch(`/api/v1/players/${playerIdNum}/stats?games=20&season=${encodeURIComponent(season)}`, {
+          res = await apiFetch(`api/v1/players/${playerIdNum}/stats?games=20&season=${encodeURIComponent(season)}`, {
             signal: controller.signal
           })
         } catch (fetchError: unknown) {
@@ -133,7 +134,7 @@ export default function PlayerProfile() {
           const timeoutId2 = setTimeout(() => controller2.abort(), 15000)
           let res2
           try {
-            res2 = await fetch(`/api/v1/players/${playerIdNum}/stats?games=20&season=${encodeURIComponent('2024-25')}`, {
+            res2 = await apiFetch(`api/v1/players/${playerIdNum}/stats?games=20&season=${encodeURIComponent('2024-25')}`, {
               signal: controller2.signal
             })
             clearTimeout(timeoutId2)
@@ -273,8 +274,7 @@ export default function PlayerProfile() {
         lastN: windowN,
         marketLines: { [apiKeyMap[hrStat]]: Number(hrLine) },
       }
-      const res = await fetch('/api/v1/props/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      return res.json()
+      return await apiPost('api/v1/props/player', body)
     },
     onSuccess: (data) => setEvalResult(data)
   })

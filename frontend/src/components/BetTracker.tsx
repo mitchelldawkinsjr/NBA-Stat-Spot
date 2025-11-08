@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSeason } from '../context/SeasonContext'
+import { apiFetch, apiPost } from '../utils/api'
 
 type Bet = {
   id: number
@@ -47,26 +48,26 @@ type BetStats = {
 }
 
 async function fetchBets(): Promise<Bet[]> {
-  const res = await fetch('/api/v1/bets?limit=100')
+  const res = await apiFetch('api/v1/bets?limit=100')
   if (!res.ok) throw new Error('Failed to load bets')
   return res.json()
 }
 
 async function fetchBetStats(): Promise<BetStats> {
-  const res = await fetch('/api/v1/bets/stats')
+  const res = await apiFetch('api/v1/bets/stats')
   if (!res.ok) throw new Error('Failed to load stats')
   return res.json()
 }
 
 async function fetchParlays(): Promise<any[]> {
-  const res = await fetch('/api/v1/parlays?limit=100')
+  const res = await apiFetch('api/v1/parlays?limit=100')
   if (!res.ok) throw new Error('Failed to load parlays')
   return res.json()
 }
 
 async function searchPlayers(query: string): Promise<Array<{id: number; name: string; team?: number}>> {
   if (!query || query.length < 1) return []
-  const res = await fetch(`/api/v1/players/search?q=${encodeURIComponent(query)}`)
+  const res = await apiFetch(`api/v1/players/search?q=${encodeURIComponent(query)}`)
   if (!res.ok) return []
   const data = await res.json()
   return data.items || []
@@ -87,13 +88,8 @@ async function fetchPropSuggestion(playerId: number, propType: string, lineValue
       body.lastN = 10 // Default to last 10 games to match PlayerProfile
     }
     
-    const res = await fetch('/api/v1/props/player', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    })
-    if (!res.ok) return null
-    const data = await res.json()
+    const data = await apiPost('api/v1/props/player', body)
+    if (!data) return null
     const suggestion = data.suggestions?.[0]
     if (suggestion) {
       // Use the backend's suggestion directly to match PlayerProfile logic
@@ -134,13 +130,7 @@ export function BetTracker() {
   
   const createBet = useMutation({
     mutationFn: async (betData: any) => {
-      const res = await fetch('/api/v1/bets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(betData)
-      })
-      if (!res.ok) throw new Error('Failed to create bet')
-      return res.json()
+      return await apiPost('api/v1/bets', betData)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bets'] })
@@ -152,13 +142,7 @@ export function BetTracker() {
 
   const createParlay = useMutation({
     mutationFn: async (parlayData: any) => {
-      const res = await fetch('/api/v1/parlays', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parlayData)
-      })
-      if (!res.ok) throw new Error('Failed to create parlay')
-      return res.json()
+      return await apiPost('api/v1/parlays', parlayData)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parlays'] })
