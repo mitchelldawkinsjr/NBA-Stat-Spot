@@ -19,16 +19,16 @@ jobs:
       - name: Backend health check
         run: |
           python - <<'PY'
-import importlib
-import sys
-try:
-    importlib.import_module('fastapi')
-    print('FastAPI import OK')
-except Exception as e:
-    print('Import failed:', e)
-    sys.exit(1)
-PY
-  
+          import importlib
+          import sys
+          try:
+              importlib.import_module('fastapi')
+              print('FastAPI import OK')
+          except Exception as e:
+              print('Import failed:', e)
+              sys.exit(1)
+          PY
+
   build-docs:
     runs-on: ubuntu-latest
     steps:
