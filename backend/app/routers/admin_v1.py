@@ -484,6 +484,19 @@ def clear_best_bets_cache():
     finally:
         db.close()
 
+@router.post("/cache/cleanup")
+def cleanup_expired_cache(db: Session = Depends(get_db)):
+    """Clean up expired cache entries"""
+    try:
+        count = _cache.cleanup_expired(db=db)
+        return {
+            "status": "success",
+            "message": f"Cleaned up {count} expired cache entries",
+            "count": count
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @router.get("/cache/status")
 def cache_status():
     """Get cache status for all services"""

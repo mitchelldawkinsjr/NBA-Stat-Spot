@@ -13,6 +13,10 @@ primary_region = "iad"
   CORS_ORIGINS = "https://mitchelldawkinsjr.github.io,https://mitchelldawkinsjr.github.io/NBA-Stat-Spot,http://localhost:5173"
   DATABASE_URL = "sqlite:///./nba_props.db"
 
+[processes]
+  app = "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+  cron = "supercronic /app/crontab"
+
 [http_service]
   internal_port = 8000
   force_https = true
