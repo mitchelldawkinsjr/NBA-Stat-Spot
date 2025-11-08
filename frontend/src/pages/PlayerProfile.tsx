@@ -212,6 +212,24 @@ export default function PlayerProfile() {
     return { tag, delta, color }
   }, [recentN, seasonAverages])
 
+  // Form badges for each stat (HOT/COLD/NEUTRAL based on recent vs season average)
+  const statFormBadges = useMemo(() => {
+    const getFormBadge = (recentAvg: number, seasonAvg: number) => {
+      const delta = recentAvg - seasonAvg
+      const tag = delta > 0.8 ? 'HOT' : delta < -0.8 ? 'COLD' : 'NEUTRAL'
+      const color = tag === 'HOT' ? 'bg-green-50 text-green-700 ring-green-600/20' : tag === 'COLD' ? 'bg-red-50 text-red-700 ring-red-600/20' : 'bg-gray-50 text-gray-700 ring-gray-600/20'
+      return { tag, delta, color }
+    }
+    
+    return {
+      pts: getFormBadge(avg(recentN.map(g => g.pts)), seasonAverages.pts),
+      reb: getFormBadge(avg(recentN.map(g => g.reb)), seasonAverages.reb),
+      ast: getFormBadge(avg(recentN.map(g => g.ast)), seasonAverages.ast),
+      tpm: getFormBadge(avg(recentN.map(g => g.tpm)), seasonAverages.tpm),
+      pra: getFormBadge(avg(recentN.map(g => (g.pra as number))), seasonAverages.pra),
+    }
+  }, [recentN, seasonAverages])
+
   
 
   // Keep last N slices for quick calculations if needed
