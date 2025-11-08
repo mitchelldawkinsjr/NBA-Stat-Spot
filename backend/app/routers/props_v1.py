@@ -180,7 +180,7 @@ def daily_props(
     Uses cached data if available (cached for today), otherwise fetches fresh data.
     """
     from datetime import date as date_type, datetime
-    from ..routers.admin_v1 import _daily_props_cache, _daily_props_cache_date, _daily_props_cache_time, _is_cache_valid
+    from ..routers.admin_v1 import _get_daily_props_cache, _set_daily_props_cache
     
     # Determine the target date - use provided date or today
     if date:
@@ -189,12 +189,11 @@ def daily_props(
         target_date_str = datetime.now().strftime("%Y-%m-%d")
     
     # Check if we have valid cached data for the requested date
-    cache_date_str = _daily_props_cache_date.strftime("%Y-%m-%d") if _daily_props_cache_date else None
-    cache_is_for_requested_date = cache_date_str == target_date_str
+    cached_data = _get_daily_props_cache(target_date_str)
     
-    if _is_cache_valid(_daily_props_cache_date, _daily_props_cache_time) and _daily_props_cache and cache_is_for_requested_date:
+    if cached_data:
         # Return cached data, but filter by gameDate to ensure we only return props for the requested date
-        items = _daily_props_cache.get("items", [])
+        items = cached_data.get("items", [])
         # Filter by gameDate to ensure we only return props for today
         # If gameDate is not set, include the item (assume it's for today since cache is for today)
         filtered_items = []
@@ -221,7 +220,7 @@ def daily_props(
             "items": items,
             "total": len(items),
             "cached": True,
-            "cachedAt": _daily_props_cache_time.isoformat() if _daily_props_cache_time else None
+            "cachedAt": None  # Cache service handles TTL internally
         }
     
     # No valid cache for requested date, fetch fresh data and cache it
@@ -242,15 +241,13 @@ def daily_props(
         
         # Auto-populate cache if this is for today and cache is empty/invalid
         if not date or target_date_str == datetime.now().strftime("%Y-%m-%d"):
-            from ..routers.admin_v1 import _daily_props_cache_date, _daily_props_cache_time
-            if not _is_cache_valid(_daily_props_cache_date, _daily_props_cache_time):
+            # Check if cache exists for today
+            today_cached = _get_daily_props_cache(target_date_str)
+            if not today_cached:
                 # Update cache synchronously to ensure it's populated for next request
                 # This ensures comprehensive results are cached
                 try:
-                    from ..routers.admin_v1 import _daily_props_cache, _daily_props_cache_date, _daily_props_cache_time
-                    _daily_props_cache = {"items": all_items}  # Cache all items
-                    _daily_props_cache_date = date_type.today()
-                    _daily_props_cache_time = datetime.now()
+                    _set_daily_props_cache({"items": all_items}, target_date=target_date_str, ttl=86400)
                 except Exception:
                     pass  # Cache update failed, but don't fail the request
         
@@ -309,7 +306,7 @@ def high_hit_rate_props(
         last_n: Number of recent games to consider for hit rate calculation
     """
     from datetime import datetime
-    from ..routers.admin_v1 import _high_hit_rate_cache, _high_hit_rate_cache_date, _high_hit_rate_cache_time, _is_cache_valid
+    from ..routers.admin_v1 import _get_high_hit_rate_cache, _set_high_hit_rate_cache
     
     # Determine the target date - use provided date or today
     if date:
@@ -318,12 +315,11 @@ def high_hit_rate_props(
         target_date_str = datetime.now().strftime("%Y-%m-%d")
     
     # Check if we have valid cached data for the requested date
-    cache_date_str = _high_hit_rate_cache_date.strftime("%Y-%m-%d") if _high_hit_rate_cache_date else None
-    cache_is_for_requested_date = cache_date_str == target_date_str
+    cached_data = _get_high_hit_rate_cache(target_date_str)
     
-    if _is_cache_valid(_high_hit_rate_cache_date, _high_hit_rate_cache_time) and _high_hit_rate_cache and cache_is_for_requested_date:
+    if cached_data:
         # Return cached data, but filter by gameDate to ensure we only return props for the requested date
-        items = _high_hit_rate_cache.get("items", [])
+        items = cached_data.get("items", [])
         # Filter by gameDate to ensure we only return props for today
         # If gameDate is not set, include the item (assume it's for today since cache is for today)
         filtered_items = []
@@ -342,10 +338,10 @@ def high_hit_rate_props(
             items = [item for item in items if (item.get("hitRate", 0) / 100) >= min_hit_rate]
         if limit:
             items = items[:limit]
-        result = _high_hit_rate_cache.copy()
+        result = cached_data.copy()
         result["items"] = items
         result["cached"] = True
-        result["cachedAt"] = _high_hit_rate_cache_time.isoformat() if _high_hit_rate_cache_time else None
+        result["cachedAt"] = None  # Cache service handles TTL internally
         return result
     
     # No valid cache for requested date, fetch fresh data

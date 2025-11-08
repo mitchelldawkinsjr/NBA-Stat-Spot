@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, Depends
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -11,23 +11,109 @@ from ..services.high_hit_rate_service import HighHitRateService
 from ..services.settings_service import SettingsService
 from ..services.data_integrity_service import DataIntegrityService
 from ..services.game_status_monitor import GameStatusMonitor
+from ..services.cache_service import get_cache_service
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin_v1"])
 
-# Cache stores with daily TTL
-_best_bets_cache: List[Dict] = []
-_last_scan_time: Optional[datetime] = None
+# Cache service instance
+_cache = get_cache_service()
 
-_daily_props_cache: Optional[Dict] = None
-_daily_props_cache_date: Optional[date] = None
-_daily_props_cache_time: Optional[datetime] = None
+# Helper functions for cache operations (backward compatibility)
+def _get_daily_props_cache(target_date: Optional[str] = None, db: Optional[Session] = None) -> Optional[Dict[str, Any]]:
+    """Get daily props cache"""
+    date_str = target_date or date.today().isoformat()
+    cache_key = f"daily_props:{date_str}"
+    if db:
+        return _cache.get(cache_key, db=db)
+    else:
+        db_session = next(get_db())
+        try:
+            return _cache.get(cache_key, db=db_session)
+        finally:
+            db_session.close()
 
-_high_hit_rate_cache: Optional[Dict] = None
-_high_hit_rate_cache_date: Optional[date] = None
-_high_hit_rate_cache_time: Optional[datetime] = None
+def _set_daily_props_cache(data: Dict[str, Any], target_date: Optional[str] = None, ttl: int = 86400, db: Optional[Session] = None) -> bool:
+    """Set daily props cache"""
+    date_str = target_date or date.today().isoformat()
+    cache_key = f"daily_props:{date_str}"
+    if db:
+        return _cache.set(cache_key, data, ttl=ttl, db=db)
+    else:
+        db_session = next(get_db())
+        try:
+            return _cache.set(cache_key, data, ttl=ttl, db=db_session)
+        finally:
+            db_session.close()
+
+def _get_high_hit_rate_cache(target_date: Optional[str] = None, db: Optional[Session] = None) -> Optional[Dict[str, Any]]:
+    """Get high hit rate cache"""
+    date_str = target_date or date.today().isoformat()
+    cache_key = f"high_hit_rate:{date_str}"
+    if db:
+        return _cache.get(cache_key, db=db)
+    else:
+        db_session = next(get_db())
+        try:
+            return _cache.get(cache_key, db=db_session)
+        finally:
+            db_session.close()
+
+def _set_high_hit_rate_cache(data: Dict[str, Any], target_date: Optional[str] = None, ttl: int = 86400, db: Optional[Session] = None) -> bool:
+    """Set high hit rate cache"""
+    date_str = target_date or date.today().isoformat()
+    cache_key = f"high_hit_rate:{date_str}"
+    if db:
+        return _cache.set(cache_key, data, ttl=ttl, db=db)
+    else:
+        db_session = next(get_db())
+        try:
+            return _cache.set(cache_key, data, ttl=ttl, db=db_session)
+        finally:
+            db_session.close()
+
+def _get_best_bets_cache(db: Optional[Session] = None) -> Optional[Dict[str, Any]]:
+    """Get best bets cache"""
+    cache_key = "best_bets:latest"
+    if db:
+        return _cache.get(cache_key, db=db)
+    else:
+        db_session = next(get_db())
+        try:
+            return _cache.get(cache_key, db=db_session)
+        finally:
+            db_session.close()
+
+def _set_best_bets_cache(data: List[Dict], ttl: int = 3600, db: Optional[Session] = None) -> bool:
+    """Set best bets cache"""
+    cache_key = "best_bets:latest"
+    cache_data = {"results": data, "scanned_at": datetime.now().isoformat()}
+    if db:
+        return _cache.set(cache_key, cache_data, ttl=ttl, db=db)
+    else:
+        db_session = next(get_db())
+        try:
+            return _cache.set(cache_key, cache_data, ttl=ttl, db=db_session)
+        finally:
+            db_session.close()
+
+def _is_cache_valid_for_date(target_date: Optional[str] = None) -> bool:
+    """Check if cache exists for the given date"""
+    date_str = target_date or date.today().isoformat()
+    daily_props = _get_daily_props_cache(date_str)
+    return daily_props is not None
+
+# Backward compatibility: Export cache accessors for props_v1.py
+_daily_props_cache = None  # Will be accessed via _get_daily_props_cache()
+_daily_props_cache_date = None
+_daily_props_cache_time = None
+_high_hit_rate_cache = None
+_high_hit_rate_cache_date = None
+_high_hit_rate_cache_time = None
+_best_bets_cache = []
+_last_scan_time = None
 
 def _is_cache_valid(cache_date: Optional[date], cache_time: Optional[datetime]) -> bool:
-    """Check if cache is still valid (same day)"""
+    """Check if cache is still valid (same day) - backward compatibility"""
     if not cache_date or not cache_time:
         return False
     today = date.today()
@@ -35,14 +121,13 @@ def _is_cache_valid(cache_date: Optional[date], cache_time: Optional[datetime]) 
 
 def _clear_cache():
     """Clear all caches"""
-    global _daily_props_cache, _daily_props_cache_date, _daily_props_cache_time
-    global _high_hit_rate_cache, _high_hit_rate_cache_date, _high_hit_rate_cache_time
-    _daily_props_cache = None
-    _daily_props_cache_date = None
-    _daily_props_cache_time = None
-    _high_hit_rate_cache = None
-    _high_hit_rate_cache_date = None
-    _high_hit_rate_cache_time = None
+    db = next(get_db())
+    try:
+        _cache.clear_pattern("daily_props:*", db=db)
+        _cache.clear_pattern("high_hit_rate:*", db=db)
+        _cache.delete("best_bets:latest", db=db)
+    finally:
+        db.close()
 
 @router.post("/sync/players")
 def sync_players():
@@ -166,19 +251,18 @@ def scan_best_bets(
     limit: Optional[int] = Query(50, description="Maximum number of suggestions")
 ):
     """Scan today's games and generate best prop bets"""
-    global _best_bets_cache, _last_scan_time
     try:
         results = PropScannerService.scan_best_bets_for_today(
             season=season or "2025-26",
             min_confidence=min_confidence or 65.0,
             limit=limit or 50
         )
-        _best_bets_cache = results
-        _last_scan_time = datetime.now()
+        scanned_at = datetime.now()
+        _set_best_bets_cache(results, ttl=3600)
         return {
             "status": "success",
             "count": len(results),
-            "scannedAt": _last_scan_time.isoformat(),
+            "scannedAt": scanned_at.isoformat(),
             "results": results[:20]  # Return first 20 for preview
         }
     except Exception as e:
@@ -187,26 +271,34 @@ def scan_best_bets(
 @router.get("/best-bets")
 def get_best_bets():
     """Get cached best bets from last scan"""
-    global _best_bets_cache, _last_scan_time
+    cached = _get_best_bets_cache()
+    if cached:
+        return {
+            "results": cached.get("results", []),
+            "count": len(cached.get("results", [])),
+            "lastScanned": cached.get("scanned_at")
+        }
     return {
-        "results": _best_bets_cache,
-        "count": len(_best_bets_cache),
-        "lastScanned": _last_scan_time.isoformat() if _last_scan_time else None
+        "results": [],
+        "count": 0,
+        "lastScanned": None
     }
 
 @router.get("/scan/status")
 def scan_status():
     """Get scanning service status"""
-    global _last_scan_time
     try:
         games = NBADataService.fetch_todays_games()
         players = NBADataService.fetch_all_players_including_rookies()
+        cached = _get_best_bets_cache()
+        best_bets_count = len(cached.get("results", [])) if cached else 0
+        last_scan = cached.get("scanned_at") if cached else None
         return {
             "status": "ready",
             "todayGames": len(games),
             "totalPlayers": len(players),
-            "lastScan": _last_scan_time.isoformat() if _last_scan_time else None,
-            "bestBetsCount": len(_best_bets_cache)
+            "lastScan": last_scan,
+            "bestBetsCount": best_bets_count
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -219,8 +311,10 @@ def health():
         players = NBADataService.fetch_all_players_including_rookies()
         
         # Check cache status
-        daily_props_valid = _is_cache_valid(_daily_props_cache_date, _daily_props_cache_time)
-        high_hit_rate_valid = _is_cache_valid(_high_hit_rate_cache_date, _high_hit_rate_cache_time)
+        today_str = date.today().isoformat()
+        daily_props_cached = _get_daily_props_cache(today_str)
+        high_hit_rate_cached = _get_high_hit_rate_cache(today_str)
+        best_bets_cached = _get_best_bets_cache()
         
         return {
             "status": "healthy",
@@ -229,21 +323,21 @@ def health():
             "totalPlayers": len(players),
             "dataConsistency": {
                 "dailyProps": {
-                    "cached": _daily_props_cache is not None,
-                    "valid": daily_props_valid,
-                    "lastUpdated": _daily_props_cache_time.isoformat() if _daily_props_cache_time else None,
-                    "count": len(_daily_props_cache.get("items", [])) if _daily_props_cache else 0
+                    "cached": daily_props_cached is not None,
+                    "valid": daily_props_cached is not None,
+                    "lastUpdated": None,  # Cache service doesn't store separate timestamp
+                    "count": len(daily_props_cached.get("items", [])) if daily_props_cached else 0
                 },
                 "highHitRate": {
-                    "cached": _high_hit_rate_cache is not None,
-                    "valid": high_hit_rate_valid,
-                    "lastUpdated": _high_hit_rate_cache_time.isoformat() if _high_hit_rate_cache_time else None,
-                    "count": len(_high_hit_rate_cache.get("items", [])) if _high_hit_rate_cache else 0
+                    "cached": high_hit_rate_cached is not None,
+                    "valid": high_hit_rate_cached is not None,
+                    "lastUpdated": None,
+                    "count": len(high_hit_rate_cached.get("items", [])) if high_hit_rate_cached else 0
                 },
                 "bestBets": {
-                    "cached": len(_best_bets_cache) > 0,
-                    "lastUpdated": _last_scan_time.isoformat() if _last_scan_time else None,
-                    "count": len(_best_bets_cache)
+                    "cached": best_bets_cached is not None,
+                    "lastUpdated": best_bets_cached.get("scanned_at") if best_bets_cached else None,
+                    "count": len(best_bets_cached.get("results", [])) if best_bets_cached else 0
                 }
             },
             "timestamp": datetime.now().isoformat()
@@ -262,7 +356,6 @@ def refresh_daily_props(
     limit: Optional[int] = Query(50, description="Maximum number of results")
 ):
     """Manually refresh daily props cache"""
-    global _daily_props_cache, _daily_props_cache_date, _daily_props_cache_time
     try:
         result = DailyPropsService.get_top_props_for_date(
             date=None,  # Today
@@ -270,13 +363,12 @@ def refresh_daily_props(
             min_confidence=min_confidence,
             limit=limit
         )
-        _daily_props_cache = result
-        _daily_props_cache_date = date.today()
-        _daily_props_cache_time = datetime.now()
+        cached_at = datetime.now()
+        _set_daily_props_cache(result, ttl=86400)
         return {
             "status": "success",
             "count": len(result.get("items", [])),
-            "cachedAt": _daily_props_cache_time.isoformat(),
+            "cachedAt": cached_at.isoformat(),
             "message": f"Cached {len(result.get('items', []))} daily props"
         }
     except Exception as e:
@@ -289,7 +381,6 @@ def refresh_high_hit_rate(
     last_n: Optional[int] = Query(10, description="Number of recent games to consider")
 ):
     """Manually refresh high hit rate bets cache"""
-    global _high_hit_rate_cache, _high_hit_rate_cache_date, _high_hit_rate_cache_time
     try:
         result = HighHitRateService.get_high_hit_rate_bets(
             date=None,  # Today
@@ -298,13 +389,12 @@ def refresh_high_hit_rate(
             limit=limit,
             last_n=last_n
         )
-        _high_hit_rate_cache = result
-        _high_hit_rate_cache_date = date.today()
-        _high_hit_rate_cache_time = datetime.now()
+        cached_at = datetime.now()
+        _set_high_hit_rate_cache(result, ttl=86400)
         return {
             "status": "success",
             "count": len(result.get("items", [])),
-            "cachedAt": _high_hit_rate_cache_time.isoformat(),
+            "cachedAt": cached_at.isoformat(),
             "message": f"Cached {len(result.get('items', []))} high hit rate bets"
         }
     except Exception as e:
@@ -313,9 +403,6 @@ def refresh_high_hit_rate(
 @router.post("/refresh/all")
 def refresh_all():
     """Refresh all cached data"""
-    global _daily_props_cache, _daily_props_cache_date, _daily_props_cache_time
-    global _high_hit_rate_cache, _high_hit_rate_cache_date, _high_hit_rate_cache_time
-    
     results = {}
     
     # Refresh daily props
@@ -326,9 +413,7 @@ def refresh_all():
             min_confidence=50.0,
             limit=50
         )
-        _daily_props_cache = daily_result
-        _daily_props_cache_date = date.today()
-        _daily_props_cache_time = datetime.now()
+        _set_daily_props_cache(daily_result, ttl=86400)
         results["dailyProps"] = {
             "status": "success",
             "count": len(daily_result.get("items", []))
@@ -345,9 +430,7 @@ def refresh_all():
             limit=10,
             last_n=10
         )
-        _high_hit_rate_cache = hit_rate_result
-        _high_hit_rate_cache_date = date.today()
-        _high_hit_rate_cache_time = datetime.now()
+        _set_high_hit_rate_cache(hit_rate_result, ttl=86400)
         results["highHitRate"] = {
             "status": "success",
             "count": len(hit_rate_result.get("items", []))
@@ -364,14 +447,7 @@ def refresh_all():
 @router.post("/cache/clear")
 def clear_cache():
     """Clear all caches"""
-    global _daily_props_cache, _daily_props_cache_date, _daily_props_cache_time
-    global _high_hit_rate_cache, _high_hit_rate_cache_date, _high_hit_rate_cache_time
-    global _best_bets_cache, _last_scan_time
-    
     _clear_cache()
-    _best_bets_cache = []
-    _last_scan_time = None
-    
     return {
         "status": "success",
         "message": "All caches cleared",
@@ -381,51 +457,60 @@ def clear_cache():
 @router.post("/cache/clear/daily-props")
 def clear_daily_props_cache():
     """Clear daily props cache only"""
-    global _daily_props_cache, _daily_props_cache_date, _daily_props_cache_time
-    _daily_props_cache = None
-    _daily_props_cache_date = None
-    _daily_props_cache_time = None
-    return {"status": "success", "message": "Daily props cache cleared"}
+    db = next(get_db())
+    try:
+        _cache.clear_pattern("daily_props:*", db=db)
+        return {"status": "success", "message": "Daily props cache cleared"}
+    finally:
+        db.close()
 
 @router.post("/cache/clear/high-hit-rate")
 def clear_high_hit_rate_cache():
     """Clear high hit rate cache only"""
-    global _high_hit_rate_cache, _high_hit_rate_cache_date, _high_hit_rate_cache_time
-    _high_hit_rate_cache = None
-    _high_hit_rate_cache_date = None
-    _high_hit_rate_cache_time = None
-    return {"status": "success", "message": "High hit rate cache cleared"}
+    db = next(get_db())
+    try:
+        _cache.clear_pattern("high_hit_rate:*", db=db)
+        return {"status": "success", "message": "High hit rate cache cleared"}
+    finally:
+        db.close()
 
 @router.post("/cache/clear/best-bets")
 def clear_best_bets_cache():
     """Clear best bets cache only"""
-    global _best_bets_cache, _last_scan_time
-    _best_bets_cache = []
-    _last_scan_time = None
-    return {"status": "success", "message": "Best bets cache cleared"}
+    db = next(get_db())
+    try:
+        _cache.delete("best_bets:latest", db=db)
+        return {"status": "success", "message": "Best bets cache cleared"}
+    finally:
+        db.close()
 
 @router.get("/cache/status")
 def cache_status():
     """Get cache status for all services"""
+    today_str = date.today().isoformat()
+    daily_props_cached = _get_daily_props_cache(today_str)
+    high_hit_rate_cached = _get_high_hit_rate_cache(today_str)
+    best_bets_cached = _get_best_bets_cache()
+    
     return {
         "dailyProps": {
-            "cached": _daily_props_cache is not None,
-            "valid": _is_cache_valid(_daily_props_cache_date, _daily_props_cache_time),
-            "date": _daily_props_cache_date.isoformat() if _daily_props_cache_date else None,
-            "lastUpdated": _daily_props_cache_time.isoformat() if _daily_props_cache_time else None,
-            "count": len(_daily_props_cache.get("items", [])) if _daily_props_cache else 0
+            "cached": daily_props_cached is not None,
+            "valid": daily_props_cached is not None,
+            "date": today_str if daily_props_cached else None,
+            "lastUpdated": None,  # Cache service handles TTL internally
+            "count": len(daily_props_cached.get("items", [])) if daily_props_cached else 0
         },
         "highHitRate": {
-            "cached": _high_hit_rate_cache is not None,
-            "valid": _is_cache_valid(_high_hit_rate_cache_date, _high_hit_rate_cache_time),
-            "date": _high_hit_rate_cache_date.isoformat() if _high_hit_rate_cache_date else None,
-            "lastUpdated": _high_hit_rate_cache_time.isoformat() if _high_hit_rate_cache_time else None,
-            "count": len(_high_hit_rate_cache.get("items", [])) if _high_hit_rate_cache else 0
+            "cached": high_hit_rate_cached is not None,
+            "valid": high_hit_rate_cached is not None,
+            "date": today_str if high_hit_rate_cached else None,
+            "lastUpdated": None,
+            "count": len(high_hit_rate_cached.get("items", [])) if high_hit_rate_cached else 0
         },
         "bestBets": {
-            "cached": len(_best_bets_cache) > 0,
-            "lastUpdated": _last_scan_time.isoformat() if _last_scan_time else None,
-            "count": len(_best_bets_cache)
+            "cached": best_bets_cached is not None,
+            "lastUpdated": best_bets_cached.get("scanned_at") if best_bets_cached else None,
+            "count": len(best_bets_cached.get("results", [])) if best_bets_cached else 0
         }
     }
 
