@@ -84,9 +84,11 @@ export function LoadingSkeleton({ lines = 3 }: { lines?: number }) {
 
 /**
  * Full Page Loading Component
- * Professional loading screen with enhanced visuals
+ * Professional loading screen with enhanced visuals and progress indicator
  */
-export function PageLoader({ message = 'Loading player data...' }: { message?: string }) {
+export function PageLoader({ message = 'Loading player data...', progress }: { message?: string; progress?: number }) {
+  const displayProgress = progress !== undefined ? progress : 0
+  
   return (
     <div className="min-h-[500px] flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50/30 rounded-xl shadow-lg ring-1 ring-gray-200/50 p-12 relative overflow-hidden">
       {/* Background decorative elements */}
@@ -95,24 +97,46 @@ export function PageLoader({ message = 'Loading player data...' }: { message?: s
         <div className="absolute bottom-10 right-10 w-40 h-40 bg-purple-500 rounded-full blur-3xl"></div>
       </div>
       
-      <div className="text-center relative z-10">
+      <div className="text-center relative z-10 w-full max-w-md">
         <LoadingSpinner message={message} size="lg" />
         
+        {/* Progress percentage display */}
+        {progress !== undefined && (
+          <div className="mt-6">
+            <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-3">
+              {displayProgress}%
+            </div>
+            {/* Progress bar */}
+            <div className="w-full max-w-xs mx-auto h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-500 ease-out relative"
+                style={{ width: `${displayProgress}%` }}
+              >
+                {/* Shine effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer"></div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Fetching player data from backend...</p>
+          </div>
+        )}
+        
         {/* Enhanced loading dots with gradient */}
-        <div className="flex justify-center gap-2 mt-6">
-          <div 
-            className="w-2.5 h-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full animate-bounce shadow-sm" 
-            style={{ animationDelay: '0ms', animationDuration: '1.4s' }}
-          ></div>
-          <div 
-            className="w-2.5 h-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full animate-bounce shadow-sm" 
-            style={{ animationDelay: '200ms', animationDuration: '1.4s' }}
-          ></div>
-          <div 
-            className="w-2.5 h-2.5 bg-gradient-to-br from-pink-500 to-blue-500 rounded-full animate-bounce shadow-sm" 
-            style={{ animationDelay: '400ms', animationDuration: '1.4s' }}
-          ></div>
-        </div>
+        {progress === undefined && (
+          <div className="flex justify-center gap-2 mt-6">
+            <div 
+              className="w-2.5 h-2.5 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full animate-bounce shadow-sm" 
+              style={{ animationDelay: '0ms', animationDuration: '1.4s' }}
+            ></div>
+            <div 
+              className="w-2.5 h-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full animate-bounce shadow-sm" 
+              style={{ animationDelay: '200ms', animationDuration: '1.4s' }}
+            ></div>
+            <div 
+              className="w-2.5 h-2.5 bg-gradient-to-br from-pink-500 to-blue-500 rounded-full animate-bounce shadow-sm" 
+              style={{ animationDelay: '400ms', animationDuration: '1.4s' }}
+            ></div>
+          </div>
+        )}
       </div>
     </div>
   )

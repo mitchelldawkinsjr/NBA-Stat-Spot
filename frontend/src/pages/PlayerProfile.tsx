@@ -32,6 +32,7 @@ export default function PlayerProfile() {
   const { season } = useSeason()
   const [logs, setLogs] = useState<GameLog[]>([])
   const [loading, setLoading] = useState<boolean>(false)
+  const [loadingProgress, setLoadingProgress] = useState<number>(0)
   const [error, setError] = useState<string | null>(null)
   const [fallbackUsed, setFallbackUsed] = useState<string | null>(null)
   const [playerName, setPlayerName] = useState<string>('')
@@ -76,7 +77,16 @@ export default function PlayerProfile() {
         
         // Add timeout to prevent hanging - increased for Fly.io backend
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout for Fly.io
+        const TIMEOUT_MS = 120000 // 2 minute timeout for Fly.io backend
+        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
+        
+        // Track progress for loading indicator
+        const startTime = Date.now()
+        const progressInterval = setInterval(() => {
+          const elapsed = Date.now() - startTime
+          const progress = Math.min(95, Math.round((elapsed / TIMEOUT_MS) * 100)) // Cap at 95% until complete
+          setLoadingProgress(progress)
+        }, 500) // Update every 500ms
         
         let res
         try {
@@ -85,8 +95,9 @@ export default function PlayerProfile() {
           })
         } catch (fetchError: unknown) {
           clearTimeout(timeoutId)
+          clearInterval(progressInterval)
           if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-            throw new Error('Request timed out after 45 seconds. The backend may be slow. Please try again.')
+            throw new Error('Request timed out after 2 minutes. The backend may be slow. Please try again.')
           }
           // Re-throw other errors with more context
           if (fetchError instanceof Error) {
@@ -95,6 +106,8 @@ export default function PlayerProfile() {
           throw fetchError
         }
         clearTimeout(timeoutId)
+        clearInterval(progressInterval)
+        setLoadingProgress(100) // Complete
         
         if (!res.ok) {
           // Try to get error message from response
@@ -135,15 +148,27 @@ export default function PlayerProfile() {
         if (base.length === 0 && season !== '2024-25') {
           // Fallback to prior season if current season has no logs
           const controller2 = new AbortController()
-          const timeoutId2 = setTimeout(() => controller2.abort(), 45000) // 45 second timeout for Fly.io
+          const TIMEOUT_MS_2 = 120000 // 2 minute timeout for Fly.io backend
+          const timeoutId2 = setTimeout(() => controller2.abort(), TIMEOUT_MS_2)
+          
+          // Track progress for fallback request
+          const startTime2 = Date.now()
+          const progressInterval2 = setInterval(() => {
+            const elapsed = Date.now() - startTime2
+            const progress = Math.min(95, Math.round((elapsed / TIMEOUT_MS_2) * 100))
+            setLoadingProgress(progress)
+          }, 500)
           let res2
           try {
             res2 = await apiFetch(`api/v1/players/${playerIdNum}/stats?games=20&season=${encodeURIComponent('2024-25')}`, {
               signal: controller2.signal
             })
             clearTimeout(timeoutId2)
+            clearInterval(progressInterval2)
+            setLoadingProgress(100) // Complete
           } catch {
             clearTimeout(timeoutId2)
+            clearInterval(progressInterval2)
             res2 = null
           }
           if (res2 && res2.ok) {
@@ -182,6 +207,7 @@ export default function PlayerProfile() {
         }
       } finally {
         setLoading(false)
+        setLoadingProgress(0) // Reset progress
       }
     })()
   }, [id, season])
@@ -403,7 +429,7 @@ export default function PlayerProfile() {
       
       {loading ? (
         <div className="mt-4">
-          <PageLoader message="Loading player stats..." />
+          <PageLoader message="Loading player stats..." progress={loadingProgress} />
         </div>
       ) : error ? (
         <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
