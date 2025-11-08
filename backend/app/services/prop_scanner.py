@@ -45,11 +45,17 @@ class PropScannerService:
             # Get all active players (including rookies)
             all_players = NBADataService.fetch_all_players_including_rookies() or []
             
+            # Use TeamPlayerService to normalize team IDs
+            from .team_player_service import TeamPlayerService
+            team_ids_today_int = {TeamPlayerService.normalize_team_id(tid) for tid in team_ids_today}
+            team_ids_today_int.discard(None)
+            
             # Filter to players on today's teams
-            todays_players = [
-                p for p in all_players 
-                if p.get("team_id") in team_ids_today
-            ]
+            todays_players = []
+            for p in all_players:
+                player_team_id = TeamPlayerService.normalize_team_id(p.get("team_id"))
+                if player_team_id is not None and player_team_id in team_ids_today_int:
+                    todays_players.append(p)
             
             if not todays_players:
                 return []

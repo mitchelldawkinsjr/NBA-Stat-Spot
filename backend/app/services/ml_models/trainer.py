@@ -65,7 +65,9 @@ class ModelTrainer:
         ).all()
         
         if len(settled_bets) < min_samples:
-            print(f"Warning: Only {len(settled_bets)} settled bets found. Need at least {min_samples} for training.")
+            import structlog
+            logger = structlog.get_logger()
+            logger.warning("Insufficient training data", settled_bets=len(settled_bets), min_samples=min_samples)
             return None, None, None
         
         # Fetch corresponding feature sets

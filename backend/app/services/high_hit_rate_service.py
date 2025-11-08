@@ -37,7 +37,7 @@ class HighHitRateService:
             Dict with items list and metadata
         """
         if not season:
-            season = current_candidate_season()
+            season = "2025-26"  # Default to 2025-26 season
         
         # Get the date for game_date field - use provided date or today in UTC
         from datetime import timezone
@@ -94,11 +94,17 @@ class HighHitRateService:
         }
         team_ids_today = {tid for tid in team_ids_today if tid is not None}
         
+        # Use TeamPlayerService to normalize team IDs
+        from .team_player_service import TeamPlayerService
+        team_ids_today_int = {TeamPlayerService.normalize_team_id(tid) for tid in team_ids_today}
+        team_ids_today_int.discard(None)  # Remove None values
+        
         # Filter to players on today's teams
-        todays_players = [
-            p for p in all_players 
-            if p.get("team_id") and p.get("team_id") in team_ids_today
-        ]
+        todays_players = []
+        for p in all_players:
+            player_team_id = TeamPlayerService.normalize_team_id(p.get("team_id"))
+            if player_team_id is not None and player_team_id in team_ids_today_int:
+                todays_players.append(p)
         
         # Limit to reasonable number to avoid timeout (reduced for faster response)
         if len(todays_players) > 40:

@@ -10,6 +10,7 @@ from ..services.daily_props_service import DailyPropsService
 from ..services.high_hit_rate_service import HighHitRateService
 from ..services.settings_service import SettingsService
 from ..services.data_integrity_service import DataIntegrityService
+from ..services.game_status_monitor import GameStatusMonitor
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin_v1"])
 
@@ -50,6 +51,107 @@ def sync_players():
         players = NBADataService.fetch_all_players_including_rookies()
         return {"status": "success", "count": len(players)}
     except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.post("/sync/teams")
+def sync_teams():
+    """Sync team data from NBA API"""
+    try:
+        teams = NBADataService.fetch_all_teams()
+        return {"status": "success", "count": len(teams), "teams": teams}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.get("/teams/status")
+def teams_status():
+    """Get team data status and verify player-team assignments"""
+    try:
+        teams = NBADataService.fetch_all_teams()
+        players = NBADataService.fetch_all_players_including_rookies()
+        
+        # Check cache status - teams are cached with date-based key
+        from cachetools.keys import hashkey
+        from datetime import datetime
+        cache_key = hashkey("teams", datetime.now().date().isoformat())
+        from ..services.nba_api_service import a_cache
+        cached = cache_key in a_cache
+        
+        # Verify player-team assignments
+        from ..services.team_player_service import TeamPlayerService
+        
+        # Count players with teams
+        players_with_teams = [p for p in players if p.get("team_id") is not None]
+        players_without_teams = [p for p in players if p.get("team_id") is None]
+        
+        # Count teams with players
+        teams_with_players = {}
+        teams_without_players = []
+        
+        for team in teams:
+            team_id = team.get("id")
+            team_players = TeamPlayerService.get_players_for_team(team_id)
+            if team_players:
+                teams_with_players[team_id] = {
+                    "id": team_id,
+                    "name": team.get("full_name"),
+                    "abbreviation": team.get("abbreviation"),
+                    "player_count": len(team_players)
+                }
+            else:
+                teams_without_players.append({
+                    "id": team_id,
+                    "name": team.get("full_name"),
+                    "abbreviation": team.get("abbreviation")
+                })
+        
+        # Calculate integrity metrics
+        total_players = len(players)
+        total_teams = len(teams)
+        teams_with_players_count = len(teams_with_players)
+        players_with_teams_count = len(players_with_teams)
+        
+        # Determine overall status
+        integrity_status = "good"
+        if len(teams_without_players) > 5:  # More than 5 teams without players
+            integrity_status = "warning"
+        if len(players_without_teams) > total_players * 0.1:  # More than 10% players without teams
+            integrity_status = "warning"
+        if len(teams_without_players) > 10 or len(players_without_teams) > total_players * 0.2:
+            integrity_status = "error"
+        
+        return {
+            "status": "ready",
+            "totalTeams": total_teams,
+            "totalPlayers": total_players,
+            "cached": cached,
+            "lastUpdated": datetime.now().isoformat(),
+            "integrity": {
+                "status": integrity_status,
+                "teamsWithPlayers": teams_with_players_count,
+                "teamsWithoutPlayers": len(teams_without_players),
+                "playersWithTeams": players_with_teams_count,
+                "playersWithoutTeams": len(players_without_teams),
+                "coverage": {
+                    "teams": round((teams_with_players_count / total_teams * 100) if total_teams > 0 else 0, 1),
+                    "players": round((players_with_teams_count / total_players * 100) if total_players > 0 else 0, 1)
+                }
+            },
+            "teamsWithoutPlayers": teams_without_players[:10],  # First 10 for preview
+            "teams": [
+                {
+                    "id": t.get("id"),
+                    "full_name": t.get("full_name"),
+                    "abbreviation": t.get("abbreviation"),
+                    "conference": t.get("conference"),
+                    "division": t.get("division"),
+                }
+                for t in teams[:10]  # Return first 10 for preview
+            ]
+        }
+    except Exception as e:
+        import structlog
+        logger = structlog.get_logger()
+        logger.error("Failed to fetch teams status", error=str(e))
         return {"status": "error", "message": str(e)}
 
 @router.post("/sync/stats")
@@ -430,5 +532,35 @@ def check_prop_suggestions_integrity(db: Session = Depends(get_db)):
     try:
         results = DataIntegrityService.check_prop_suggestions_integrity(db)
         return {"status": "success", "results": results}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.post("/cache/refresh/player-logs")
+def refresh_player_logs_cache(
+    player_id: Optional[int] = Query(None, description="Player ID to refresh. If not provided, checks for finished games and invalidates all relevant caches.")
+):
+    """
+    Manually refresh player game logs cache.
+    If player_id is provided, invalidates cache for that specific player.
+    If not provided, checks for finished games and invalidates caches for all players in finished games.
+    """
+    try:
+        if player_id:
+            # Invalidate cache for specific player
+            invalidated = GameStatusMonitor.invalidate_cache_for_player(player_id)
+            return {
+                "status": "success",
+                "message": f"Cache invalidated for player {player_id}",
+                "player_id": player_id,
+                "invalidated": invalidated
+            }
+        else:
+            # Check for finished games and invalidate relevant caches
+            result = GameStatusMonitor.check_and_invalidate_finished_games()
+            return {
+                "status": "success",
+                "message": "Checked finished games and invalidated relevant caches",
+                **result
+            }
     except Exception as e:
         return {"status": "error", "message": str(e)}
