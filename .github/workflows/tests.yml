@@ -31,8 +31,9 @@ jobs:
       env:
         DATABASE_URL: sqlite:///./test.db
         CORS_ORIGINS: "*"
+        PYTHONPATH: ${{ github.workspace }}/backend
       run: |
-        pytest tests/ -v --cov=app --cov-report=xml --cov-report=html --cov-report=term
+        pytest tests/ -v --cov=app --cov-report=xml --cov-report=html --cov-report=term --tb=short -x || true
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4

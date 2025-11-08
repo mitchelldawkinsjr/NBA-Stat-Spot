@@ -28,7 +28,7 @@ export function DailyPropsPanel() {
   const [page, setPage] = useState<number>(1)
   const [pageSize] = useState<number>(20)
   
-  const { data, isLoading, error, refetch } = useQuery({ 
+  const { data, isLoading, error } = useQuery({ 
     queryKey: ['daily-props', minConf, today], 
     queryFn: () => fetchDaily(minConf, today),
     staleTime: 30 * 60 * 1000, // 30 minutes - daily props only change once per day

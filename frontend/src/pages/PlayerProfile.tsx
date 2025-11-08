@@ -212,6 +212,24 @@ export default function PlayerProfile() {
     return { tag, delta, color }
   }, [recentN, seasonAverages])
 
+  // Form badges for each stat (HOT/COLD/NEUTRAL based on recent vs season average)
+  const statFormBadges = useMemo(() => {
+    const getFormBadge = (recentAvg: number, seasonAvg: number) => {
+      const delta = recentAvg - seasonAvg
+      const tag = delta > 0.8 ? 'HOT' : delta < -0.8 ? 'COLD' : 'NEUTRAL'
+      const color = tag === 'HOT' ? 'bg-green-50 text-green-700 ring-green-600/20' : tag === 'COLD' ? 'bg-red-50 text-red-700 ring-red-600/20' : 'bg-gray-50 text-gray-700 ring-gray-600/20'
+      return { tag, delta, color }
+    }
+    
+    return {
+      pts: getFormBadge(avg(recentN.map(g => g.pts)), seasonAverages.pts),
+      reb: getFormBadge(avg(recentN.map(g => g.reb)), seasonAverages.reb),
+      ast: getFormBadge(avg(recentN.map(g => g.ast)), seasonAverages.ast),
+      tpm: getFormBadge(avg(recentN.map(g => g.tpm)), seasonAverages.tpm),
+      pra: getFormBadge(avg(recentN.map(g => (g.pra as number))), seasonAverages.pra),
+    }
+  }, [recentN, seasonAverages])
+
   
 
   // Keep last N slices for quick calculations if needed
@@ -338,12 +356,32 @@ export default function PlayerProfile() {
                   </>
                 )}
               </div>
-              {/* Minimal season averages inline under name */}
+              {/* Minimal season averages inline under name with form badges */}
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">PTS {seasonAverages.pts.toFixed(1)}</span>
-                <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">REB {seasonAverages.reb.toFixed(1)}</span>
-                <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">AST {seasonAverages.ast.toFixed(1)}</span>
-                <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">3PM {seasonAverages.tpm.toFixed(1)}</span>
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                  PTS {seasonAverages.pts.toFixed(1)}
+                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.pts.color}`}>
+                    {statFormBadges.pts.tag}
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                  REB {seasonAverages.reb.toFixed(1)}
+                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.reb.color}`}>
+                    {statFormBadges.reb.tag}
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                  AST {seasonAverages.ast.toFixed(1)}
+                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.ast.color}`}>
+                    {statFormBadges.ast.tag}
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                  3PM {seasonAverages.tpm.toFixed(1)}
+                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.tpm.color}`}>
+                    {statFormBadges.tpm.tag}
+                  </span>
+                </span>
               </div>
             </div>
           </div>
