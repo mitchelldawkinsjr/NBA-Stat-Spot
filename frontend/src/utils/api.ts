@@ -10,11 +10,16 @@ const getApiBaseUrl = (): string => {
     return import.meta.env.VITE_API_TARGET
   }
   
-  // In production (GitHub Pages), we need an absolute URL
+  // In production (GitHub Pages), use relative paths by default
+  // This works if:
+  // 1. Backend is on the same domain (via reverse proxy)
+  // 2. Backend has CORS configured to allow requests from GitHub Pages domain
+  // If you need an absolute URL, set VITE_API_TARGET environment variable
   if (import.meta.env.PROD) {
-    // Default backend URL - should be set via environment variable
-    // This will be overridden by VITE_API_TARGET if set
-    return 'https://your-backend-url.com'
+    // Use empty string for relative paths (e.g., /api/v1/...)
+    // This allows the browser to make requests to the same origin or
+    // to a backend with proper CORS configuration
+    return ''
   }
   
   // In development, use empty string to leverage Vite proxy
