@@ -9,3 +9,5 @@ from .player_context import PlayerContext
 from .market_context import MarketContext
 from .ai_features import AIFeatureSet
 from .app_settings import AppSettings
+# Cache model is imported from services to avoid circular imports
+# from ..services.cache_service import CacheEntry

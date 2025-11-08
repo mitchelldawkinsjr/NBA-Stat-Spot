@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import Base, engine
 from .models import user_bets, user_parlays, player_context, market_context, ai_features, app_settings  # Import models so tables are created
+from .services.cache_service import CacheEntry  # Import cache model so table is created
 from .routers.props_v1 import router as props_v1_router
 from .routers.players_v1 import router as players_v1_router
 from .routers.teams_v1 import router as teams_v1_router
