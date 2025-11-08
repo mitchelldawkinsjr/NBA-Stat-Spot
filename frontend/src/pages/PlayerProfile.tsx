@@ -74,9 +74,9 @@ export default function PlayerProfile() {
           // Failed to fetch player details - will continue with stats fetch
         }
         
-        // Add timeout to prevent hanging
+        // Add timeout to prevent hanging - increased for Fly.io backend
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout for Fly.io
         
         let res
         try {
@@ -86,7 +86,11 @@ export default function PlayerProfile() {
         } catch (fetchError: unknown) {
           clearTimeout(timeoutId)
           if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-            throw new Error('Request timed out. Please try again.')
+            throw new Error('Request timed out after 45 seconds. The backend may be slow. Please try again.')
+          }
+          // Re-throw other errors with more context
+          if (fetchError instanceof Error) {
+            throw new Error(`Failed to fetch player stats: ${fetchError.message}`)
           }
           throw fetchError
         }
@@ -131,7 +135,7 @@ export default function PlayerProfile() {
         if (base.length === 0 && season !== '2024-25') {
           // Fallback to prior season if current season has no logs
           const controller2 = new AbortController()
-          const timeoutId2 = setTimeout(() => controller2.abort(), 15000)
+          const timeoutId2 = setTimeout(() => controller2.abort(), 45000) // 45 second timeout for Fly.io
           let res2
           try {
             res2 = await apiFetch(`api/v1/players/${playerIdNum}/stats?games=20&season=${encodeURIComponent('2024-25')}`, {
