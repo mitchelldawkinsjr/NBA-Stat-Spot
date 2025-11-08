@@ -356,12 +356,32 @@ export default function PlayerProfile() {
                   </>
                 )}
               </div>
-              {/* Minimal season averages inline under name */}
+              {/* Minimal season averages inline under name with form badges */}
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">PTS {seasonAverages.pts.toFixed(1)}</span>
-                <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">REB {seasonAverages.reb.toFixed(1)}</span>
-                <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">AST {seasonAverages.ast.toFixed(1)}</span>
-                <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">3PM {seasonAverages.tpm.toFixed(1)}</span>
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                  PTS {seasonAverages.pts.toFixed(1)}
+                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.pts.color}`}>
+                    {statFormBadges.pts.tag}
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                  REB {seasonAverages.reb.toFixed(1)}
+                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.reb.color}`}>
+                    {statFormBadges.reb.tag}
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                  AST {seasonAverages.ast.toFixed(1)}
+                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.ast.color}`}>
+                    {statFormBadges.ast.tag}
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                  3PM {seasonAverages.tpm.toFixed(1)}
+                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.tpm.color}`}>
+                    {statFormBadges.tpm.tag}
+                  </span>
+                </span>
               </div>
             </div>
           </div>
