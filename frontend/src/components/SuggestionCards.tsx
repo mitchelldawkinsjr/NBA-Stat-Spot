@@ -15,9 +15,9 @@ type SuggestionItem = {
 
 export function SuggestionCards({ suggestions }: { suggestions: SuggestionItem[] }) {
   return (
-    <div className="gap-3 md:gap-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
       {suggestions.map((s: SuggestionItem, idx: number) => (
-        <div key={idx} className="p-4 md:p-5" style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff' }}>
+        <div key={idx} className="p-3 sm:p-4 md:p-5 border border-gray-200 rounded-lg bg-white">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <strong>{s.type}</strong>

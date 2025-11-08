@@ -87,17 +87,17 @@ export default function ExplorePage() {
   }
 
   return (
-    <div className="p-2 md:p-0">
-      <div className="mb-6">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Explore Players & Teams</h2>
-        <p className="text-sm text-gray-600">Search for players or browse by team to analyze prop bets</p>
+    <div className="p-2 sm:p-4 md:p-0">
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2">Explore Players & Teams</h2>
+        <p className="text-xs sm:text-sm text-gray-600">Search for players or browse by team to analyze prop bets</p>
       </div>
 
       {/* View Mode Toggle */}
-      <div className="mb-6 flex gap-2">
+      <div className="mb-4 sm:mb-6 flex gap-2">
         <button
           onClick={() => setViewMode('search')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all ${
+          className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-sm sm:text-base font-medium transition-all ${
             viewMode === 'search'
               ? 'bg-blue-100 text-blue-900 border-2 border-blue-600 shadow-md'
               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -107,7 +107,7 @@ export default function ExplorePage() {
         </button>
         <button
           onClick={() => setViewMode('teams')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all ${
+          className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-sm sm:text-base font-medium transition-all ${
             viewMode === 'teams'
               ? 'bg-blue-100 text-blue-900 border-2 border-blue-600 shadow-md'
               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -120,10 +120,10 @@ export default function ExplorePage() {
       {viewMode === 'search' ? (
         <div className="space-y-6">
           {/* Prominent Player Search Section */}
-          <div className="card p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 shadow-lg">
+          <div className="card p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 shadow-lg">
             <div className="mb-4">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Find a Player</h3>
-              <p className="text-sm text-gray-700">Search for any NBA player to view their detailed prop analysis</p>
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Find a Player</h3>
+              <p className="text-xs sm:text-sm text-gray-700">Search for any NBA player to view their detailed prop analysis</p>
             </div>
             <div className="mb-4">
               <PlayerSearch onSelect={setPlayer} />
@@ -145,8 +145,8 @@ export default function ExplorePage() {
           </div>
 
           {/* Filters and Results */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="card p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            <div className="card p-3 sm:p-4">
               <FiltersPanel 
                 value={filters} 
                 onChange={setFilters}

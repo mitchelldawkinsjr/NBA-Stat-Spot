@@ -309,13 +309,13 @@ export function ParlayBuilder() {
   }, [combinedConfidence, toWin, riskAmount])
 
   return (
-    <div className="p-2 md:p-0">
-      <h2 className="text-lg md:text-xl font-semibold text-slate-800 mb-2">Parlay Builder</h2>
+    <div className="p-2 sm:p-4 md:p-0">
+      <h2 className="text-base sm:text-lg md:text-xl font-semibold text-slate-800 mb-2">Parlay Builder</h2>
       
       {/* Add Leg Section - Top */}
-      <div className="card p-3 md:p-4 mb-2">
-        <div className="text-sm font-semibold text-gray-900 mb-2">Add Leg to Parlay</div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2">
+      <div className="card p-3 sm:p-4 mb-2">
+        <div className="text-xs sm:text-sm font-semibold text-gray-900 mb-2">Add Leg to Parlay</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
           <div>
             <div className="text-xs font-medium text-gray-700 mb-0.5">Player</div>
             <PlayerSearch key={`top-search-${availPlayer?.id || 'empty'}`} onSelect={setAvailPlayer} />
@@ -368,11 +368,11 @@ export function ParlayBuilder() {
         <div className="mt-1.5 text-xs text-gray-500">Max 3 legs. Add 2+ legs and click "Review Parlay".</div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-4">
         {/* Main Builder Section - spans 2 columns */}
-        <div className="lg:col-span-2 card p-3 md:p-4">
-          <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
-            <div className="text-sm font-semibold text-gray-800">Your Parlay ({legs.length} leg{legs.length !== 1 ? 's' : ''})</div>
+        <div className="lg:col-span-2 card p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
+            <div className="text-xs sm:text-sm font-semibold text-gray-800">Your Parlay ({legs.length} leg{legs.length !== 1 ? 's' : ''})</div>
             <div className="flex gap-1.5">
               <button onClick={clearAll} disabled={legs.length === 0} className="px-2 py-1 text-xs rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed">Clear</button>
               <button onClick={() => compute.mutate()} disabled={!canCompute || compute.isPending} className="px-3 py-1 text-xs rounded-md bg-blue-700 text-white font-medium hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed">{compute.isPending ? 'Reviewing…' : 'Review'}</button>

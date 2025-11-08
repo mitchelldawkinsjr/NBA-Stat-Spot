@@ -335,13 +335,13 @@ export function GoodBetsDashboard() {
     return out
   }, [dailyData, today, statLeadersFilterToday, games.length, leagueStatLeadersData])
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">Dashboard</h2>
+    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4">
+        <h2 className="text-xl sm:text-2xl font-bold">Dashboard</h2>
         <button
           onClick={() => refreshAll()}
           disabled={isRefreshing || gamesLoading || dailyLoading}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+          className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors w-full sm:w-auto"
         >
           <svg 
             className={`w-4 h-4 ${isRefreshing || gamesLoading || dailyLoading ? 'animate-spin' : ''}`} 
@@ -378,11 +378,11 @@ export function GoodBetsDashboard() {
       )}
 
       {/* Best Bets Hero */}
-      <div className="overflow-hidden rounded-lg bg-white border border-gray-200 shadow-sm mb-6">
-        <div className="px-4 py-3 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+      <div className="overflow-hidden rounded-lg bg-white border border-gray-200 shadow-sm mb-4 sm:mb-6">
+        <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800">Best Bets of the Day</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Best Bets of the Day</h3>
               <p className="text-xs text-gray-600 mt-0.5">Top props for today's games ({new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })})</p>
             </div>
             {bestBets.length > 0 && (
@@ -392,7 +392,7 @@ export function GoodBetsDashboard() {
             )}
           </div>
         </div>
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
           {dailyLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center gap-2 text-gray-600">
@@ -417,11 +417,11 @@ export function GoodBetsDashboard() {
 
       {/* High Hit Rate Bets - Lazy Loaded */}
       {shouldLoadHighHitRate && (
-        <div className="overflow-hidden rounded-lg bg-white border border-gray-200 shadow-sm mb-6">
-          <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
-            <div className="flex items-center justify-between">
+        <div className="overflow-hidden rounded-lg bg-white border border-gray-200 shadow-sm mb-4 sm:mb-6">
+          <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div>
-                <h3 className="text-lg font-semibold text-gray-800">High Hit Rate Bets</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-800">High Hit Rate Bets</h3>
                 <p className="text-xs text-gray-600 mt-0.5">Props with 75%+ historical hit rate for today's games ({new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })})</p>
               </div>
               {highHitRateData?.items && highHitRateData.items.length > 0 && (
@@ -431,7 +431,7 @@ export function GoodBetsDashboard() {
               )}
             </div>
           </div>
-          <div className="p-4">
+          <div className="p-3 sm:p-4">
             {highHitRateLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="flex items-center gap-2 text-gray-600">
@@ -456,13 +456,13 @@ export function GoodBetsDashboard() {
       )}
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left column */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           {/* Today's Games */}
-          <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+          <div className="p-3 sm:p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-gray-800">Today's Games</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Today's Games</h3>
               {games.length > 0 && (
                 <span className="text-xs text-gray-500">{games.length} game{games.length !== 1 ? 's' : ''}</span>
               )}
@@ -506,7 +506,7 @@ export function GoodBetsDashboard() {
                     return (
                       <div 
                         key={g.gameId || idx} 
-                        className={`flex-none w-52 bg-white border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-4 ${cardBorder} ${g.status === 'LIVE' ? 'animate-pulse' : ''}`}
+                        className={`flex-none w-44 sm:w-52 bg-white border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 sm:p-4 ${cardBorder} ${g.status === 'LIVE' ? 'animate-pulse' : ''}`}
                       >
                         {/* Status Badge */}
                         <div className="flex items-center justify-between mb-3">
@@ -552,8 +552,8 @@ export function GoodBetsDashboard() {
           </div>
 
           {/* Players to Watch */}
-          <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
-            <h3 className="text-lg font-semibold mb-3 text-gray-800">Players to Watch</h3>
+          <div className="p-3 sm:p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+            <h3 className="text-base sm:text-lg font-semibold mb-3 text-gray-800">Players to Watch</h3>
             {dailyLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="flex flex-col items-center gap-3">
@@ -572,7 +572,7 @@ export function GoodBetsDashboard() {
                     const topConfidence = Math.round(p.highlight?.confidence ?? 0)
                     const hasTopProp = topConfidence > 0
                     return (
-                      <a key={p.id} href={`/player/${p.id}`} className={`flex-shrink-0 w-[200px] rounded-xl border p-3 hover:shadow-sm transition ${hasTopProp ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200 bg-gray-50'}`}>
+                      <a key={p.id} href={`/player/${p.id}`} className={`flex-shrink-0 w-[160px] sm:w-[200px] rounded-xl border p-2.5 sm:p-3 hover:shadow-sm transition ${hasTopProp ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200 bg-gray-50'}`}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-gray-900 truncate">{p.name}</div>
@@ -612,14 +612,14 @@ export function GoodBetsDashboard() {
         </div>
 
         {/* Right column */}
-        <div className="lg:col-span-1 space-y-6">
+        <div className="lg:col-span-1 space-y-4 sm:space-y-6">
           <QuickPropLab />
 
           {/* Stat Leaders */}
-          <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+          <div className="p-3 sm:p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
             {/* Header with title and toggle */}
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-gray-800">Stat Leaders</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Stat Leaders</h3>
               {/* Minimal toggle aligned to the right */}
               <div className="flex items-center gap-2">
                 <span className={`text-xs font-bold transition-colors ${statLeadersFilterToday ? 'text-gray-500' : 'text-black'}`}>
@@ -652,7 +652,7 @@ export function GoodBetsDashboard() {
             ) : leagueStatLeadersError && !statLeadersFilterToday ? (
               <p className="text-xs text-red-600">Error loading stat leaders. Please try again.</p>
             ) : (!statLeadersFilterToday || games.length > 0) ? (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {(['PTS','AST','REB','3PM'] as const).map((cat) => {
                   const leaders = statLeaders[cat] ?? []
                   return (

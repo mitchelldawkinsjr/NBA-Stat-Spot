@@ -63,26 +63,26 @@ export function DataTable<Row extends Record<string, unknown>>({
   }
 
   return (
-    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="text-sm font-semibold text-gray-900">{caption}</div>
+    <div className="rounded-xl sm:rounded-2xl bg-white shadow-sm ring-1 ring-gray-100">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3">
+        {caption && <div className="text-xs sm:text-sm font-semibold text-gray-900">{caption}</div>}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">Rows</span>
+          <span className="text-[10px] sm:text-xs text-gray-500">Rows</span>
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
-            className="px-2 py-1.5 rounded-md border border-gray-300 text-xs bg-white"
+            className="px-2 py-1 sm:py-1.5 rounded-md border border-gray-300 text-[10px] sm:text-xs bg-white"
           >
             {pageSizeOptions.map(opt => (<option key={opt} value={opt}>{opt}</option>))}
           </select>
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
+      <div className="overflow-x-auto -mx-2 sm:mx-0">
+        <table className="min-w-full text-xs sm:text-sm">
           <thead className={stickyHeader ? 'sticky top-0 z-10 bg-gray-50 border-b border-gray-100' : 'bg-gray-50 border-b border-gray-100'}>
             <tr>
               {columns.map(col => (
-                <th key={col.key} scope="col" className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-600 ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                <th key={col.key} scope="col" className={`px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-gray-600 ${col.align === 'right' ? 'text-right' : 'text-left'}`}>
                   <button onClick={() => toggleSort(col.key)} className="inline-flex items-center gap-1 hover:text-gray-800">
                     <span>{col.header}</span>
                     <SortIcon active={sortKey === col.key} dir={sortDir} />
@@ -95,20 +95,20 @@ export function DataTable<Row extends Record<string, unknown>>({
             {visible.map((row, idx) => (
               <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                 {columns.map(col => (
-                  <td key={col.key} className={`px-4 py-2.5 ${col.align === 'right' ? 'text-right' : 'text-left'} text-gray-800`}>{row[col.key] as ReactNode}</td>
+                  <td key={col.key} className={`px-2 sm:px-4 py-2 sm:py-2.5 ${col.align === 'right' ? 'text-right' : 'text-left'} text-gray-800`}>{row[col.key] as ReactNode}</td>
                 ))}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-xs text-gray-600">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-100 text-[10px] sm:text-xs text-gray-600">
         <div>Page {currentPage} of {totalPages}</div>
         <div className="flex items-center gap-1">
-          <button onClick={() => setPage(1)} disabled={currentPage === 1} className="px-2 py-1 rounded-md border border-gray-300 bg-white disabled:opacity-50">« First</button>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2 py-1 rounded-md border border-gray-300 bg-white disabled:opacity-50">‹ Prev</button>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-2 py-1 rounded-md border border-gray-300 bg-white disabled:opacity-50">Next ›</button>
-          <button onClick={() => setPage(totalPages)} disabled={currentPage === totalPages} className="px-2 py-1 rounded-md border border-gray-300 bg-white disabled:opacity-50">Last »</button>
+          <button onClick={() => setPage(1)} disabled={currentPage === 1} className="px-1.5 sm:px-2 py-1 rounded-md border border-gray-300 bg-white disabled:opacity-50 text-[10px] sm:text-xs">« First</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-1.5 sm:px-2 py-1 rounded-md border border-gray-300 bg-white disabled:opacity-50 text-[10px] sm:text-xs">‹ Prev</button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-1.5 sm:px-2 py-1 rounded-md border border-gray-300 bg-white disabled:opacity-50 text-[10px] sm:text-xs">Next ›</button>
+          <button onClick={() => setPage(totalPages)} disabled={currentPage === totalPages} className="px-1.5 sm:px-2 py-1 rounded-md border border-gray-300 bg-white disabled:opacity-50 text-[10px] sm:text-xs">Last »</button>
         </div>
       </div>
     </div>

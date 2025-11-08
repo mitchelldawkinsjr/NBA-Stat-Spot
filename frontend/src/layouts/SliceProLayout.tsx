@@ -29,12 +29,14 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
                 <span className="hidden sm:inline text-xs text-slate-500">Sliced Pro Layout</span>
               </Link>
             </div>
-            <nav className="flex items-center gap-1 sm:gap-2" role="navigation" aria-label="Primary">
+            <nav className="hidden md:flex items-center gap-1 sm:gap-2" role="navigation" aria-label="Primary">
               {nav.map(n => (
                 <Link key={n.to} to={n.to} className={`px-3 py-2 rounded-md text-sm font-medium ${pathname.startsWith(n.to) ? 'text-purple bg-purple/10' : 'text-slate-700 hover:text-purple hover:bg-purple/10'}`}>{n.label}</Link>
               ))}
             </nav>
-            <SeasonControl />
+            <div className="hidden sm:block">
+              <SeasonControl />
+            </div>
           </div>
         </div>
       </header>
@@ -60,7 +62,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
       )}
 
       {/* Content */}
-      <main className="mx-auto max-w-screen-2xl p-4 space-y-4 detached-content">
+      <main className="mx-auto max-w-screen-2xl p-2 sm:p-4 space-y-4 detached-content">
         {children}
       </main>
     </div>

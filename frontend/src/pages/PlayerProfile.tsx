@@ -344,7 +344,7 @@ export default function PlayerProfile() {
   
 
   return (
-    <div className="container mx-auto px-3 md:px-4 max-w-7xl">
+    <div className="container mx-auto px-2 sm:px-3 md:px-4 max-w-7xl">
       <a href="#player-profile-main" className="sr-only focus:not-sr-only">Skip to player content</a>
 
       {/* Breadcrumbs (TailGrids: Breadcrumbs) */}
@@ -364,14 +364,14 @@ export default function PlayerProfile() {
 
       {/* Header / Profile */}
       {/* Header / Profile (styled light for readability) */}
-      <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200 mt-3">
-        <div className="px-4 py-4 sm:px-6 sm:py-5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-slate-100 ring-1 ring-gray-200 flex items-center justify-center text-lg font-semibold text-slate-800">
+      <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-white shadow-xl ring-1 ring-gray-200 mt-2 sm:mt-3">
+        <div className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-slate-100 ring-1 ring-gray-200 flex items-center justify-center text-base sm:text-lg font-semibold text-slate-800 flex-shrink-0">
               {(playerName || 'P').slice(0,1)}
             </div>
-            <div>
-              <h2 id="player-profile-title" className="text-lg md:text-xl font-semibold tracking-tight text-slate-800">{playerName ? playerName : 'Player'} Profile</h2>
+            <div className="min-w-0 flex-1">
+              <h2 id="player-profile-title" className="text-base sm:text-lg md:text-xl font-semibold tracking-tight text-slate-800 truncate">{playerName ? playerName : 'Player'} Profile</h2>
               <div className="mt-0.5 flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-slate-700">Season: {fallbackUsed ? fallbackUsed : season}</span>
                 {teamName && teamId && (
@@ -415,12 +415,12 @@ export default function PlayerProfile() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${headerTrend.color}`}>
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+            <span className={`inline-flex items-center rounded-full px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium ring-1 ring-inset ${headerTrend.color}`}>
               {headerTrend.tag} {headerTrend.delta >= 0 ? '+' : ''}{headerTrend.delta.toFixed(1)} pts vs season
             </span>
             {fallbackUsed && (
-              <span className="inline-flex items-center rounded-full bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-200">Fallback to {fallbackUsed}</span>
+              <span className="inline-flex items-center rounded-full bg-yellow-50 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-200">Fallback to {fallbackUsed}</span>
             )}
           </div>
         </div>
@@ -468,25 +468,25 @@ export default function PlayerProfile() {
       ) : (
         <div id="player-profile-main" role="main" aria-labelledby="player-profile-title" className="space-y-4">
           {/* Controls (TailGrids: Toolbar) */}
-          <div className="mt-3 bg-white rounded-xl shadow-md ring-1 ring-gray-100 p-3 md:p-4 flex items-center gap-3 flex-wrap">
-            <div className="text-xs font-semibold text-gray-600">Window</div>
-            <select aria-label="Select window" value={windowN} onChange={(e) => setWindowN(Number(e.target.value))} className="px-3 py-2 text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20">
+          <div className="mt-3 bg-white rounded-lg sm:rounded-xl shadow-md ring-1 ring-gray-100 p-2 sm:p-3 md:p-4 flex items-center gap-2 sm:gap-3 flex-wrap">
+            <div className="text-[10px] sm:text-xs font-semibold text-gray-600">Window</div>
+            <select aria-label="Select window" value={windowN} onChange={(e) => setWindowN(Number(e.target.value))} className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20">
               {[5,10,20].map(n => <option key={n} value={n}>{n} games</option>)}
             </select>
-            <div className="text-xs font-semibold text-gray-600 ml-1">Hit Rate</div>
-            <select value={hrStat} onChange={(e) => setHrStat(e.target.value as 'PTS'|'REB'|'AST'|'3PM'|'PRA')} className="px-3 py-2 text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20">
+            <div className="text-[10px] sm:text-xs font-semibold text-gray-600 ml-1">Hit Rate</div>
+            <select value={hrStat} onChange={(e) => setHrStat(e.target.value as 'PTS'|'REB'|'AST'|'3PM'|'PRA')} className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20">
               {['PTS','REB','AST','3PM','PRA'].map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <input value={hrLine} onChange={(e) => setHrLine(e.target.value)} inputMode="decimal" placeholder="Line (e.g. 24.5)" className="px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20" />
-            <div className="flex items-center gap-2">
-              <button onClick={() => setHrDir('over')} aria-pressed={hrDir==='over'} aria-label="Select Over" className={`px-3 py-2 rounded-lg border text-sm font-medium shadow-sm ${hrDir==='over' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-900 border-gray-300'}`}>Over</button>
-              <button onClick={() => setHrDir('under')} aria-pressed={hrDir==='under'} aria-label="Select Under" className={`px-3 py-2 rounded-lg border text-sm font-medium shadow-sm ${hrDir==='under' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-900 border-gray-300'}`}>Under</button>
+            <input value={hrLine} onChange={(e) => setHrLine(e.target.value)} inputMode="decimal" placeholder="Line" className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 w-20 sm:w-auto" />
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button onClick={() => setHrDir('over')} aria-pressed={hrDir==='over'} aria-label="Select Over" className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border text-xs sm:text-sm font-medium shadow-sm ${hrDir==='over' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-900 border-gray-300'}`}>Over</button>
+              <button onClick={() => setHrDir('under')} aria-pressed={hrDir==='under'} aria-label="Select Under" className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border text-xs sm:text-sm font-medium shadow-sm ${hrDir==='under' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-900 border-gray-300'}`}>Under</button>
             </div>
             <button 
               onClick={() => evalLine.mutate()} 
               aria-label="Evaluate line against recent performance" 
               disabled={!hrLine || evalLine.isPending} 
-              className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${(!hrLine || evalLine.isPending) ? 'opacity-70 cursor-not-allowed' : ''} bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all`}
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-2 ${(!hrLine || evalLine.isPending) ? 'opacity-70 cursor-not-allowed' : ''} bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all w-full sm:w-auto`}
             >
               {evalLine.isPending ? (
                 <>
@@ -525,10 +525,10 @@ export default function PlayerProfile() {
             }).sort((a,b)=> (b.confidence - a.confidence)).slice(0,3)
 
             return (
-              <div className="mt-3 overflow-x-auto px-1 py-2">
-                <div className="flex gap-3">
+              <div className="mt-3 overflow-x-auto px-1 py-2 -mx-2 sm:mx-0">
+                <div className="flex gap-2 sm:gap-3">
                   {recs.map((r, i) => (
-                  <div key={i} className="w-[280px] flex-none rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
+                  <div key={i} className="w-[240px] sm:w-[280px] flex-none rounded-xl sm:rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-3 sm:p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${r.color}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5"><path d="M12 3l4 7H8l4-7Zm0 18l-4-7h8l-4 7Z"/></svg>
@@ -587,7 +587,7 @@ export default function PlayerProfile() {
           })()}
 
           {/* Prop Highlights */}
-          <div className="mt-3 grid grid-cols-4 md:grid-cols-4 gap-3">
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {(() => {
               const lastPts = recentN.map(g => g.pts)
               const lastAst = recentN.map(g => g.ast)
@@ -672,7 +672,7 @@ export default function PlayerProfile() {
                 // First card (selected stat) gets the highlight treatment
                 if (idx === 0) {
                   return (
-                    <div key={idx} className="col-span-4 md:col-span-4">
+                    <div key={idx} className="col-span-1 sm:col-span-2 md:col-span-4">
                       <PropCard label={`${c.label} Prop Line`} value={c.value} trend={trend} trendText={`L${windowN} Avg: ${recentAvg.toFixed(1)} (${delta>=0?'+':''}${delta.toFixed(1)})`} confidence={conf} recommendation={rec} highlight details={details} />
                     </div>
                   )

@@ -28,12 +28,12 @@ export function PropCard({ label, value, trend, trendText, confidence, recommend
     barColorHex = '#dc2626' // red-600
   }
   return (
-    <div className={`bg-gradient-to-br from-white via-gray-50 to-gray-100 rounded-lg p-3 border-l-2 ${borderClass} shadow-sm`}> 
+    <div className={`bg-gradient-to-br from-white via-gray-50 to-gray-100 rounded-lg p-2.5 sm:p-3 border-l-2 ${borderClass} shadow-sm`}> 
       <div className="flex items-center justify-between">
-        <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-0.5">{label}</div>
-        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${recommendation === 'OVER' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{recommendation}</span>
+        <div className="text-[9px] sm:text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-0.5">{label}</div>
+        <span className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${recommendation === 'OVER' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{recommendation}</span>
       </div>
-      <div className={`text-2xl font-extrabold ${highlight ? 'text-blue-800' : 'text-blue-900'}`}>{value}</div>
+      <div className={`text-xl sm:text-2xl font-extrabold ${highlight ? 'text-blue-800' : 'text-blue-900'}`}>{value}</div>
       <div className={`mt-0.5 text-[11px] font-bold ${trendColor}`}>{arrow} {trendText}</div>
       <div
         className="mt-1.5 h-2 bg-gray-200 rounded-full overflow-hidden"

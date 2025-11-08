@@ -572,15 +572,15 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="container mx-auto px-3 md:px-4 max-w-7xl">
+    <div className="container mx-auto px-2 sm:px-3 md:px-4 max-w-7xl">
       <div className="mt-2">
         <h1 className="text-lg md:text-xl font-bold tracking-tight text-gray-900">Admin Dashboard</h1>
         <p className="mt-0.5 text-xs text-gray-600">Monitor system health, data consistency, and refresh cached services.</p>
       </div>
 
       {/* System Health & Data Consistency */}
-      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3 ${health?.status === 'healthy' ? 'ring-emerald-500/20' : 'ring-red-500/20'} ${healthLoading ? 'opacity-60' : ''}`}>
+      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3 ${health?.status === 'healthy' ? 'ring-emerald-500/20' : 'ring-red-500/20'} ${healthLoading ? 'opacity-60' : ''}`}>
           <div className="flex items-center justify-between">
             <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-emerald-50">
               {healthLoading ? (
@@ -608,9 +608,9 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3 ${scanStatusLoading ? 'opacity-60' : ''}`}>
+        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3 ${scanStatusLoading ? 'opacity-60' : ''}`}>
           <div className="text-xs font-medium text-gray-500">Total Players</div>
-          <div className="text-2xl font-semibold text-gray-900">
+          <div className="text-xl sm:text-2xl font-semibold text-gray-900">
             {scanStatusLoading ? '...' : (scanStatus?.totalPlayers || health?.totalPlayers || 0)}
           </div>
           <div className="mt-1 text-xs text-gray-500">
@@ -619,9 +619,9 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3 ${bestBetsLoading ? 'opacity-60' : ''}`}>
+        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3 ${bestBetsLoading ? 'opacity-60' : ''}`}>
           <div className="text-xs font-medium text-gray-500">Best Bets</div>
-          <div className="text-2xl font-semibold text-gray-900">
+          <div className="text-xl sm:text-2xl font-semibold text-gray-900">
             {bestBetsLoading ? '...' : bestBets.length}
           </div>
           <div className="mt-1 text-xs text-gray-500">
@@ -634,7 +634,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3 ${healthLoading ? 'opacity-60' : ''}`}>
+        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3 ${healthLoading ? 'opacity-60' : ''}`}>
           <div className="text-xs font-medium text-gray-500">Last Health Check</div>
           <div className="text-sm font-semibold text-gray-900">
             {healthLoading ? '...' : (health?.timestamp ? formatTimeAgo(health.timestamp) : 'Never')}
@@ -647,9 +647,9 @@ export default function AdminDashboard() {
       </div>
 
       {/* Activity Log & Cache Status - Side by Side */}
-      <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
+      <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3">
         {/* Activity Log & Pipeline Status */}
-        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3">
           <div className="flex items-center justify-between mb-2">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Activity Log</h2>
