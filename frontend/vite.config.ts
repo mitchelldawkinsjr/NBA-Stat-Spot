@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  // Vite proxy target for local development - proxies /api requests to local backend
   const apiTarget = env.VITE_API_TARGET || 'http://localhost:8000'
   
   // Check if we're building for GitHub Pages
@@ -22,6 +23,7 @@ export default defineConfig(({ mode }) => {
         "/api": {
           target: apiTarget,
           changeOrigin: true,
+          // Proxies /api/* requests to local backend at localhost:8000 in dev mode
         },
       },
     },

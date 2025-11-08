@@ -10,19 +10,13 @@ const getApiBaseUrl = (): string => {
     return import.meta.env.VITE_API_TARGET
   }
   
-  // In production (GitHub Pages), use relative paths by default
-  // This works if:
-  // 1. Backend is on the same domain (via reverse proxy)
-  // 2. Backend has CORS configured to allow requests from GitHub Pages domain
-  // If you need an absolute URL, set VITE_API_TARGET environment variable
+  // In production, use Fly.io backend
   if (import.meta.env.PROD) {
-    // Use empty string for relative paths (e.g., /api/v1/...)
-    // This allows the browser to make requests to the same origin or
-    // to a backend with proper CORS configuration
-    return ''
+    return 'https://nba-stat-spot-ai.fly.dev'
   }
   
-  // In development, use empty string to leverage Vite proxy
+  // In development, use empty string to leverage Vite proxy to localhost:8000
+  // This requires the local backend to be running on http://localhost:8000
   return ''
 }
 
