@@ -137,6 +137,7 @@ export function DailyPropsPanel() {
           </div>
         ) : (
           <div className="w-full">
+            {/* Grid container with responsive columns - displays results in a grid format */}
             <SuggestionCards suggestions={paginatedItems} horizontal={false} />
           </div>
         )}
@@ -144,43 +145,33 @@ export function DailyPropsPanel() {
       
       {/* Pagination Controls */}
       {!isLoading && !error && filtered.length > 0 && totalPages > 1 && (
-        <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 12, color: '#6b7280' }}>
+        <div className="mt-4 flex items-center justify-between gap-2 flex-wrap pt-3 border-t border-gray-200">
+          <div className="text-xs text-gray-600">
             Showing {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, totalItems)} of {totalItems}
           </div>
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <div className="flex gap-2 items-center">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={!hasPrev || isLoading}
-              style={{
-                padding: '6px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: 6,
-                background: hasPrev && !isLoading ? '#fff' : '#f3f4f6',
-                color: hasPrev && !isLoading ? '#374151' : '#9ca3af',
-                cursor: hasPrev && !isLoading ? 'pointer' : 'not-allowed',
-                fontSize: 12,
-                fontWeight: 500
-              }}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                hasPrev && !isLoading
+                  ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer'
+                  : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
             >
               Previous
             </button>
-            <div style={{ fontSize: 12, color: '#374151', padding: '0 8px' }}>
+            <div className="text-xs text-gray-700 px-2">
               Page {page} of {totalPages}
             </div>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={!hasNext || isLoading}
-              style={{
-                padding: '6px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: 6,
-                background: hasNext && !isLoading ? '#fff' : '#f3f4f6',
-                color: hasNext && !isLoading ? '#374151' : '#9ca3af',
-                cursor: hasNext && !isLoading ? 'pointer' : 'not-allowed',
-                fontSize: 12,
-                fontWeight: 500
-              }}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                hasNext && !isLoading
+                  ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer'
+                  : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
             >
               Next
             </button>
