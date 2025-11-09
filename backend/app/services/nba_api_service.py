@@ -10,33 +10,51 @@ try:
     from nba_api.stats.endpoints import playergamelog, commonallplayers
     from nba_api.live.nba.endpoints import scoreboard
     from nba_api.stats.endpoints import scoreboardv2
+    
     # Configure requests library timeout for nba_api
-    import requests
-    # Increase default timeout from 30s to 60s for NBA API calls
-    # This patches both direct requests and Session objects used by nba_api
-    original_get = requests.get
-    original_post = requests.post
-    original_session_request = requests.Session.request
-    
-    def patched_get(*args, **kwargs):
-        if 'timeout' not in kwargs:
-            kwargs['timeout'] = 60.0  # 60 second timeout
-        return original_get(*args, **kwargs)
-    
-    def patched_post(*args, **kwargs):
-        if 'timeout' not in kwargs:
-            kwargs['timeout'] = 60.0  # 60 second timeout
-        return original_post(*args, **kwargs)
-    
-    def patched_session_request(self, method, url, **kwargs):
-        if 'timeout' not in kwargs:
-            kwargs['timeout'] = 60.0  # 60 second timeout
-        return original_session_request(self, method, url, **kwargs)
-    
-    # Patch requests methods used by nba_api
-    requests.get = patched_get
-    requests.post = patched_post
-    requests.Session.request = patched_session_request
+    # Only patch if requests is available and not already patched
+    try:
+        import requests
+        if not hasattr(requests, '_nba_api_patched'):
+            # Increase default timeout from 30s to 60s for NBA API calls
+            # This patches both direct requests and Session objects used by nba_api
+            try:
+                original_get = requests.get
+                original_post = requests.post
+                
+                def patched_get(*args, **kwargs):
+                    if 'timeout' not in kwargs:
+                        kwargs['timeout'] = 60.0  # 60 second timeout
+                    return original_get(*args, **kwargs)
+                
+                def patched_post(*args, **kwargs):
+                    if 'timeout' not in kwargs:
+                        kwargs['timeout'] = 60.0  # 60 second timeout
+                    return original_post(*args, **kwargs)
+                
+                # Patch requests methods used by nba_api
+                requests.get = patched_get
+                requests.post = patched_post
+                
+                # Also patch Session.request if available
+                if hasattr(requests, 'Session') and hasattr(requests.Session, 'request'):
+                    original_session_request = requests.Session.request
+                    
+                    def patched_session_request(self, method, url, **kwargs):
+                        if 'timeout' not in kwargs:
+                            kwargs['timeout'] = 60.0  # 60 second timeout
+                        return original_session_request(self, method, url, **kwargs)
+                    
+                    requests.Session.request = patched_session_request
+                
+                requests._nba_api_patched = True  # Mark as patched to avoid double-patching
+            except (AttributeError, TypeError):
+                # If patching fails due to missing attributes, silently continue
+                pass
+    except Exception:
+        # If patching fails, silently continue - nba_api might still work with default timeout
+        # Don't log here as structlog might not be initialized yet during module import
+        pass
 except Exception:  # pragma: no cover
     static_teams = None
     static_players = None
