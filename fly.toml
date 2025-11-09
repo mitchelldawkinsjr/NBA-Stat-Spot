@@ -26,13 +26,12 @@ primary_region = "iad"
   processes = ["app"]
   
   # Health check for better reliability
-  [http_service.checks]
-    [http_service.checks.health]
-      grace_period = "10s"
-      interval = "30s"
-      method = "GET"
-      timeout = "5s"
-      path = "/healthz"
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/healthz"
 
 [[vm]]
   cpu_kind = "shared"    # Shared CPUs are much cheaper than dedicated
