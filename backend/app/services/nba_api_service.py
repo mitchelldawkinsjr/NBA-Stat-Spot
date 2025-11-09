@@ -1,8 +1,8 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Optional
 from datetime import datetime
-from cachetools import TTLCache, cached
-from cachetools.keys import hashkey
+import time
+from ..services.cache_service import get_cache_service
 
 try:
     from nba_api.stats.static import teams as static_teams
@@ -10,6 +10,33 @@ try:
     from nba_api.stats.endpoints import playergamelog, commonallplayers
     from nba_api.live.nba.endpoints import scoreboard
     from nba_api.stats.endpoints import scoreboardv2
+    # Configure requests library timeout for nba_api
+    import requests
+    # Increase default timeout from 30s to 60s for NBA API calls
+    # This patches both direct requests and Session objects used by nba_api
+    original_get = requests.get
+    original_post = requests.post
+    original_session_request = requests.Session.request
+    
+    def patched_get(*args, **kwargs):
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = 60.0  # 60 second timeout
+        return original_get(*args, **kwargs)
+    
+    def patched_post(*args, **kwargs):
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = 60.0  # 60 second timeout
+        return original_post(*args, **kwargs)
+    
+    def patched_session_request(self, method, url, **kwargs):
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = 60.0  # 60 second timeout
+        return original_session_request(self, method, url, **kwargs)
+    
+    # Patch requests methods used by nba_api
+    requests.get = patched_get
+    requests.post = patched_post
+    requests.Session.request = patched_session_request
 except Exception:  # pragma: no cover
     static_teams = None
     static_players = None
@@ -19,36 +46,72 @@ except Exception:  # pragma: no cover
     scoreboardv2 = None
 
 
-a_cache = TTLCache(maxsize=1024, ttl=86400)  # 24 hour cache
-
-
 class NBADataService:
     @staticmethod
-    @cached(a_cache, key=lambda: hashkey("teams", datetime.now().date().isoformat()))
     def fetch_all_teams() -> List[Dict[str, Any]]:
         """
         Fetch all NBA teams. Cached for 24 hours with date-based key for daily invalidation.
+        Uses CacheService (Redis/SQLite) for persistence across container restarts.
         """
+        cache = get_cache_service()
+        today_str = datetime.now().date().isoformat()
+        cache_key = f"nba_api:teams:{today_str}"
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return cached_data
+        
+        # Fetch if not cached
         if static_teams is None:
             return []
-        return static_teams.get_teams()
+        result = static_teams.get_teams()
+        
+        # Cache for 24 hours (86400 seconds)
+        cache.set(cache_key, result, ttl=86400)
+        return result
 
     @staticmethod
-    @cached(a_cache, key=lambda: hashkey("players_active", datetime.now().date().isoformat()))
     def fetch_active_players() -> List[Dict[str, Any]]:
         """
         Fetch active players. Cached for 24 hours with date-based key for daily invalidation.
+        Uses CacheService (Redis/SQLite) for persistence across container restarts.
         """
+        cache = get_cache_service()
+        today_str = datetime.now().date().isoformat()
+        cache_key = f"nba_api:players_active:{today_str}"
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return cached_data
+        
+        # Fetch if not cached
         if static_players is None:
             return []
-        return [p for p in static_players.get_players() if p.get("is_active")]
+        result = [p for p in static_players.get_players() if p.get("is_active")]
+        
+        # Cache for 24 hours
+        cache.set(cache_key, result, ttl=86400)
+        return result
     
     @staticmethod
-    @cached(a_cache, key=lambda: hashkey("players_all_including_rookies", datetime.now().date().isoformat()))
     def fetch_all_players_including_rookies() -> List[Dict[str, Any]]:
         """Fetch all players including rookies who may not be marked as active yet.
         Uses CommonAllPlayers endpoint to get current season players with team_id,
-        then falls back to static players for historical players."""
+        then falls back to static players for historical players.
+        Cached for 24 hours with date-based key for daily invalidation.
+        Uses CacheService (Redis/SQLite) for persistence across container restarts."""
+        cache = get_cache_service()
+        today_str = datetime.now().date().isoformat()
+        cache_key = f"nba_api:players_all_including_rookies:{today_str}"
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return cached_data
+        
+        # Fetch if not cached
         all_players: List[Dict[str, Any]] = []
         
         # First, get current season players with team_id from CommonAllPlayers
@@ -102,36 +165,72 @@ class NBADataService:
                 if p.get("id") not in existing_ids:
                     all_players.append(p)
         
+        # Cache for 24 hours
+        cache.set(cache_key, all_players, ttl=86400)
         return all_players
 
     @staticmethod
     def _fetch_player_game_log_impl(player_id: int, season: Optional[str]) -> List[Dict[str, Any]]:
-        """Internal implementation of fetch_player_game_log without caching."""
+        """Internal implementation of fetch_player_game_log without caching.
+        Includes retry logic with exponential backoff for handling timeouts."""
         if playergamelog is None:
             return []
-        try:
-            # Default to current season if not provided
-            season_to_use = season or "2025-26"
-            gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use)
-            df = gl.get_data_frames()[0]
-            items: List[Dict[str, Any]] = []
-            for _, row in df.iterrows():
-                items.append({
-                    "game_id": str(row.get("Game_ID")),
-                    "game_date": str(row.get("GAME_DATE")),
-                    "matchup": str(row.get("MATCHUP")),
-                    "pts": float(row.get("PTS", 0) or 0),
-                    "reb": float(row.get("REB", 0) or 0),
-                    "ast": float(row.get("AST", 0) or 0),
-                    "tpm": float(row.get("FG3M", 0) or 0),
-                })
-            return items
-        except Exception as e:
-            # Log error and return empty list instead of crashing
-            import structlog
-            logger = structlog.get_logger()
-            logger.warning("Failed to fetch player game log", player_id=player_id, season=season, error=str(e))
-            return []
+        
+        import structlog
+        logger = structlog.get_logger()
+        
+        # Default to current season if not provided
+        season_to_use = season or "2025-26"
+        
+        # Retry logic with exponential backoff
+        max_retries = 3
+        base_delay = 2.0  # Start with 2 seconds
+        
+        for attempt in range(max_retries):
+            try:
+                gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use)
+                df = gl.get_data_frames()[0]
+                items: List[Dict[str, Any]] = []
+                for _, row in df.iterrows():
+                    items.append({
+                        "game_id": str(row.get("Game_ID")),
+                        "game_date": str(row.get("GAME_DATE")),
+                        "matchup": str(row.get("MATCHUP")),
+                        "pts": float(row.get("PTS", 0) or 0),
+                        "reb": float(row.get("REB", 0) or 0),
+                        "ast": float(row.get("AST", 0) or 0),
+                        "tpm": float(row.get("FG3M", 0) or 0),
+                    })
+                return items
+            except Exception as e:
+                error_str = str(e)
+                is_timeout = "timeout" in error_str.lower() or "Read timed out" in error_str
+                
+                if is_timeout and attempt < max_retries - 1:
+                    # Exponential backoff: 2s, 4s, 8s
+                    delay = base_delay * (2 ** attempt)
+                    logger.warning(
+                        "Player game log request timed out, retrying",
+                        player_id=player_id,
+                        season=season_to_use,
+                        attempt=attempt + 1,
+                        max_retries=max_retries,
+                        delay_seconds=delay,
+                        error=error_str
+                    )
+                    time.sleep(delay)
+                    continue
+                else:
+                    # Final attempt failed or non-timeout error
+                    logger.warning(
+                        "Failed to fetch player game log",
+                        player_id=player_id,
+                        season=season_to_use,
+                        attempt=attempt + 1,
+                        max_retries=max_retries,
+                        error=error_str
+                    )
+                    return []
     
     @staticmethod
     def search_players(query: str) -> List[Dict[str, Any]]:
@@ -170,20 +269,22 @@ class NBADataService:
             return NBADataService._fetch_player_game_log_impl(player_id, season)
         
         # Use cached version with date-based key for daily invalidation
+        cache = get_cache_service()
         season_to_use = season or "2025-26"
-        cache_key = hashkey("player_game_log", player_id, season_to_use, datetime.now().date().isoformat())
+        today_str = datetime.now().date().isoformat()
+        cache_key = f"nba_api:player_game_log:{player_id}:{season_to_use}:{today_str}"
         
         # Check cache manually since we need conditional caching
-        if cache_key in a_cache:
-            return a_cache[cache_key]
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return cached_data
         
         # Fetch and cache
         result = NBADataService._fetch_player_game_log_impl(player_id, season)
-        a_cache[cache_key] = result
+        cache.set(cache_key, result, ttl=86400)
         return result
 
     @staticmethod
-    @cached(a_cache, key=lambda: hashkey("todays_games", datetime.now().date().isoformat()))
     def fetch_todays_games() -> List[Dict[str, Any]]:
         """
         Fetch all games for today, including:
@@ -197,13 +298,22 @@ class NBADataService:
         
         Note: After fetching, checks for finished games and invalidates player log caches
         for players in those games to ensure fresh data.
+        Uses CacheService (Redis/SQLite) for persistence across container restarts.
         """
+        cache = get_cache_service()
         import pytz
         
         # Get today's date in Eastern Time (NBA's primary timezone)
         et_tz = pytz.timezone('America/New_York')
         today_et = datetime.now(et_tz).date()
+        today_str = today_et.isoformat()
+        cache_key = f"nba_api:todays_games:{today_str}"
         date_str = today_et.strftime('%m/%d/%Y')
+        
+        # Try cache first
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return cached_data
         
         games = []
         
@@ -374,6 +484,9 @@ class NBADataService:
         # Note: Game status monitoring for cache invalidation is handled separately
         # via GameStatusMonitor.check_and_invalidate_finished_games() which can be
         # called periodically or via admin endpoint POST /api/v1/admin/cache/refresh/player-logs
+        
+        # Cache for 24 hours
+        cache.set(cache_key, games, ttl=86400)
         return games
     
     @staticmethod
