@@ -13,160 +13,176 @@ type SuggestionItem = {
   sampleSize?: number
 }
 
-export function SuggestionCards({ suggestions }: { suggestions: SuggestionItem[] }) {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-      {suggestions.map((s: SuggestionItem, idx: number) => (
-        <div key={idx} className="p-3 sm:p-4 md:p-5 border border-gray-200 rounded-lg bg-white">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <strong>{s.type}</strong>
-              {s.playerId && s.playerName && (
-                <a href={`/player/${s.playerId}`} style={{ color: '#2563eb', fontSize: 12 }}>{s.playerName}</a>
-              )}
-            </div>
-            {s.marketLine != null && (
-              (() => {
-                const impliedOver = (s.fairLine != null && s.marketLine != null) ? (s.fairLine - s.marketLine) >= 0 : true
-                const dir = (s.chosenDirection === 'over' || s.chosenDirection === 'under') ? s.chosenDirection : (impliedOver ? 'over' : 'under')
-                const bg = dir === 'over' ? '#10B981' : '#EF4444'
-                return <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, color: '#fff', background: bg }}>{dir === 'over' ? 'Over' : 'Under'}</span>
-              })()
+export function SuggestionCards({ suggestions, horizontal = false }: { suggestions: SuggestionItem[]; horizontal?: boolean }) {
+  const CardContent = ({ s }: { s: SuggestionItem }) => (
+    <>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <strong className="text-xs font-bold text-gray-900 truncate">{s.type}</strong>
+            {s.playerId && s.playerName && (
+              <a href={`/player/${s.playerId}`} className="text-[10px] text-blue-600 hover:text-blue-800 truncate" title={s.playerName}>{s.playerName}</a>
             )}
           </div>
-          <div style={{ marginTop: 6, color: '#111827' }}>
-            {s.marketLine != null ? (
-              <div>
-                <div title="Your line from the sportsbook"><strong>Market:</strong> {s.marketLine} {s.type}</div>
-                <div title="Model-implied fair line"><strong>Fair:</strong> {s.fairLine != null ? s.fairLine.toFixed(1) : '—'}</div>
-                <div title="Fair - Market, positive favors Over, negative favors Under"><strong>Edge:</strong> {s.fairLine != null && s.marketLine != null ? (s.fairLine - s.marketLine >= 0 ? '+' : '') + (s.fairLine - s.marketLine).toFixed(1) : '—'}</div>
-                <div title="Confidence in recommendation"><strong>Confidence:</strong> {s.confidence != null ? Math.round((s.confidence > 1 ? s.confidence : s.confidence * 100)) + '%' : '—'}</div>
-                {s.hitRate != null && (
-                  <div title={`Historical hit rate based on ${s.sampleSize || 0} games`} style={{ color: s.hitRate >= 75 ? '#059669' : s.hitRate >= 65 ? '#2563eb' : '#6b7280' }}>
-                    <strong>Hit Rate:</strong> {s.hitRate.toFixed(1)}% {s.sampleSize && `(${s.sampleSize} games)`}
-                  </div>
-                )}
-                {s.betterDirection && s.chosenDirection && s.betterDirection !== s.chosenDirection && (
-                  <div style={{ marginTop: 6 }}>
-                    <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, color: '#111827', background: '#FDE68A' }}>
-                      Better: {s.betterDirection === 'over' ? 'Over' : 'Under'}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div><strong>Fair Line:</strong> {s.fairLine?.toFixed?.(1) ?? '-'}</div>
-            )}
-          </div>
-          {Array.isArray(s.rationale) && s.rationale.length > 0 && (
-            <div style={{ marginTop: 12, padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                Analysis
-              </div>
-              {(s.rationale || []).slice(0, 2).map((r: string, i: number) => {
-                // Parse rationale text to extract key information
-                const parseRationale = (text: string) => {
-                  const parts: { type: 'trend' | 'hitRate' | 'text'; value?: string; percentage?: number; line?: number }[] = []
-                  
-                  // Extract form trend (Up/Down/Flat)
-                  const trendMatch = text.match(/\b(Up|Down|Flat)\s+form/i)
-                  if (trendMatch) {
-                    parts.push({ 
-                      type: 'trend', 
-                      value: trendMatch[1],
-                      percentage: trendMatch[1].toLowerCase() === 'up' ? 75 : trendMatch[1].toLowerCase() === 'down' ? 25 : 50
-                    })
-                  }
-                  
-                  // Extract hit rate percentage
-                  const hitRateMatch = text.match(/(\d+(?:\.\d+)?)%\s+hit/i)
-                  if (hitRateMatch) {
-                    parts.push({ 
-                      type: 'hitRate', 
-                      percentage: parseFloat(hitRateMatch[1])
-                    })
-                  }
-                  
-                  // Extract line value
-                  const lineMatch = text.match(/over\s+(\d+(?:\.\d+)?)/i) || text.match(/under\s+(\d+(?:\.\d+)?)/i)
-                  if (lineMatch) {
-                    parts.push({ 
-                      type: 'text', 
-                      line: parseFloat(lineMatch[1])
-                    })
-                  }
-                  
-                  return { parts, original: text }
-                }
-                
-                const parsed = parseRationale(r)
-                const trend = parsed.parts.find(p => p.type === 'trend')
-                const hitRate = parsed.parts.find(p => p.type === 'hitRate')
-                const line = parsed.parts.find(p => p.line)
-                
-                return (
-                  <div key={i} style={{ marginBottom: i < (s.rationale?.length || 0) - 1 ? '10px' : 0 }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                      {trend && (
-                        <div style={{ 
-                          display: 'inline-flex', 
-                          alignItems: 'center', 
-                          gap: '4px',
-                          padding: '4px 10px', 
-                          background: trend.value?.toLowerCase() === 'up' ? '#dcfce7' : trend.value?.toLowerCase() === 'down' ? '#fee2e2' : '#fef3c7',
-                          color: trend.value?.toLowerCase() === 'up' ? '#166534' : trend.value?.toLowerCase() === 'down' ? '#991b1b' : '#92400e',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: 600
-                        }}>
-                          <span>{trend.value === 'Up' ? '📈' : trend.value === 'Down' ? '📉' : '➡️'}</span>
-                          <span>{trend.value} Form</span>
-                        </div>
-                      )}
-                      {hitRate && (
-                        <div style={{ 
-                          display: 'inline-flex', 
-                          alignItems: 'center', 
-                          gap: '4px',
-                          padding: '4px 10px', 
-                          background: hitRate.percentage! >= 75 ? '#dbeafe' : hitRate.percentage! >= 65 ? '#e0e7ff' : '#f3f4f6',
-                          color: hitRate.percentage! >= 75 ? '#1e40af' : hitRate.percentage! >= 65 ? '#3730a3' : '#374151',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: 700
-                        }}>
-                          <span>{hitRate.percentage}%</span>
-                          <span style={{ fontWeight: 500, fontSize: '11px' }}>Hit Rate</span>
-                        </div>
-                      )}
-                      {line && (
-                        <div style={{ 
-                          display: 'inline-flex', 
-                          alignItems: 'center',
-                          padding: '4px 10px', 
-                          background: '#ffffff',
-                          border: '1px solid #d1d5db',
-                          color: '#111827',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: 600
-                        }}>
-                          <span>Line: {line.line}</span>
-                        </div>
-                      )}
-                    </div>
-                    {!trend && !hitRate && (
-                      <div style={{ fontSize: '13px', color: '#4b5563', lineHeight: '1.5', marginTop: '4px' }}>
-                        {r}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+          {s.marketLine != null && (
+            (() => {
+              const impliedOver = (s.fairLine != null && s.marketLine != null) ? (s.fairLine - s.marketLine) >= 0 : true
+              const dir = (s.chosenDirection === 'over' || s.chosenDirection === 'under') ? s.chosenDirection : (impliedOver ? 'over' : 'under')
+              const bg = dir === 'over' ? '#10B981' : '#EF4444'
+              return <span className="text-[10px] px-1.5 py-0.5 rounded-full text-white font-semibold whitespace-nowrap" style={{ background: bg }}>{dir === 'over' ? 'O' : 'U'}</span>
+            })()
           )}
         </div>
-      ))}
+        {s.marketLine != null ? (
+          <div className="space-y-0.5 text-[10px] text-gray-700">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Market:</span>
+              <span className="font-semibold">{s.marketLine}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Fair:</span>
+              <span className="font-semibold">{s.fairLine != null ? s.fairLine.toFixed(1) : '—'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Edge:</span>
+              <span className={`font-bold ${s.fairLine != null && s.marketLine != null && (s.fairLine - s.marketLine) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {s.fairLine != null && s.marketLine != null ? (s.fairLine - s.marketLine >= 0 ? '+' : '') + (s.fairLine - s.marketLine).toFixed(1) : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Conf:</span>
+              <span className="font-bold text-blue-700">{s.confidence != null ? Math.round((s.confidence > 1 ? s.confidence : s.confidence * 100)) + '%' : '—'}</span>
+            </div>
+            {s.hitRate != null && (
+              <div className={`flex justify-between items-center text-[10px] ${s.hitRate >= 75 ? 'text-green-700' : s.hitRate >= 65 ? 'text-blue-700' : 'text-gray-600'}`}>
+              <span>Hit:</span>
+              <span className="font-bold">{s.hitRate.toFixed(0)}%</span>
+            </div>
+            )}
+            {s.betterDirection && s.chosenDirection && s.betterDirection !== s.chosenDirection && (
+              <div className="mt-1">
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full text-gray-800 bg-yellow-200 font-semibold">
+                  Better: {s.betterDirection === 'over' ? 'O' : 'U'}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-[10px] text-gray-700">
+            <span className="text-gray-500">Fair:</span> <span className="font-semibold">{s.fairLine?.toFixed?.(1) ?? '-'}</span>
+          </div>
+        )}
+      </div>
+      {Array.isArray(s.rationale) && s.rationale.length > 0 && (
+        <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200">
+          <div className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+            Analysis
+          </div>
+          {(s.rationale || []).slice(0, 1).map((r: string, i: number) => {
+            // Parse rationale text to extract key information
+            const parseRationale = (text: string) => {
+              const parts: { type: 'trend' | 'hitRate' | 'text'; value?: string; percentage?: number; line?: number }[] = []
+              
+              // Extract form trend (Up/Down/Flat)
+              const trendMatch = text.match(/\b(Up|Down|Flat)\s+form/i)
+              if (trendMatch) {
+                parts.push({ 
+                  type: 'trend', 
+                  value: trendMatch[1],
+                  percentage: trendMatch[1].toLowerCase() === 'up' ? 75 : trendMatch[1].toLowerCase() === 'down' ? 25 : 50
+                })
+              }
+              
+              // Extract hit rate percentage
+              const hitRateMatch = text.match(/(\d+(?:\.\d+)?)%\s+hit/i)
+              if (hitRateMatch) {
+                parts.push({ 
+                  type: 'hitRate', 
+                  percentage: parseFloat(hitRateMatch[1])
+                })
+              }
+              
+              // Extract line value
+              const lineMatch = text.match(/over\s+(\d+(?:\.\d+)?)/i) || text.match(/under\s+(\d+(?:\.\d+)?)/i)
+              if (lineMatch) {
+                parts.push({ 
+                  type: 'text', 
+                  line: parseFloat(lineMatch[1])
+                })
+              }
+              
+              return { parts, original: text }
+            }
+            
+            const parsed = parseRationale(r)
+            const trend = parsed.parts.find(p => p.type === 'trend')
+            const hitRate = parsed.parts.find(p => p.type === 'hitRate')
+            const line = parsed.parts.find(p => p.line)
+            
+            return (
+              <div key={i} className="space-y-1">
+                <div className="flex flex-wrap gap-1 items-center">
+                  {trend && (
+                    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                      trend.value?.toLowerCase() === 'up' ? 'bg-green-100 text-green-800' : 
+                      trend.value?.toLowerCase() === 'down' ? 'bg-red-100 text-red-800' : 
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      <span>{trend.value === 'Up' ? '📈' : trend.value === 'Down' ? '📉' : '➡️'}</span>
+                      <span>{trend.value}</span>
+                    </div>
+                  )}
+                  {hitRate && (
+                    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                      hitRate.percentage! >= 75 ? 'bg-blue-100 text-blue-800' : 
+                      hitRate.percentage! >= 65 ? 'bg-indigo-100 text-indigo-800' : 
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      <span>{hitRate.percentage}%</span>
+                    </div>
+                  )}
+                  {line && (
+                    <div className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-white border border-gray-300 text-gray-800">
+                      <span>L:{line.line}</span>
+                    </div>
+                  )}
+                </div>
+                {!trend && !hitRate && (
+                  <div className="text-[10px] text-gray-600 line-clamp-2">
+                    {r}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </>
+  )
+
+  if (horizontal) {
+    return (
+      <div className="overflow-x-auto -mx-2.5 px-2.5 pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" style={{ scrollbarWidth: 'thin' }}>
+        <div className="flex gap-2.5 min-w-max">
+          {suggestions.map((s: SuggestionItem, idx: number) => (
+            <div key={idx} className="flex-none w-48 sm:w-56 p-2.5 sm:p-3 border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+              <CardContent s={s} />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+  
+  return (
+    <div className="w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 md:gap-3">
+        {suggestions.map((s: SuggestionItem, idx: number) => (
+          <div key={idx} className="p-2.5 sm:p-3 border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+            <CardContent s={s} />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

@@ -70,27 +70,25 @@ class GameStatusMonitor:
         Returns:
             Number of cache entries invalidated
         """
-        from ..services.nba_api_service import a_cache
-        from cachetools.keys import hashkey
+        from ..services.cache_service import get_cache_service
         from datetime import datetime
         
+        cache = get_cache_service()
         invalidated = 0
         today_str = datetime.now().date().isoformat()
         
-        # Create new cache keys for each player to invalidate and remove them
-        # We need to generate the same keys that were used for caching
+        # Create cache keys for each player to invalidate and remove them
+        # Cache keys now use string format: nba_api:player_game_log:{player_id}:{season}:{date}
         for player_id in player_ids:
             # Try different season formats that might be cached
-            seasons_to_check = ["2025-26", "2024-25", None]  # Current and previous seasons
+            seasons_to_check = ["2025-26", "2024-25"]  # Current and previous seasons
             for season in seasons_to_check:
-                season_to_use = season or "2025-26"
                 # Generate the cache key that matches what fetch_player_game_log uses
-                cache_key = hashkey("player_game_log", player_id, season_to_use, today_str)
+                cache_key = f"nba_api:player_game_log:{player_id}:{season}:{today_str}"
                 try:
-                    if cache_key in a_cache:
-                        del a_cache[cache_key]
+                    if cache.delete(cache_key):
                         invalidated += 1
-                except (KeyError, TypeError):
+                except Exception:
                     continue
         
         return invalidated

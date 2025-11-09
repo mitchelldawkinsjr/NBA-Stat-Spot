@@ -378,21 +378,21 @@ export function GoodBetsDashboard() {
       )}
 
       {/* Best Bets Hero */}
-      <div className="overflow-hidden rounded-lg bg-white border border-gray-200 shadow-sm mb-4 sm:mb-6">
-        <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+      <div className="overflow-hidden rounded-lg bg-white border border-gray-200 shadow-sm mb-3">
+        <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
             <div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800">Best Bets of the Day</h3>
-              <p className="text-xs text-gray-600 mt-0.5">Top props for today's games ({new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })})</p>
+              <h3 className="text-sm sm:text-base font-semibold text-gray-800">Best Bets of the Day</h3>
+              <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5">Top props for today's games</p>
             </div>
             {bestBets.length > 0 && (
-              <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-1 rounded-full">
-                {bestBets.length} bets
+              <span className="text-[10px] font-medium text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full">
+                {bestBets.length}
               </span>
             )}
           </div>
         </div>
-        <div className="p-3 sm:p-4">
+        <div className="p-2 sm:p-2.5">
           {dailyLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center gap-2 text-gray-600">
@@ -410,28 +410,28 @@ export function GoodBetsDashboard() {
           ) : bestBets.length === 0 ? (
             <p className="text-gray-600 text-center py-4">No best bets available for today's games.</p>
           ) : (
-            <SuggestionCards suggestions={bestBets} />
+            <SuggestionCards suggestions={bestBets} horizontal={true} />
           )}
         </div>
       </div>
 
       {/* High Hit Rate Bets - Lazy Loaded */}
       {shouldLoadHighHitRate && (
-        <div className="overflow-hidden rounded-lg bg-white border border-gray-200 shadow-sm mb-4 sm:mb-6">
-          <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div className="overflow-hidden rounded-lg bg-white border border-gray-200 shadow-sm mb-3">
+          <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
               <div>
-                <h3 className="text-base sm:text-lg font-semibold text-gray-800">High Hit Rate Bets</h3>
-                <p className="text-xs text-gray-600 mt-0.5">Props with 75%+ historical hit rate for today's games ({new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })})</p>
+                <h3 className="text-sm sm:text-base font-semibold text-gray-800">High Hit Rate Bets</h3>
+                <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5">75%+ historical hit rate</p>
               </div>
               {highHitRateData?.items && highHitRateData.items.length > 0 && (
-                <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full">
-                  {highHitRateData.items.length} bets
+                <span className="text-[10px] font-medium text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">
+                  {highHitRateData.items.length}
                 </span>
               )}
             </div>
           </div>
-          <div className="p-3 sm:p-4">
+          <div className="p-2 sm:p-2.5">
             {highHitRateLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="flex items-center gap-2 text-gray-600">
@@ -449,7 +449,7 @@ export function GoodBetsDashboard() {
                 const itemDate = item.gameDate || item.game_date
                 // Strict filter: must have a date and it must match today
                 return itemDate && (itemDate === today || itemDate.startsWith(today))
-              })} />
+              })} horizontal={true} />
             )}
           </div>
         </div>

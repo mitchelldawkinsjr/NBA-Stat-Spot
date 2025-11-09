@@ -28,7 +28,7 @@ export function DailyPropsPanel() {
   const [type, setType] = useState<TypeFilter>('All')
   const [q, setQ] = useState<string>('')
   const [page, setPage] = useState<number>(1)
-  const [pageSize] = useState<number>(20)
+  const [pageSize] = useState<number>(24) // Increased to show more items per page in grid
   
   const { data, isLoading, error } = useQuery({ 
     queryKey: ['daily-props', minConf, today], 
@@ -86,41 +86,41 @@ export function DailyPropsPanel() {
   }, [filtered, page, pageSize])
 
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, background: '#fff', padding: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ fontWeight: 600 }}>Daily Props</div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select value={type} onChange={(e) => setType(e.target.value as TypeFilter)} style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
+    <div className="border border-gray-200 rounded-lg bg-white p-2.5 sm:p-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+        <div className="text-sm font-semibold text-gray-800">Daily Props</div>
+        <div className="flex gap-1.5 sm:gap-2 items-center flex-wrap">
+          <select value={type} onChange={(e) => setType(e.target.value as TypeFilter)} className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-1 border border-gray-300 rounded bg-white">
             {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search player" style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: 6 }} />
-          <div title="Minimum confidence threshold" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, color: '#6b7280' }}>Min Conf</span>
-            <input type="range" min={45} max={75} step={1} value={minConf} onChange={(e) => setMinConf(Number(e.target.value))} />
-            <span style={{ fontSize: 12 }}>{minConf}%</span>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-1 border border-gray-300 rounded w-20 sm:w-24" />
+          <div title="Minimum confidence threshold" className="flex items-center gap-1">
+            <span className="text-[10px] text-gray-600">Min:</span>
+            <input type="range" min={45} max={75} step={1} value={minConf} onChange={(e) => setMinConf(Number(e.target.value))} className="w-12 sm:w-16" />
+            <span className="text-[10px] sm:text-xs font-semibold w-8 text-right">{minConf}%</span>
           </div>
         </div>
       </div>
       
       {/* Stats Strip - Shows stats for the filtered data */}
-      <div className="overflow-x-auto -mx-3 px-3 mt-3 mb-3">
-        <div className="flex gap-2 min-w-max">
-          <div className="flex-shrink-0 bg-gray-50 border border-gray-200 rounded-lg p-2 shadow-sm min-w-[100px]">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Suggestions</div>
-            <div className="text-xl font-extrabold text-blue-900">{stats.count}</div>
+      <div className="overflow-x-auto -mx-2.5 px-2.5 mt-2 mb-2">
+        <div className="flex gap-1.5 min-w-max">
+          <div className="flex-shrink-0 bg-gray-50 border border-gray-200 rounded p-1.5 shadow-sm min-w-[70px]">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-gray-500">Count</div>
+            <div className="text-base sm:text-lg font-extrabold text-blue-900">{stats.count}</div>
           </div>
-          <div className="flex-shrink-0 bg-gray-50 border border-gray-200 rounded-lg p-2 shadow-sm min-w-[100px]">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Avg Confidence</div>
-            <div className="text-xl font-extrabold text-blue-900">{stats.avg}%</div>
+          <div className="flex-shrink-0 bg-gray-50 border border-gray-200 rounded p-1.5 shadow-sm min-w-[70px]">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-gray-500">Avg</div>
+            <div className="text-base sm:text-lg font-extrabold text-blue-900">{stats.avg}%</div>
           </div>
-          <div className="flex-shrink-0 bg-gray-50 border border-gray-200 rounded-lg p-2 shadow-sm min-w-[100px]">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Top Confidence</div>
-            <div className="text-xl font-extrabold text-blue-900">{stats.top}%</div>
+          <div className="flex-shrink-0 bg-gray-50 border border-gray-200 rounded p-1.5 shadow-sm min-w-[70px]">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-gray-500">Top</div>
+            <div className="text-base sm:text-lg font-extrabold text-blue-900">{stats.top}%</div>
           </div>
         </div>
       </div>
 
-      <div style={{ marginTop: 10 }}>
+      <div className="mt-2">
         {isLoading ? (
           <div className="py-8">
             <LoadingSpinner message="Loading daily props..." size="md" />
@@ -136,7 +136,9 @@ export function DailyPropsPanel() {
             <p className="text-xs mt-1 text-gray-500">Try adjusting your filters</p>
           </div>
         ) : (
-          <SuggestionCards suggestions={paginatedItems} />
+          <div className="w-full">
+            <SuggestionCards suggestions={paginatedItems} horizontal={false} />
+          </div>
         )}
       </div>
       

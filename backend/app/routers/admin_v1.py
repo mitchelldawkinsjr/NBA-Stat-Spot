@@ -155,11 +155,12 @@ def teams_status():
         players = NBADataService.fetch_all_players_including_rookies()
         
         # Check cache status - teams are cached with date-based key
-        from cachetools.keys import hashkey
         from datetime import datetime
-        cache_key = hashkey("teams", datetime.now().date().isoformat())
-        from ..services.nba_api_service import a_cache
-        cached = cache_key in a_cache
+        from ..services.cache_service import get_cache_service
+        cache = get_cache_service()
+        today_str = datetime.now().date().isoformat()
+        cache_key = f"nba_api:teams:{today_str}"
+        cached = cache.get(cache_key) is not None
         
         # Verify player-team assignments
         from ..services.team_player_service import TeamPlayerService
@@ -499,13 +500,23 @@ def cleanup_expired_cache(db: Session = Depends(get_db)):
 
 @router.get("/cache/status")
 def cache_status():
-    """Get cache status for all services"""
+    """Get cache status for all services including Redis status"""
     today_str = date.today().isoformat()
     daily_props_cached = _get_daily_props_cache(today_str)
     high_hit_rate_cached = _get_high_hit_rate_cache(today_str)
     best_bets_cached = _get_best_bets_cache()
     
+    # Get cache service stats including Redis status
+    cache_stats = _cache.get_stats()
+    
     return {
+        "cacheBackend": {
+            "type": cache_stats.get("backend", "unknown"),
+            "redisAvailable": cache_stats.get("redis_available", False),
+            "redisKeys": cache_stats.get("redis_keys", 0) if cache_stats.get("redis_available") else None,
+            "sqliteEntries": cache_stats.get("total_entries", 0),
+            "expiredEntries": cache_stats.get("expired_entries", 0)
+        },
         "dailyProps": {
             "cached": daily_props_cached is not None,
             "valid": daily_props_cached is not None,
@@ -524,8 +535,65 @@ def cache_status():
             "cached": best_bets_cached is not None,
             "lastUpdated": best_bets_cached.get("scanned_at") if best_bets_cached else None,
             "count": len(best_bets_cached.get("results", [])) if best_bets_cached else 0
+        },
+        "nbaApiCache": {
+            "teams": _cache.get(f"nba_api:teams:{today_str}") is not None,
+            "players": _cache.get(f"nba_api:players_all_including_rookies:{today_str}") is not None,
+            "todaysGames": _cache.get(f"nba_api:todays_games:{today_str}") is not None
         }
     }
+
+@router.get("/cache/redis/test")
+def test_redis_connection():
+    """Test Redis connection and return detailed status"""
+    import os
+    from ..services.cache_service import get_cache_service
+    
+    cache = get_cache_service()
+    redis_url = os.getenv("REDIS_URL")
+    
+    result = {
+        "redisUrlConfigured": redis_url is not None and redis_url != "",
+        "redisUrl": redis_url if redis_url else None,
+        "cacheBackend": "unknown",
+        "redisAvailable": False,
+        "redisConnected": False,
+        "redisKeys": None,
+        "testKey": None,
+        "testValue": None,
+        "error": None
+    }
+    
+    try:
+        cache_stats = cache.get_stats()
+        result["cacheBackend"] = cache_stats.get("backend", "unknown")
+        result["redisAvailable"] = cache_stats.get("redis_available", False)
+        
+        if result["redisAvailable"]:
+            result["redisConnected"] = True
+            result["redisKeys"] = cache_stats.get("redis_keys", 0)
+            
+            # Test write/read
+            test_key = "redis_test_connection"
+            test_value = {"test": True, "timestamp": datetime.now().isoformat()}
+            cache.set(test_key, test_value, ttl=60)
+            retrieved = cache.get(test_key)
+            
+            if retrieved and retrieved.get("test"):
+                result["testKey"] = test_key
+                result["testValue"] = retrieved
+                # Clean up
+                cache.delete(test_key)
+            else:
+                result["error"] = "Redis write/read test failed"
+        else:
+            result["error"] = "Redis is not available. Check REDIS_URL environment variable."
+            
+    except Exception as e:
+        result["error"] = str(e)
+        result["redisConnected"] = False
+    
+    return result
 
 @router.get("/settings/ai-enabled")
 def get_ai_enabled(db: Session = Depends(get_db)):
