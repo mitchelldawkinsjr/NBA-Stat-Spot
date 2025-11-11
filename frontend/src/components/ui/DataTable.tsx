@@ -71,7 +71,7 @@ export function DataTable<Row extends Record<string, unknown>>({
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
-            className="px-2 py-1 sm:py-1.5 rounded-md border border-gray-300 text-[10px] sm:text-xs bg-white"
+            className="px-2 pr-6 sm:pr-8 py-1 sm:py-1.5 rounded-md border border-gray-300 text-[10px] sm:text-xs bg-white"
           >
             {pageSizeOptions.map(opt => (<option key={opt} value={opt}>{opt}</option>))}
           </select>

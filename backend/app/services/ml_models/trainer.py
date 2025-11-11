@@ -18,7 +18,9 @@ try:
     XGBOOST_AVAILABLE = True
 except ImportError:
     XGBOOST_AVAILABLE = False
-    print("Warning: XGBoost not available. Will use scikit-learn models.")
+    import structlog
+    logger = structlog.get_logger()
+    logger.warning("XGBoost not available. Will use scikit-learn models.")
 
 try:
     from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -27,7 +29,9 @@ try:
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
-    print("Warning: scikit-learn not available. Cannot train models.")
+    import structlog
+    logger = structlog.get_logger()
+    logger.warning("scikit-learn not available. Cannot train models.")
 
 
 class ModelTrainer:
@@ -126,7 +130,9 @@ class ModelTrainer:
                 line_targets.append(bet.line_value)  # Fallback to line value
         
         if len(features_list) < min_samples:
-            print(f"Warning: Only {len(features_list)} valid samples found. Need at least {min_samples}.")
+            import structlog
+            logger = structlog.get_logger()
+            logger.warning("Insufficient samples for training", found=len(features_list), required=min_samples)
             return None, None, None
         
         # Convert to DataFrame
@@ -263,7 +269,9 @@ class ModelTrainer:
         Returns:
             Dictionary with training results and metrics
         """
-        print("Preparing training data...")
+        import structlog
+        logger = structlog.get_logger()
+        logger.info("Preparing training data...")
         features_df, confidence_targets, line_targets = self.prepare_training_data(db, min_samples)
         
         if features_df is None:
@@ -272,10 +280,10 @@ class ModelTrainer:
                 "error": "Insufficient training data"
             }
         
-        print(f"Training on {len(features_df)} samples...")
+        logger.info("Training on samples", count=len(features_df))
         
         # Train confidence model
-        print("Training confidence model...")
+        logger.info("Training confidence model...")
         confidence_model, confidence_metrics = self.train_confidence_model(features_df, confidence_targets)
         
         # Save confidence model
@@ -283,7 +291,7 @@ class ModelTrainer:
         confidence_predictor.save_model(confidence_model)
         
         # Train line model
-        print("Training line model...")
+        logger.info("Training line model...")
         line_model, line_metrics = self.train_line_model(features_df, line_targets)
         
         # Save line model

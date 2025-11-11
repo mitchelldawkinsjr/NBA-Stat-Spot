@@ -1,13 +1,19 @@
 """
 User Bet Tracking Model - Tracks bets made by users based on system recommendations
 """
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, Boolean, Text
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, Boolean, Text, Index
 from sqlalchemy.sql import func
 from ..database import Base
 
 
 class UserBet(Base):
     __tablename__ = "user_bets"
+    __table_args__ = (
+        # Composite indexes for common query patterns
+        Index('idx_user_bet_result_player', 'result', 'player_id'),
+        Index('idx_user_bet_result_created', 'result', 'created_at'),
+        Index('idx_user_bet_player_prop', 'player_id', 'prop_type'),
+    )
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     

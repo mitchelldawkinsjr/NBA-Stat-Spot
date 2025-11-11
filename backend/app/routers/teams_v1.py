@@ -1,7 +1,7 @@
 """
 Teams API Router - Team information and rosters
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Path
 from typing import List, Dict, Any
 from ..services.nba_api_service import NBADataService
 from ..services.team_player_service import TeamPlayerService
@@ -9,7 +9,13 @@ from ..services.team_player_service import TeamPlayerService
 router = APIRouter(prefix="/api/v1/teams", tags=["teams_v1"])
 
 
-@router.get("")
+@router.get(
+    "",
+    summary="List all NBA teams",
+    description="Get a list of all NBA teams with basic information including team ID, name, abbreviation, city, conference, and division.",
+    response_description="List of all NBA teams",
+    tags=["teams_v1"]
+)
 def list_teams():
     """List all NBA teams"""
     teams = NBADataService.fetch_all_teams()
@@ -29,8 +35,16 @@ def list_teams():
     }
 
 
-@router.get("/{team_id}")
-def get_team(team_id: int):
+@router.get(
+    "/{team_id}",
+    summary="Get team details with roster",
+    description="Get detailed information about a specific team including roster of players.",
+    response_description="Team information with roster",
+    tags=["teams_v1"]
+)
+def get_team(
+    team_id: int = Path(..., description="NBA team ID", example=1610612744)
+):
     """Get team details with roster"""
     teams = NBADataService.fetch_all_teams()
     team = next((t for t in teams if t.get("id") == team_id), None)
@@ -56,8 +70,16 @@ def get_team(team_id: int):
     }
 
 
-@router.get("/{team_id}/players")
-def get_team_players(team_id: int):
+@router.get(
+    "/{team_id}/players",
+    summary="Get team roster",
+    description="Get the complete roster of players for a specific team.",
+    response_description="List of players on the team",
+    tags=["teams_v1"]
+)
+def get_team_players(
+    team_id: int = Path(..., description="NBA team ID", example=1610612744)
+):
     """Get players for a specific team"""
     try:
         # Use TeamPlayerService to get players

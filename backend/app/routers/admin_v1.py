@@ -12,6 +12,7 @@ from ..services.settings_service import SettingsService
 from ..services.data_integrity_service import DataIntegrityService
 from ..services.game_status_monitor import GameStatusMonitor
 from ..services.cache_service import get_cache_service
+from ..services.external_api_rate_limiter import get_rate_limiter
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin_v1"])
 
@@ -165,9 +166,9 @@ def teams_status():
         # Verify player-team assignments
         from ..services.team_player_service import TeamPlayerService
         
-        # Count players with teams
-        players_with_teams = [p for p in players if p.get("team_id") is not None]
-        players_without_teams = [p for p in players if p.get("team_id") is None]
+        # Count players with teams (using normalization to handle team_id=0)
+        players_with_teams = [p for p in players if TeamPlayerService.normalize_team_id(p.get("team_id")) is not None]
+        players_without_teams = [p for p in players if TeamPlayerService.normalize_team_id(p.get("team_id")) is None]
         
         # Count teams with players
         teams_with_players = {}
@@ -501,47 +502,60 @@ def cleanup_expired_cache(db: Session = Depends(get_db)):
 @router.get("/cache/status")
 def cache_status():
     """Get cache status for all services including Redis status"""
-    today_str = date.today().isoformat()
-    daily_props_cached = _get_daily_props_cache(today_str)
-    high_hit_rate_cached = _get_high_hit_rate_cache(today_str)
-    best_bets_cached = _get_best_bets_cache()
-    
-    # Get cache service stats including Redis status
-    cache_stats = _cache.get_stats()
-    
-    return {
-        "cacheBackend": {
-            "type": cache_stats.get("backend", "unknown"),
-            "redisAvailable": cache_stats.get("redis_available", False),
-            "redisKeys": cache_stats.get("redis_keys", 0) if cache_stats.get("redis_available") else None,
-            "sqliteEntries": cache_stats.get("total_entries", 0),
-            "expiredEntries": cache_stats.get("expired_entries", 0)
-        },
-        "dailyProps": {
-            "cached": daily_props_cached is not None,
-            "valid": daily_props_cached is not None,
-            "date": today_str if daily_props_cached else None,
-            "lastUpdated": None,  # Cache service handles TTL internally
-            "count": len(daily_props_cached.get("items", [])) if daily_props_cached else 0
-        },
-        "highHitRate": {
-            "cached": high_hit_rate_cached is not None,
-            "valid": high_hit_rate_cached is not None,
-            "date": today_str if high_hit_rate_cached else None,
-            "lastUpdated": None,
-            "count": len(high_hit_rate_cached.get("items", [])) if high_hit_rate_cached else 0
-        },
-        "bestBets": {
-            "cached": best_bets_cached is not None,
-            "lastUpdated": best_bets_cached.get("scanned_at") if best_bets_cached else None,
-            "count": len(best_bets_cached.get("results", [])) if best_bets_cached else 0
-        },
-        "nbaApiCache": {
-            "teams": _cache.get(f"nba_api:teams:{today_str}") is not None,
-            "players": _cache.get(f"nba_api:players_all_including_rookies:{today_str}") is not None,
-            "todaysGames": _cache.get(f"nba_api:todays_games:{today_str}") is not None
+    try:
+        today_str = date.today().isoformat()
+        daily_props_cached = _get_daily_props_cache(today_str)
+        high_hit_rate_cached = _get_high_hit_rate_cache(today_str)
+        best_bets_cached = _get_best_bets_cache()
+        
+        # Get cache service stats including Redis status
+        cache_stats = _cache.get_stats()
+        
+        return {
+            "cacheBackend": {
+                "type": cache_stats.get("backend", "unknown"),
+                "redisAvailable": cache_stats.get("redis_available", False),
+                "redisKeys": cache_stats.get("redis_keys", 0) if cache_stats.get("redis_available") else None,
+                "sqliteEntries": cache_stats.get("total_entries", 0),
+                "expiredEntries": cache_stats.get("expired_entries", 0)
+            },
+            "dailyProps": {
+                "cached": daily_props_cached is not None,
+                "valid": daily_props_cached is not None,
+                "date": today_str if daily_props_cached else None,
+                "lastUpdated": None,  # Cache service handles TTL internally
+                "count": len(daily_props_cached.get("items", [])) if daily_props_cached else 0
+            },
+            "highHitRate": {
+                "cached": high_hit_rate_cached is not None,
+                "valid": high_hit_rate_cached is not None,
+                "date": today_str if high_hit_rate_cached else None,
+                "lastUpdated": None,
+                "count": len(high_hit_rate_cached.get("items", [])) if high_hit_rate_cached else 0
+            },
+            "bestBets": {
+                "cached": best_bets_cached is not None,
+                "lastUpdated": best_bets_cached.get("scanned_at") if best_bets_cached else None,
+                "count": len(best_bets_cached.get("results", [])) if best_bets_cached else 0
+            },
+            "nbaApiCache": {
+                "teams": _cache.get(f"nba_api:teams:{today_str}") is not None,
+                "players": _cache.get(f"nba_api:players_all_including_rookies:{today_str}") is not None,
+                "todaysGames": _cache.get(f"nba_api:todays_games:{today_str}") is not None
+            }
         }
-    }
+    except Exception as e:
+        import structlog
+        logger = structlog.get_logger()
+        logger.error("Failed to get cache status", error=str(e))
+        return {
+            "error": str(e),
+            "cacheBackend": {"type": "unknown", "redisAvailable": False},
+            "dailyProps": {"cached": False, "valid": False, "count": 0},
+            "highHitRate": {"cached": False, "valid": False, "count": 0},
+            "bestBets": {"cached": False, "count": 0},
+            "nbaApiCache": {"teams": False, "players": False, "todaysGames": False}
+        }
 
 @router.get("/cache/redis/test")
 def test_redis_connection():
@@ -728,5 +742,25 @@ def refresh_player_logs_cache(
                 "message": "Checked finished games and invalidated relevant caches",
                 **result
             }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.get("/rate-limits")
+def get_rate_limits_status():
+    """
+    Get rate limit status for all external API providers.
+    Shows current usage and limits for API-NBA and ESPN.
+    
+    Returns:
+        Rate limit status for all providers
+    """
+    try:
+        rate_limiter = get_rate_limiter()
+        status = rate_limiter.get_all_providers_status()
+        return {
+            "status": "success",
+            "providers": status,
+            "timestamp": datetime.now().isoformat()
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}

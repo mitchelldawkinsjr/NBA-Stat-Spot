@@ -45,7 +45,8 @@ class OpenAIService(BaseLLMService):
         confidence: float,
         ml_confidence: Optional[float],
         stats: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        espn_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Generate rationale using OpenAI API.
@@ -69,7 +70,7 @@ class OpenAIService(BaseLLMService):
         # Build prompt
         prompt = self._build_prompt(
             player_name, prop_type, line_value, direction,
-            confidence, ml_confidence, stats, context
+            confidence, ml_confidence, stats, context, espn_context
         )
         
         try:
@@ -144,9 +145,85 @@ Stats:
             if context.get("h2h_avg"):
                 prompt += f"\n- H2H average: {context['h2h_avg']:.1f}"
         
+        if espn_context:
+            if espn_context.get("injury_status"):
+                prompt += f"\n- Injury status: {espn_context['injury_status']}"
+            if espn_context.get("conference_rank"):
+                prompt += f"\n- Conference rank: {espn_context['conference_rank']}"
+            if espn_context.get("news_sentiment") is not None:
+                prompt += f"\n- News sentiment: {espn_context['news_sentiment']:.2f}"
+        
         prompt += "\n\nGenerate a concise rationale explaining why this bet has the given confidence level."
         
         return prompt
+    
+    def generate_over_under_rationale(
+        self,
+        home_team: str,
+        away_team: str,
+        current_total: int,
+        projected_total: float,
+        live_line: Optional[float],
+        recommendation: str,
+        confidence: str,
+        key_factors: list[str],
+        game_context: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate over/under rationale using OpenAI API.
+        """
+        if not self._available:
+            raise RuntimeError("OpenAI service not available")
+        
+        # Build prompt
+        prompt = f"""Generate a concise rationale for this over/under bet recommendation:
+
+Game: {away_team} @ {home_team}
+Current Score: {current_total} points
+Projected Final Total: {projected_total:.1f}"""
+        
+        if live_line:
+            diff = projected_total - live_line
+            prompt += f"\nLive Line: {live_line}"
+            prompt += f"\nEdge: {abs(diff):.1f} points {'above' if diff > 0 else 'below'} line"
+        
+        prompt += f"""
+Recommendation: {recommendation}
+Confidence: {confidence}
+
+Key Factors:
+{chr(10).join(f'- {factor}' for factor in key_factors)}"""
+        
+        if game_context:
+            if game_context.get('quarter'):
+                prompt += f"\nQuarter: {game_context['quarter']}"
+            if game_context.get('time_remaining'):
+                prompt += f"\nTime Remaining: {game_context['time_remaining']}"
+        
+        prompt += "\n\nGenerate a 2-3 sentence rationale explaining the recommendation."
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are an expert NBA betting analyst specializing in over/under totals. Provide concise, data-driven analysis."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=200
+            )
+            
+            rationale = response.choices[0].message.content.strip()
+            return rationale
+        except Exception as e:
+            import structlog
+            logger = structlog.get_logger()
+            logger.warning("Error generating over/under rationale with OpenAI", error=str(e))
+            # Fallback to base implementation
+            return super().generate_over_under_rationale(
+                home_team, away_team, current_total, projected_total,
+                live_line, recommendation, confidence, key_factors, game_context
+            )
     
     def is_available(self) -> bool:
         """Check if OpenAI service is available"""

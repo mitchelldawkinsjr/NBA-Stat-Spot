@@ -1,30 +1,32 @@
 """
 Bets API Router - Track user bets and system accuracy
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
 from datetime import date, datetime
 from ..database import get_db
 from ..models.user_bets import UserBet
+from ..core.rate_limiter import limiter
 
 router = APIRouter(prefix="/api/v1/bets", tags=["bets_v1"])
 
 
 class CreateBetRequest(BaseModel):
-    player_id: int
-    player_name: str
-    prop_type: str  # PTS, REB, AST, 3PM, PRA
-    line_value: float
-    direction: str  # 'over' or 'under'
-    game_date: str  # YYYY-MM-DD format
-    system_confidence: Optional[float] = None
-    system_fair_line: Optional[float] = None
-    system_suggestion: Optional[str] = None
-    amount: Optional[float] = None
-    odds: Optional[str] = None
-    notes: Optional[str] = None
+    """Request model for creating a bet"""
+    player_id: int = Field(..., description="NBA player ID", example=2544)
+    player_name: str = Field(..., description="Player full name", example="LeBron James")
+    prop_type: str = Field(..., description="Prop type: PTS, REB, AST, 3PM, or PRA", example="PTS")
+    line_value: float = Field(..., description="The betting line value", example=24.5)
+    direction: str = Field(..., description="Direction: 'over' or 'under'", example="over")
+    game_date: str = Field(..., description="Game date in YYYY-MM-DD format", example="2025-01-15")
+    system_confidence: Optional[float] = Field(None, description="System confidence score (0-100)", example=75.5)
+    system_fair_line: Optional[float] = Field(None, description="System calculated fair line", example=25.2)
+    system_suggestion: Optional[str] = Field(None, description="System suggestion: 'strong_over', 'over', 'under', 'strong_under'", example="over")
+    amount: Optional[float] = Field(None, description="Bet amount in dollars", example=50.0)
+    odds: Optional[str] = Field(None, description="Betting odds (e.g., '-110', '+150')", example="-110")
+    notes: Optional[str] = Field(None, description="Additional notes about the bet", example="Player coming off injury")
 
 
 class UpdateBetRequest(BaseModel):
@@ -59,8 +61,29 @@ class BetResponse(BaseModel):
         from_attributes = True
 
 
-@router.post("", response_model=BetResponse)
-def create_bet(bet: CreateBetRequest, db: Session = Depends(get_db)):
+@router.post(
+    "",
+    response_model=BetResponse,
+    summary="Create a new bet",
+    description="""
+    Record a new bet in the system.
+    
+    This endpoint allows you to track your prop bets, including:
+    - Player and prop details
+    - Market line and direction (over/under)
+    - System confidence and suggestions
+    - Bet amount and odds (optional)
+    - Notes (optional)
+    
+    The bet will be created with status "pending" until you update it with results.
+    
+    **Rate Limit:** 100 requests per hour per IP
+    """,
+    response_description="Created bet with all details",
+    tags=["bets_v1"]
+)
+@limiter.limit("100/hour")  # Rate limit: 100 requests per hour per IP
+def create_bet(request: Request, bet: CreateBetRequest, db: Session = Depends(get_db)):
     """Record a new bet"""
     try:
         game_date_obj = datetime.strptime(bet.game_date, "%Y-%m-%d").date()
@@ -159,8 +182,17 @@ def update_bet(bet_id: int, update: UpdateBetRequest, db: Session = Depends(get_
     )
 
 
-@router.get("", response_model=List[BetResponse])
+@router.get(
+    "",
+    response_model=List[BetResponse],
+    summary="Get all bets",
+    description="Retrieve all bets in the system, optionally filtered by status or date range.",
+    response_description="List of all bets",
+    tags=["bets_v1"]
+)
+@limiter.limit("200/hour")  # Rate limit: 200 requests per hour per IP
 def list_bets(
+    request: Request,
     result: Optional[str] = None,
     player_id: Optional[int] = None,
     prop_type: Optional[str] = None,
@@ -207,7 +239,14 @@ def list_bets(
     ]
 
 
-@router.get("/stats", response_model=Dict)
+@router.get(
+    "/stats",
+    response_model=Dict,
+    summary="Get bet statistics",
+    description="Get aggregated statistics about your bets including win rate, total bets, and performance metrics.",
+    response_description="Bet statistics and performance metrics",
+    tags=["bets_v1"]
+)
 def get_bet_stats(db: Session = Depends(get_db)):
     """Get accuracy statistics for settled bets"""
     all_bets = db.query(UserBet).filter(

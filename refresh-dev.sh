@@ -20,9 +20,9 @@ sleep 5
 
 echo "🏥 Checking backend health..."
 for i in {1..10}; do
-  if curl -s http://localhost:8000/healthz > /dev/null 2>&1; then
+  if curl -s http://localhost:8001/healthz > /dev/null 2>&1; then
     echo "✅ Backend is healthy!"
-    curl -s http://localhost:8000/healthz | jq . || curl -s http://localhost:8000/healthz
+    curl -s http://localhost:8001/healthz | jq . || curl -s http://localhost:8001/healthz
     break
   fi
   echo "   Attempt $i/10 - waiting..."
@@ -42,7 +42,7 @@ docker-compose -f docker-compose.dev.yml ps
 
 echo ""
 echo "✨ Done! Services should be available at:"
-echo "   Backend:  http://localhost:8000 (with hot reload)"
+echo "   Backend:  http://localhost:8001 (with hot reload)"
 echo "   Frontend: http://localhost:5173 (with hot reload)"
 echo ""
 echo "📝 View logs:"

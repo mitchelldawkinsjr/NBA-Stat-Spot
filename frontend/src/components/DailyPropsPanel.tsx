@@ -28,7 +28,7 @@ export function DailyPropsPanel() {
   const [type, setType] = useState<TypeFilter>('All')
   const [q, setQ] = useState<string>('')
   const [page, setPage] = useState<number>(1)
-  const [pageSize] = useState<number>(24) // Increased to show more items per page in grid
+  const [pageSize, setPageSize] = useState<number>(10) // Default to 10 items per page
   
   const { data, isLoading, error } = useQuery({ 
     queryKey: ['daily-props', minConf, today], 
@@ -49,13 +49,18 @@ export function DailyPropsPanel() {
   useEffect(() => {
     setPage(1)
   }, [q, type])
+  
+  // Reset to page 1 when page size changes
+  useEffect(() => {
+    setPage(1)
+  }, [pageSize])
 
   const items = (data?.items ?? []) as any[]
   
   // Client-side filtering - all data is loaded
   const filtered = useMemo(() => {
     // First filter by date to ensure we only show props for today
-    const todayItems = items.filter((item: any) => {
+    const todayItems = items.filter((item) => {
       const itemDate = item.gameDate || item.game_date
       // Must have a date and it must match today
       return itemDate && (itemDate === today || itemDate.startsWith(today))
@@ -67,7 +72,7 @@ export function DailyPropsPanel() {
   // Calculate stats from all filtered data (not just current page)
   const stats = useMemo(() => {
     const count = filtered.length
-    const avg = count ? Math.round(filtered.reduce((a: number, b: any) => a + (b.confidence ?? 0), 0) / count) : 0
+    const avg = count ? Math.round(filtered.reduce((a: number, b) => a + (b.confidence ?? 0), 0) / count) : 0
     const top = filtered.length > 0 && filtered[0]?.confidence ? Math.round(filtered[0].confidence) : 0
     return { count, avg, top }
   }, [filtered])
@@ -90,7 +95,7 @@ export function DailyPropsPanel() {
       <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
         <div className="text-sm font-semibold text-gray-800">Daily Props</div>
         <div className="flex gap-1.5 sm:gap-2 items-center flex-wrap">
-          <select value={type} onChange={(e) => setType(e.target.value as TypeFilter)} className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-1 border border-gray-300 rounded bg-white">
+          <select value={type} onChange={(e) => setType(e.target.value as TypeFilter)} className="text-[10px] sm:text-xs px-1.5 sm:px-2 pr-6 sm:pr-8 py-1 border border-gray-300 rounded bg-white">
             {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-1 border border-gray-300 rounded w-20 sm:w-24" />
@@ -144,38 +149,56 @@ export function DailyPropsPanel() {
       </div>
       
       {/* Pagination Controls */}
-      {!isLoading && !error && filtered.length > 0 && totalPages > 1 && (
+      {!isLoading && !error && filtered.length > 0 && (
         <div className="mt-4 flex items-center justify-between gap-2 flex-wrap pt-3 border-t border-gray-200">
-          <div className="text-xs text-gray-600">
-            Showing {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, totalItems)} of {totalItems}
-          </div>
-          <div className="flex gap-2 items-center">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={!hasPrev || isLoading}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                hasPrev && !isLoading
-                  ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer'
-                  : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              Previous
-            </button>
-            <div className="text-xs text-gray-700 px-2">
-              Page {page} of {totalPages}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="text-xs text-gray-600">
+              Showing {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, totalItems)} of {totalItems}
             </div>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={!hasNext || isLoading}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                hasNext && !isLoading
-                  ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer'
-                  : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              Next
-            </button>
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] text-gray-600">Per page:</label>
+              <select 
+                value={pageSize} 
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="text-[10px] sm:text-xs px-1.5 sm:px-2 pr-6 sm:pr-8 py-1 border border-gray-300 rounded bg-white"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={30}>30</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
           </div>
+          {totalPages > 1 && (
+            <div className="flex gap-2 items-center">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={!hasPrev || isLoading}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                  hasPrev && !isLoading
+                    ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer'
+                    : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Previous
+              </button>
+              <div className="text-xs text-gray-700 px-2">
+                Page {page} of {totalPages}
+              </div>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={!hasNext || isLoading}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                  hasNext && !isLoading
+                    ? 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer'
+                    : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

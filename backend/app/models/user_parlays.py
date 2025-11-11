@@ -1,7 +1,7 @@
 """
 User Parlay Tracking Model - Tracks parlay bets made by users
 """
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..database import Base
@@ -9,6 +9,10 @@ from ..database import Base
 
 class UserParlay(Base):
     __tablename__ = "user_parlays"
+    __table_args__ = (
+        # Composite index for common query pattern
+        Index('idx_user_parlay_result_created', 'result', 'created_at'),
+    )
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     
@@ -40,6 +44,10 @@ class UserParlay(Base):
 
 class UserParlayLeg(Base):
     __tablename__ = "user_parlay_legs"
+    __table_args__ = (
+        # Composite index for common query pattern
+        Index('idx_parlay_leg_parlay_player', 'parlay_id', 'player_id'),
+    )
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     parlay_id = Column(Integer, ForeignKey("user_parlays.id", ondelete="CASCADE"), nullable=False, index=True)

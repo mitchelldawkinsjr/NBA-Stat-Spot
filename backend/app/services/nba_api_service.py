@@ -148,12 +148,17 @@ class NBADataService:
                         display_first_last_idx = headers.index("DISPLAY_FIRST_LAST")
                         team_id_idx = headers.index("TEAM_ID")
                         roster_status_idx = headers.index("ROSTERSTATUS") if "ROSTERSTATUS" in headers else None
+                        # Try to find position and jersey_number if available
+                        position_idx = headers.index("POSITION") if "POSITION" in headers else None
+                        jersey_idx = headers.index("JERSEY") if "JERSEY" in headers else None
                     except ValueError:
                         # Fallback indices
                         person_id_idx = 0
                         display_first_last_idx = 2
                         team_id_idx = 8
                         roster_status_idx = 3
+                        position_idx = None
+                        jersey_idx = None
                     
                     for row in rows:
                         if len(row) > max(person_id_idx, display_first_last_idx, team_id_idx):
@@ -161,6 +166,8 @@ class NBADataService:
                             full_name = row[display_first_last_idx] if display_first_last_idx < len(row) else "Unknown"
                             team_id = row[team_id_idx] if team_id_idx < len(row) else None
                             is_active = row[roster_status_idx] == 1 if roster_status_idx and roster_status_idx < len(row) else True
+                            position = row[position_idx] if position_idx is not None and position_idx < len(row) else None
+                            jersey_number = row[jersey_idx] if jersey_idx is not None and jersey_idx < len(row) else None
                             
                             if player_id:
                                 all_players.append({
@@ -169,15 +176,32 @@ class NBADataService:
                                     "first_name": full_name.split()[0] if full_name and " " in full_name else "",
                                     "last_name": " ".join(full_name.split()[1:]) if full_name and " " in full_name else full_name,
                                     "team_id": team_id,
-                                    "is_active": is_active
+                                    "is_active": is_active,
+                                    "position": position,
+                                    "jersey_number": jersey_number
                                 })
             except Exception:
                 pass
         
         # Fallback to static players if CommonAllPlayers failed or for historical players
+        # Also merge position and jersey_number from static players for existing players
         if static_players is not None:
             static_players_list = static_players.get_players()
-            # Only add static players that aren't already in our list (by ID)
+            # Create a map of static players by ID for easy lookup
+            static_players_by_id = {p.get("id"): p for p in static_players_list}
+            
+            # Update existing players with position/jersey_number from static if missing
+            for player in all_players:
+                player_id = player.get("id")
+                if player_id in static_players_by_id:
+                    static_player = static_players_by_id[player_id]
+                    # Only update if not already set from CommonAllPlayers
+                    if not player.get("position") and static_player.get("position"):
+                        player["position"] = static_player.get("position")
+                    if not player.get("jersey_number") and static_player.get("jersey_number"):
+                        player["jersey_number"] = static_player.get("jersey_number")
+            
+            # Add static players that aren't already in our list (by ID)
             existing_ids = {p.get("id") for p in all_players}
             for p in static_players_list:
                 if p.get("id") not in existing_ids:
@@ -210,6 +234,18 @@ class NBADataService:
                 df = gl.get_data_frames()[0]
                 items: List[Dict[str, Any]] = []
                 for _, row in df.iterrows():
+                    # Parse minutes from "MM:SS" format to float
+                    min_str = str(row.get("MIN", "0:00") or "0:00")
+                    minutes = 0.0
+                    try:
+                        if ":" in min_str:
+                            parts = min_str.split(":")
+                            minutes = float(parts[0]) + (float(parts[1]) / 60.0) if len(parts) == 2 else float(parts[0])
+                        else:
+                            minutes = float(min_str)
+                    except (ValueError, TypeError):
+                        minutes = 0.0
+                    
                     items.append({
                         "game_id": str(row.get("Game_ID")),
                         "game_date": str(row.get("GAME_DATE")),
@@ -218,6 +254,7 @@ class NBADataService:
                         "reb": float(row.get("REB", 0) or 0),
                         "ast": float(row.get("AST", 0) or 0),
                         "tpm": float(row.get("FG3M", 0) or 0),
+                        "minutes": minutes,
                     })
                 return items
             except Exception as e:
@@ -259,15 +296,24 @@ class NBADataService:
             query: Search query string
             
         Returns:
-            List of player dictionaries with id, name, and team_id (limited to 20 results)
+            List of player dictionaries with id, name, and team (limited to 20 results)
         """
         all_players = NBADataService.fetch_all_players_including_rookies()
         query_lower = query.lower()
-        matches = [
-            {"id": int(p.get("id")), "name": p.get("full_name"), "team": p.get("team_id")}
-            for p in all_players
-            if p.get("full_name") and query_lower in p.get("full_name", "").lower()
-        ]
+        # Get team mapping for abbreviation conversion
+        teams = NBADataService.fetch_all_teams()
+        team_map = {t.get("id"): t.get("abbreviation") for t in teams if t.get("id") and t.get("abbreviation")}
+        
+        matches = []
+        for p in all_players:
+            if p.get("full_name") and query_lower in p.get("full_name", "").lower():
+                team_id = p.get("team_id")
+                team_abbr = team_map.get(team_id) if team_id else None
+                matches.append({
+                    "id": int(p.get("id")),
+                    "name": p.get("full_name"),
+                    "team": team_abbr  # Convert team_id to abbreviation string
+                })
         return matches[:20]
     
     @staticmethod

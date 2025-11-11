@@ -2,50 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSeason } from '../context/SeasonContext'
 import { apiFetch, apiPost } from '../utils/api'
-
-type Bet = {
-  id: number
-  player_id: number
-  player_name: string
-  prop_type: string
-  line_value: number
-  direction: string
-  game_date: string
-  system_confidence?: number
-  system_fair_line?: number
-  system_suggestion?: string
-  amount?: number
-  odds?: string
-  notes?: string
-  result: string
-  actual_value?: number
-  payout?: number
-  created_at: string
-  updated_at: string
-  settled_at?: string | null
-}
-
-type BetStats = {
-  overall: {
-    total: number
-    won: number
-    lost: number
-    push: number
-    win_rate: number
-  }
-  system_accuracy: {
-    total: number
-    won: number
-    win_rate: number
-  }
-  by_prop_type: Record<string, { total: number; won: number; win_rate: number }>
-  by_confidence: {
-    high: { total: number; won: number; win_rate: number }
-    medium: { total: number; won: number; win_rate: number }
-    low: { total: number; won: number; win_rate: number }
-  }
-  pending: number
-}
+import type { Bet, BetStats, Parlay, Player, BetResult } from '../types/api'
 
 async function fetchBets(): Promise<Bet[]> {
   const res = await apiFetch('api/v1/bets?limit=100')
@@ -59,13 +16,14 @@ async function fetchBetStats(): Promise<BetStats> {
   return res.json()
 }
 
-async function fetchParlays(): Promise<any[]> {
+async function fetchParlays(): Promise<Parlay[]> {
   const res = await apiFetch('api/v1/parlays?limit=100')
   if (!res.ok) throw new Error('Failed to load parlays')
-  return res.json()
+  const data = await res.json()
+  return data.items || []
 }
 
-async function searchPlayers(query: string): Promise<Array<{id: number; name: string; team?: number}>> {
+async function searchPlayers(query: string): Promise<Player[]> {
   if (!query || query.length < 1) return []
   const res = await apiFetch(`api/v1/players/search?q=${encodeURIComponent(query)}`)
   if (!res.ok) return []
@@ -73,13 +31,27 @@ async function searchPlayers(query: string): Promise<Array<{id: number; name: st
   return data.items || []
 }
 
-async function fetchPropSuggestion(playerId: number, propType: string, lineValue: number, season?: string, lastN?: number, direction?: string): Promise<{confidence?: number; fairLine?: number; suggestion?: string; hitRate?: number} | null> {
+interface PropSuggestionResult {
+  confidence?: number
+  fairLine?: number
+  suggestion?: string
+  hitRate?: number
+}
+
+async function fetchPropSuggestion(playerId: number, propType: string, lineValue: number, season?: string, lastN?: number, direction?: string): Promise<PropSuggestionResult | null> {
   if (!playerId || !propType || !lineValue) return null
   try {
-    const body: any = {
+    const body: {
+      playerId: number
+      season?: string
+      lastN?: number
+      marketLines: Record<string, number>
+      direction?: string
+    } = {
       playerId,
       season: season || '2025-26',
-      marketLines: { [propType]: lineValue }
+      marketLines: { [propType]: lineValue },
+      direction: direction || 'over' // Include direction in request
     }
     // Use lastN=10 as default to match PlayerProfile behavior
     if (lastN !== undefined) {
@@ -89,7 +61,16 @@ async function fetchPropSuggestion(playerId: number, propType: string, lineValue
     }
     
     const data = await apiPost('api/v1/props/player', body)
-    if (!data) return null
+    if (!data) {
+      console.warn('No data returned from API')
+      return null
+    }
+    
+    if (data.error) {
+      console.error('API returned error:', data.error)
+      return null
+    }
+    
     const suggestion = data.suggestions?.[0]
     if (suggestion) {
       // Use the backend's suggestion directly to match PlayerProfile logic
@@ -105,6 +86,8 @@ async function fetchPropSuggestion(playerId: number, propType: string, lineValue
         suggestion: suggestion.suggestion || 'over', // Fallback to 'over' if missing
         hitRate: hitRate // Hit rate as decimal (0.0 to 1.0), matching backend calculation
       }
+    } else {
+      console.warn('No suggestion found in API response:', data)
     }
   } catch (e) {
     console.error('Failed to fetch prop suggestion:', e)
@@ -124,12 +107,24 @@ export function BetTracker() {
   const { data: stats, error: statsError } = useQuery({ queryKey: ['bet-stats'], queryFn: fetchBetStats })
   
   const handleOpenForm = () => {
-    console.log('Opening bet form...')
     setShowForm(true)
   }
   
   const createBet = useMutation({
-    mutationFn: async (betData: any) => {
+    mutationFn: async (betData: {
+      player_id: number
+      player_name: string
+      prop_type: string
+      line_value: number
+      direction: string
+      game_date: string
+      system_confidence?: number | null
+      system_fair_line?: number | null
+      system_suggestion?: string | null
+      amount?: number | null
+      odds?: string | null
+      notes?: string | null
+    }) => {
       return await apiPost('api/v1/bets', betData)
     },
     onSuccess: () => {
@@ -141,7 +136,24 @@ export function BetTracker() {
   })
 
   const createParlay = useMutation({
-    mutationFn: async (parlayData: any) => {
+    mutationFn: async (parlayData: {
+      name?: string | null
+      game_date: string
+      total_amount?: number | null
+      total_odds?: string | null
+      notes?: string | null
+      legs: Array<{
+        player_id: number
+        player_name: string
+        prop_type: string
+        line_value: number
+        direction: string
+        system_confidence?: number | null
+        system_fair_line?: number | null
+        system_suggestion?: string | null
+        system_hit_rate?: number | null
+      }>
+    }) => {
       return await apiPost('api/v1/parlays', parlayData)
     },
     onSuccess: () => {
@@ -153,7 +165,15 @@ export function BetTracker() {
   })
   
   const updateBet = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+    mutationFn: async ({ id, data }: { 
+      id: number
+      data: {
+        result?: string
+        actual_value?: number | null
+        payout?: number | null
+        notes?: string | null
+      }
+    }) => {
       const res = await fetch(`/api/v1/bets/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -269,9 +289,9 @@ export function BetTracker() {
           }}
           onSubmit={(data) => {
             if (betType === 'parlay') {
-              createParlay.mutate(data)
+              createParlay.mutate(data as ParlayFormData)
             } else {
-              createBet.mutate(data)
+              createBet.mutate(data as BetFormData)
             }
           }}
           isSubmitting={betType === 'parlay' ? createParlay.isPending : createBet.isPending}
@@ -322,7 +342,7 @@ export function BetTracker() {
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Parlays ({parlays.length})</h3>
           <div className="space-y-3">
-            {parlays.map((parlay: any) => (
+            {parlays.map((parlay) => (
               <div key={parlay.id} className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -346,7 +366,7 @@ export function BetTracker() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  {parlay.legs && parlay.legs.map((leg: any, idx: number) => (
+                  {parlay.legs && parlay.legs.map((leg, idx) => (
                     <div key={leg.id || idx} className="p-2 bg-gray-50 rounded border border-gray-100">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
@@ -490,11 +510,45 @@ function BetCard({ bet, onSelect }: { bet: Bet; onSelect: () => void }) {
   )
 }
 
+interface BetFormData {
+  player_id: number
+  player_name: string
+  prop_type: string
+  line_value: number
+  direction: string
+  game_date: string
+  system_confidence?: number | null
+  system_fair_line?: number | null
+  system_suggestion?: string | null
+  amount?: number | null
+  odds?: string | null
+  notes?: string | null
+}
+
+interface ParlayFormData {
+  name?: string | null
+  game_date: string
+  total_amount?: number | null
+  total_odds?: string | null
+  notes?: string | null
+  legs: Array<{
+    player_id: number | string
+    player_name: string
+    prop_type: string
+    line_value: number | string
+    direction: string
+    system_confidence?: number | null
+    system_fair_line?: number | null
+    system_suggestion?: string | null
+    system_hit_rate?: number | null
+  }>
+}
+
 function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, season }: { 
   betType: 'single' | 'parlay'
   onBetTypeChange: (type: 'single' | 'parlay') => void
   onClose: () => void
-  onSubmit: (data: any) => void
+  onSubmit: (data: BetFormData | ParlayFormData) => void
   isSubmitting: boolean
   season?: string
 }) {
@@ -546,6 +600,8 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
   const [parlayLegShowSuggestions, setParlayLegShowSuggestions] = useState<Record<number, boolean>>({})
   const [parlayLegSearchQuery, setParlayLegSearchQuery] = useState<Record<number, string>>({})
   const parlayLegSearchTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
+  // Track which leg is being evaluated
+  const [evaluatingLegIndex, setEvaluatingLegIndex] = useState<number | null>(null)
 
   // Debounced player search
   useEffect(() => {
@@ -649,8 +705,50 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
     }))
   }
 
+  // Manually evaluate a parlay leg
+  const evaluateParlayLeg = async (index: number) => {
+    const leg = parlayData.legs[index]
+    if (!leg || !leg.player_id || !leg.prop_type || !leg.line_value) {
+      alert('Please fill in Player ID, Prop Type, and Line Value before evaluating')
+      return
+    }
+    
+    setEvaluatingLegIndex(index)
+    try {
+      const playerId = Number(leg.player_id)
+      const lineValue = Number(leg.line_value)
+      if (playerId && lineValue) {
+        const suggestion = await fetchPropSuggestion(playerId, leg.prop_type, lineValue, season, undefined, leg.direction)
+        if (suggestion && (suggestion.confidence !== undefined || suggestion.fairLine !== undefined)) {
+          setParlayData(prevData => ({
+            ...prevData,
+            legs: prevData.legs.map((l, i) => 
+              i === index ? {
+                ...l,
+                system_confidence: suggestion.confidence,
+                system_fair_line: suggestion.fairLine,
+                system_suggestion: suggestion.suggestion,
+                // Store hit rate if available (as percentage to match PlayerProfile display)
+                system_hit_rate: suggestion.hitRate ? Math.round(suggestion.hitRate * 100) : undefined
+              } : l
+            )
+          }))
+        } else {
+          alert('No evaluation results found. Please check that the player ID, prop type, and line value are correct.')
+        }
+      } else {
+        alert('Invalid player ID or line value. Please check your inputs.')
+      }
+    } catch (error) {
+      console.error('Failed to evaluate parlay leg:', error)
+      alert('Failed to evaluate leg. Please check your inputs and try again.')
+    } finally {
+      setEvaluatingLegIndex(null)
+    }
+  }
+
   // Update parlay leg
-  const updateParlayLeg = (index: number, field: string, value: any) => {
+  const updateParlayLeg = (index: number, field: string, value: string | number) => {
     setParlayData(prev => {
       const updatedLegs = prev.legs.map((leg, i) => 
         i === index ? { ...leg, [field]: value } : leg
@@ -838,7 +936,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
               <select
                 value={formData.prop_type}
                 onChange={(e) => setFormData({ ...formData, prop_type: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                className="w-full px-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
               >
                 <option className="text-gray-900">PTS</option>
                 <option className="text-gray-900">REB</option>
@@ -852,7 +950,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
               <select
                 value={formData.direction}
                 onChange={(e) => setFormData({ ...formData, direction: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                className="w-full px-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
               >
                 <option className="text-gray-900">over</option>
                 <option className="text-gray-900">under</option>
@@ -943,7 +1041,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
               <select
                 value={formData.system_suggestion}
                 onChange={(e) => setFormData({ ...formData, system_suggestion: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                className="w-full px-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
               >
                 <option value="" className="text-gray-900">N/A</option>
                 <option className="text-gray-900">over</option>
@@ -1116,7 +1214,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
                         <select
                           value={leg.prop_type}
                           onChange={(e) => updateParlayLeg(index, 'prop_type', e.target.value)}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-gray-900 bg-white"
+                          className="w-full px-2 pr-8 py-1 border border-gray-300 rounded text-xs text-gray-900 bg-white"
                         >
                           <option className="text-gray-900">PTS</option>
                           <option className="text-gray-900">REB</option>
@@ -1141,7 +1239,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
                         <select
                           value={leg.direction}
                           onChange={(e) => updateParlayLeg(index, 'direction', e.target.value)}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-gray-900 bg-white"
+                          className="w-full px-2 pr-8 py-1 border border-gray-300 rounded text-xs text-gray-900 bg-white"
                         >
                           <option className="text-gray-900">over</option>
                           <option className="text-gray-900">under</option>
@@ -1149,15 +1247,56 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
                       </div>
                     </div>
 
+                    {/* Elevate Button - Prominent placement after form fields */}
+                    <div className="pt-2 border-t border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => evaluateParlayLeg(index)}
+                        disabled={!leg.player_id || !leg.prop_type || !leg.line_value || evaluatingLegIndex === index}
+                        className={`w-full px-4 py-3 text-sm font-semibold rounded-lg transition-all shadow-md ${
+                          evaluatingLegIndex === index
+                            ? 'bg-blue-400 text-white cursor-wait'
+                            : !leg.player_id || !leg.prop_type || !leg.line_value
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg active:scale-95'
+                        }`}
+                      >
+                        {evaluatingLegIndex === index ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Evaluating...
+                          </span>
+                        ) : (
+                          <span className="flex items-center justify-center gap-2">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Evaluate Prop
+                          </span>
+                        )}
+                      </button>
+                      {(!leg.player_id || !leg.prop_type || !leg.line_value) && (
+                        <p className="text-xs text-gray-500 mt-2 text-center">
+                          Fill in Player ID, Prop Type, and Line Value to evaluate
+                        </p>
+                      )}
+                    </div>
+
                     {leg.system_confidence !== undefined && (
-                      <div className="text-xs text-gray-600 mt-2 p-2 bg-blue-50 rounded border border-blue-200">
-                        <span className="font-medium">System:</span> {leg.system_confidence.toFixed(1)}% confidence ({leg.system_suggestion?.toUpperCase()})
+                      <div className="text-xs text-gray-600 mt-2 p-3 bg-blue-50 rounded-lg border-2 border-blue-200 shadow-sm">
+                        <div className="font-semibold text-blue-900 mb-1">System Analysis</div>
+                        <div className="space-y-1">
+                          <div><span className="font-medium">Confidence:</span> {leg.system_confidence.toFixed(1)}% ({leg.system_suggestion?.toUpperCase()})</div>
                         {leg.system_fair_line && (
-                          <span className="ml-2">• Fair line: {leg.system_fair_line.toFixed(1)}</span>
+                            <div><span className="font-medium">Fair Line:</span> {leg.system_fair_line.toFixed(1)}</div>
                         )}
                         {leg.system_hit_rate !== undefined && (
-                          <span className="ml-2">• Hit rate: {leg.system_hit_rate}%</span>
+                            <div><span className="font-medium">Hit Rate:</span> {leg.system_hit_rate}%</div>
                         )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1255,7 +1394,17 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
   )
 }
 
-function UpdateBetForm({ bet, onClose, onSubmit, isSubmitting }: { bet: Bet; onClose: () => void; onSubmit: (data: any) => void; isSubmitting: boolean }) {
+function UpdateBetForm({ bet, onClose, onSubmit, isSubmitting }: { 
+  bet: Bet
+  onClose: () => void
+  onSubmit: (data: {
+    result: BetResult
+    actual_value?: number | null
+    payout?: number | null
+    notes?: string | null
+  }) => void
+  isSubmitting: boolean 
+}) {
   const [formData, setFormData] = useState({
     result: bet.result,
     actual_value: bet.actual_value?.toString() || '',
@@ -1266,7 +1415,7 @@ function UpdateBetForm({ bet, onClose, onSubmit, isSubmitting }: { bet: Bet; onC
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit({
-      result: formData.result,
+      result: formData.result as BetResult,
       actual_value: formData.actual_value ? Number(formData.actual_value) : null,
       payout: formData.payout ? Number(formData.payout) : null,
       notes: formData.notes || null
@@ -1288,8 +1437,8 @@ function UpdateBetForm({ bet, onClose, onSubmit, isSubmitting }: { bet: Bet; onC
             <label className="block text-xs font-medium text-gray-700 mb-1">Result</label>
             <select
               value={formData.result}
-              onChange={(e) => setFormData({ ...formData, result: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+              onChange={(e) => setFormData({ ...formData, result: e.target.value as BetResult })}
+              className="w-full px-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
             >
               <option value="pending" className="text-gray-900">Pending</option>
               <option value="won" className="text-gray-900">Won</option>

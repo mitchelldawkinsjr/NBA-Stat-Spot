@@ -58,6 +58,16 @@ class DailyPropsService:
             if last_n and last_n > 0:
                 logs = logs[-last_n:]
             
+            # Filter by minimum average minutes (default 22 minutes)
+            # Calculate average minutes from recent games
+            if logs:
+                minutes_list = [float(game.get("minutes", 0) or 0) for game in logs if game.get("minutes")]
+                if minutes_list:
+                    avg_minutes = sum(minutes_list) / len(minutes_list)
+                    if avg_minutes < 22.0:
+                        # Player doesn't meet minimum minutes threshold
+                        return []
+            
             # Enrich with PRA (Points + Rebounds + Assists)
             for game in logs:
                 game["pra"] = (

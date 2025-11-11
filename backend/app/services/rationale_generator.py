@@ -62,7 +62,8 @@ class RationaleGenerator:
         confidence: float,
         ml_confidence: Optional[float],
         stats: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        espn_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Generate rationale using available LLM service with fallback.
@@ -86,7 +87,7 @@ class RationaleGenerator:
                 if service.is_available():
                     rationale = service.generate_rationale(
                         player_name, prop_type, line_value, direction,
-                        confidence, ml_confidence, stats, context
+                        confidence, ml_confidence, stats, context, espn_context
                     )
                     return rationale
             except Exception as e:
@@ -97,7 +98,7 @@ class RationaleGenerator:
         
         # Fallback to rule-based rationale
         return self._generate_fallback_rationale(
-            player_name, prop_type, line_value, direction, confidence, stats, context
+            player_name, prop_type, line_value, direction, confidence, stats, context, espn_context
         )
     
     def _generate_fallback_rationale(
@@ -108,7 +109,8 @@ class RationaleGenerator:
         direction: str,
         confidence: float,
         stats: Dict[str, Any],
-        context: Optional[Dict[str, Any]]
+        context: Optional[Dict[str, Any]],
+        espn_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """Generate a simple rule-based rationale as fallback"""
         hit_rate = stats.get("hit_rate", 0)
@@ -146,8 +148,93 @@ class RationaleGenerator:
             else:
                 rationale_parts.append("on the road")
         
+        # Add ESPN context if available
+        if espn_context:
+            injury_status = espn_context.get("injury_status")
+            if injury_status:
+                if injury_status == "out":
+                    rationale_parts.append(f"⚠️ Player is OUT")
+                elif injury_status == "doubtful":
+                    rationale_parts.append(f"⚠️ Player is DOUBTFUL")
+                elif injury_status == "questionable":
+                    rationale_parts.append(f"⚠️ Player is QUESTIONABLE")
+                elif injury_status == "probable":
+                    rationale_parts.append(f"Player is PROBABLE")
+            
+            conference_rank = espn_context.get("conference_rank")
+            if conference_rank and conference_rank <= 8:
+                rationale_parts.append(f"Team is {conference_rank} in conference")
+            
+            news_sentiment = espn_context.get("news_sentiment")
+            if news_sentiment and abs(news_sentiment) > 0.3:
+                if news_sentiment > 0:
+                    rationale_parts.append("positive recent news")
+                else:
+                    rationale_parts.append("negative recent news")
+        
         rationale = ", ".join(rationale_parts) + "."
         return rationale
+    
+    def generate_over_under_rationale(
+        self,
+        home_team: str,
+        away_team: str,
+        current_total: int,
+        projected_total: float,
+        live_line: Optional[float],
+        recommendation: str,
+        confidence: str,
+        key_factors: list[str],
+        game_context: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate over/under rationale using available LLM service with fallback.
+        
+        Args:
+            home_team: Home team name
+            away_team: Away team name
+            current_total: Current combined score
+            projected_total: Projected final total
+            live_line: Current betting line (optional)
+            recommendation: "OVER", "UNDER", or "NO BET"
+            confidence: Confidence level ("HIGH", "MEDIUM", "LOW")
+            key_factors: List of key factors
+            game_context: Optional additional game context
+            
+        Returns:
+            Human-readable rationale string
+        """
+        # Try each service in order
+        for service in self.services:
+            try:
+                if service.is_available():
+                    rationale = service.generate_over_under_rationale(
+                        home_team, away_team, current_total, projected_total,
+                        live_line, recommendation, confidence, key_factors, game_context
+                    )
+                    return rationale
+            except Exception as e:
+                import structlog
+                logger = structlog.get_logger()
+                logger.warning("Error generating over/under rationale", service=service.__class__.__name__, error=str(e))
+                continue
+        
+        # Fallback to base implementation (create dummy instance to call method)
+        from .llm.base_llm import BaseLLMService
+        # Create a temporary instance to access the default implementation
+        class DummyLLM(BaseLLMService):
+            def generate_rationale(self, *args, **kwargs):
+                return ""
+            def is_available(self):
+                return True
+            def health_check(self):
+                return {}
+        
+        dummy = DummyLLM()
+        return dummy.generate_over_under_rationale(
+            home_team, away_team, current_total, projected_total,
+            live_line, recommendation, confidence, key_factors, game_context
+        )
     
     def is_available(self) -> bool:
         """Check if any LLM service is available"""

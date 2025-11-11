@@ -118,7 +118,9 @@ class PropBetEngine:
                     ml_available = ml_confidence is not None or ml_predicted_line is not None
             except Exception as e:
                 # ML prediction failed, fall back to rule-based
-                print(f"ML prediction failed, using rule-based: {e}")
+                import structlog
+                logger = structlog.get_logger()
+                logger.warning("ML prediction failed, using rule-based", error=str(e))
                 ml_available = False
         
         # Combine results
@@ -165,6 +167,7 @@ class PropBetEngine:
                 rationale_context["is_home_game"] = is_home_game
                 
                 # Get context features if available
+                player_context = None
                 try:
                     from .context_collector import ContextCollector
                     player_context = ContextCollector.collect_player_context(
@@ -176,6 +179,13 @@ class PropBetEngine:
                 except Exception:
                     pass
                 
+                # Build ESPN context for rationale
+                espn_context = {}
+                if player_context:
+                    espn_context["injury_status"] = player_context.injury_status
+                    espn_context["conference_rank"] = player_context.team_conference_rank
+                    espn_context["news_sentiment"] = player_context.news_sentiment
+                
                 # Generate rationale
                 llm_rationale = rationale_generator.generate_rationale(
                     player_name=player_name,
@@ -185,14 +195,17 @@ class PropBetEngine:
                     confidence=result.get("confidence", 0),
                     ml_confidence=ml_confidence,
                     stats=result.get("stats", {}),
-                    context=rationale_context
+                    context=rationale_context,
+                    espn_context=espn_context if espn_context else None
                 )
                 
                 result["rationale"]["llm"] = llm_rationale
                 result["rationale"]["source"] = "llm" if rationale_generator.is_available() else "rule_based"
             except Exception as e:
                 # LLM rationale generation failed, keep rule-based
-                print(f"LLM rationale generation failed: {e}")
+                import structlog
+                logger = structlog.get_logger()
+                logger.warning("LLM rationale generation failed", error=str(e))
                 result["rationale"]["source"] = "rule_based"
         
         return result

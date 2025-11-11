@@ -6,6 +6,7 @@ import PlayerProfile from './pages/PlayerProfile'
 import TeamProfile from './pages/TeamProfile'
 import ExplorePage from './pages/ExplorePage'
 import AdminDashboard from './pages/AdminDashboard'
+import OverUnderPage from './pages/OverUnderPage'
 import SliceProLayout from './layouts/SliceProLayout'
 import { SnackbarProvider } from './context/SnackbarContext'
 // Flowbite layout removed
@@ -23,6 +24,7 @@ function App() {
             <Route path="/player/:id" element={<PlayerProfile />} />
             <Route path="/team/:id" element={<TeamProfile />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/over-under" element={<OverUnderPage />} />
             {/* Back-compat alias */}
             <Route path="/suggest" element={<ExplorePage />} />
           </Routes>

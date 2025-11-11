@@ -12,6 +12,14 @@ primary_region = "iad"
   PORT = "8000"
   CORS_ORIGINS = "https://mitchelldawkinsjr.github.io,https://mitchelldawkinsjr.github.io/NBA-Stat-Spot,http://localhost:5173"
   DATABASE_URL = "sqlite:///./nba_props.db"
+  # API-Sports.io Basketball configuration (set via fly secrets)
+  # API_NBA_KEY = "your-api-sports-key-here"  # Set via: fly secrets set API_NBA_KEY="your-key"
+  # API_NBA_USE_RAPIDAPI = "false"            # Set to "true" if using RapidAPI (default: "false")
+  # API_NBA_RATE_LIMIT_PER_MINUTE = "10"      # Optional override (default: 10)
+  # API_NBA_RATE_LIMIT_PER_DAY = "100"        # Optional override (default: 100 for free tier)
+  # ESPN rate limit configuration (optional overrides)
+  # ESPN_RATE_LIMIT_PER_MINUTE = "100"      # Optional override (default: 100)
+  # ESPN_RATE_LIMIT_PER_HOUR = "1000"       # Optional override (default: 1000)
 
 [processes]
   # Port is set to 8000 in [env] section and matches internal_port

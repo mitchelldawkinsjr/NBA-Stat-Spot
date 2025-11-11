@@ -19,7 +19,8 @@ class BaseLLMService(ABC):
         confidence: float,
         ml_confidence: Optional[float],
         stats: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        espn_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Generate a human-readable rationale for a prop bet recommendation.
@@ -48,6 +49,48 @@ class BaseLLMService(ABC):
             True if service is available, False otherwise
         """
         pass
+    
+    def generate_over_under_rationale(
+        self,
+        home_team: str,
+        away_team: str,
+        current_total: int,
+        projected_total: float,
+        live_line: Optional[float],
+        recommendation: str,
+        confidence: str,
+        key_factors: list[str],
+        game_context: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate a human-readable rationale for an over/under recommendation.
+        
+        Args:
+            home_team: Home team name
+            away_team: Away team name
+            current_total: Current combined score
+            projected_total: Projected final total
+            live_line: Current betting line (optional)
+            recommendation: "OVER", "UNDER", or "NO BET"
+            confidence: Confidence level ("HIGH", "MEDIUM", "LOW")
+            key_factors: List of key factors affecting the analysis
+            game_context: Optional additional game context
+            
+        Returns:
+            Human-readable rationale string
+        """
+        # Default implementation - can be overridden
+        factors_text = ". ".join(key_factors) if key_factors else "No specific factors identified."
+        rationale = f"{away_team} @ {home_team}: Current total is {current_total}. "
+        rationale += f"Projected final total: {projected_total:.1f}. "
+        if live_line:
+            diff = projected_total - live_line
+            rationale += f"Line: {live_line}. "
+            if abs(diff) > 3:
+                rationale += f"Projection is {abs(diff):.1f} points {'above' if diff > 0 else 'below'} the line. "
+        rationale += f"Recommendation: {recommendation} ({confidence} confidence). "
+        rationale += factors_text
+        return rationale
     
     @abstractmethod
     def health_check(self) -> Dict[str, Any]:

@@ -66,7 +66,8 @@ class LocalLLMService(BaseLLMService):
         confidence: float,
         ml_confidence: Optional[float],
         stats: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        espn_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Generate rationale using local LLM.
@@ -90,7 +91,7 @@ class LocalLLMService(BaseLLMService):
         # Build prompt
         prompt = self._build_prompt(
             player_name, prop_type, line_value, direction,
-            confidence, ml_confidence, stats, context
+            confidence, ml_confidence, stats, context, espn_context
         )
         
         try:
@@ -119,7 +120,9 @@ class LocalLLMService(BaseLLMService):
             
             return rationale
         except Exception as e:
-            print(f"Error generating rationale with local LLM: {e}")
+            import structlog
+            logger = structlog.get_logger()
+            logger.error("Error generating rationale with local LLM", error=str(e))
             raise
     
     def _build_prompt(
@@ -131,7 +134,8 @@ class LocalLLMService(BaseLLMService):
         confidence: float,
         ml_confidence: Optional[float],
         stats: Dict[str, Any],
-        context: Optional[Dict[str, Any]]
+        context: Optional[Dict[str, Any]],
+        espn_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """Build the prompt for rationale generation"""
         hit_rate = stats.get("hit_rate", 0)
@@ -162,6 +166,14 @@ Stats:
                 prompt += "\n- Home game"
             if context.get("opponent_def_rank"):
                 prompt += f"\n- Opponent defensive rank: {context['opponent_def_rank']}"
+        
+        if espn_context:
+            if espn_context.get("injury_status"):
+                prompt += f"\n- Injury status: {espn_context['injury_status']}"
+            if espn_context.get("conference_rank"):
+                prompt += f"\n- Conference rank: {espn_context['conference_rank']}"
+            if espn_context.get("news_sentiment") is not None:
+                prompt += f"\n- News sentiment: {espn_context['news_sentiment']:.2f}"
         
         prompt += "\n\nRationale:"
         

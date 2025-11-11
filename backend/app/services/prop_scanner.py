@@ -144,7 +144,9 @@ class PropScannerService:
                 
                 except Exception as e:
                     # Log error but continue with other players
-                    print(f"Error scanning player {player_name} (ID: {player_id}): {e}")
+                    import structlog
+                    logger = structlog.get_logger()
+                    logger.error("Error scanning player", player_name=player_name, player_id=player_id, error=str(e))
                     continue
             
             # Sort by confidence (highest first)
@@ -154,7 +156,9 @@ class PropScannerService:
             return all_suggestions[:limit]
         
         except Exception as e:
-            print(f"Error in scan_best_bets_for_today: {e}")
+            import structlog
+            logger = structlog.get_logger()
+            logger.error("Error in scan_best_bets_for_today", error=str(e))
             return []
     
     @staticmethod

@@ -13,12 +13,13 @@ class TeamPlayerService:
     def normalize_team_id(team_id: Any) -> Optional[int]:
         """
         Normalize team_id to integer, handling None, string, and int types.
+        Treats 0 as None (no team assigned).
         
         Args:
             team_id: Team ID in any format (None, string, int)
             
         Returns:
-            Normalized team ID as int, or None if invalid
+            Normalized team ID as int, or None if invalid or 0
         """
         if team_id is None:
             return None
@@ -30,7 +31,11 @@ class TeamPlayerService:
                 team_id = team_id.strip()
                 if not team_id or team_id.lower() in ('none', 'null', ''):
                     return None
-            return int(team_id)
+            team_id_int = int(team_id)
+            # Treat 0 as None (no team assigned in NBA API)
+            if team_id_int == 0:
+                return None
+            return team_id_int
         except (ValueError, TypeError):
             return None
     

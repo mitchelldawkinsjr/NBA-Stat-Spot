@@ -11,7 +11,7 @@ const getApiBaseUrl = (): string => {
   }
   
   // In development, check for explicit API target
-  // But ignore Docker hostnames (backend:8000) when running locally outside Docker
+  // But ignore Docker hostnames (backend:8001) when running locally outside Docker
   const apiTarget = import.meta.env.VITE_API_TARGET
   if (apiTarget) {
     // If running in browser (not in Docker), Docker hostnames won't resolve
@@ -25,8 +25,8 @@ const getApiBaseUrl = (): string => {
     return apiTarget
   }
   
-  // In development, use empty string to leverage Vite proxy to localhost:8000
-  // This requires the local backend to be running on http://localhost:8000
+  // In development, use empty string to leverage Vite proxy to localhost:8001
+  // This requires the local backend to be running on http://localhost:8001
   return ''
 }
 

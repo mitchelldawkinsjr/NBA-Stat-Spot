@@ -1,13 +1,14 @@
 """
 Parlays API Router - Track user parlay bets
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import date, datetime
 from ..database import get_db
 from ..models.user_parlays import UserParlay, UserParlayLeg
+from ..core.rate_limiter import limiter
 
 router = APIRouter(prefix="/api/v1/parlays", tags=["parlays_v1"])
 
@@ -81,7 +82,8 @@ class ParlayResponse(BaseModel):
 
 
 @router.post("", response_model=ParlayResponse)
-def create_parlay(parlay: CreateParlayRequest, db: Session = Depends(get_db)):
+@limiter.limit("100/hour")  # Rate limit: 100 requests per hour per IP
+def create_parlay(request: Request, parlay: CreateParlayRequest, db: Session = Depends(get_db)):
     """Create a new parlay"""
     if len(parlay.legs) < 2:
         raise HTTPException(status_code=400, detail="Parlay must have at least 2 legs")
@@ -184,7 +186,9 @@ def create_parlay(parlay: CreateParlayRequest, db: Session = Depends(get_db)):
 
 
 @router.get("", response_model=List[ParlayResponse])
+@limiter.limit("200/hour")  # Rate limit: 200 requests per hour per IP
 def list_parlays(
+    request: Request,
     result: Optional[str] = None,
     limit: int = 100,
     db: Session = Depends(get_db)

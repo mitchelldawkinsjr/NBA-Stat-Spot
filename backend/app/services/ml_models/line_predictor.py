@@ -121,6 +121,8 @@ class LinePredictor:
             "momentum",
             "rest_days",
             "is_injured",
+            "injury_status_encoded",
+            "days_since_injury",
             "is_home_game",
             "opponent_def_rank_pts",
             "h2h_avg_pts",

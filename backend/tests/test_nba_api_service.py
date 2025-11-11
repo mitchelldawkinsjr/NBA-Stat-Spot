@@ -18,12 +18,18 @@ class TestNBADataService:
                 {"id": 203507, "full_name": "Giannis Antetokounmpo", "team_id": 1610612749},
             ]
             
-            results = NBADataService.search_players("lebron")
-            
-            assert len(results) == 1
-            assert results[0]["id"] == 2544
-            assert results[0]["name"] == "LeBron James"
-            assert results[0]["team"] == 1610612747
+            with patch.object(NBADataService, 'fetch_all_teams') as mock_teams:
+                mock_teams.return_value = [
+                    {"id": 1610612747, "abbreviation": "LAL"},
+                    {"id": 1610612744, "abbreviation": "GSW"},
+                    {"id": 1610612749, "abbreviation": "MIL"},
+                ]
+                results = NBADataService.search_players("lebron")
+                
+                assert len(results) == 1
+                assert results[0]["id"] == 2544
+                assert results[0]["name"] == "LeBron James"
+                assert results[0]["team"] == "LAL"  # Team abbreviation, not ID
     
     def test_search_players_case_insensitive(self):
         """Test that search is case insensitive"""

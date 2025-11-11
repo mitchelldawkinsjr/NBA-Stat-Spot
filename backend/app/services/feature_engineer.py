@@ -123,9 +123,29 @@ class FeatureEngineer:
                 player_id, game_date, opponent_team_id, is_home_game, season
             )
             
+            # Encode injury status
+            injury_status_encoded = 1.0  # Default: healthy
+            if context.injury_status:
+                status_lower = context.injury_status.lower()
+                if status_lower == "probable":
+                    injury_status_encoded = 0.9
+                elif status_lower == "questionable":
+                    injury_status_encoded = 0.5
+                elif status_lower == "doubtful":
+                    injury_status_encoded = 0.2
+                elif status_lower == "out":
+                    injury_status_encoded = 0.0
+            
+            # Calculate days since injury
+            days_since_injury = None
+            if context.injury_date:
+                days_since_injury = (game_date - context.injury_date).days
+            
             return {
                 "rest_days": context.rest_days,
                 "is_injured": context.is_injured,
+                "injury_status_encoded": injury_status_encoded,
+                "days_since_injury": days_since_injury if days_since_injury is not None else 0,
                 "is_home_game": context.is_home_game,
                 "opponent_def_rank_pts": context.opponent_def_rank_pts,
                 "opponent_def_rank_reb": context.opponent_def_rank_reb,
@@ -134,11 +154,65 @@ class FeatureEngineer:
                 "h2h_avg_reb": context.h2h_avg_reb,
                 "h2h_avg_ast": context.h2h_avg_ast,
                 "h2h_games_played": context.h2h_games_played,
+                "opponent_back_to_back": False,  # Would need to extract from matchup_info
                 "team_win_rate": context.team_win_rate,
-                "opponent_win_rate": context.opponent_win_rate
+                "opponent_win_rate": context.opponent_win_rate,
+                "team_conference_rank": context.team_conference_rank if context.team_conference_rank else 15,
+                "opponent_conference_rank": context.opponent_conference_rank if context.opponent_conference_rank else 15,
+                "team_recent_form": context.team_recent_form if context.team_recent_form is not None else 0.5,
+                "opponent_recent_form": None,  # Would need opponent's recent form
+                "playoff_race_pressure": context.playoff_race_pressure if context.playoff_race_pressure is not None else 0.0,
+                "has_recent_news": context.news_sentiment is not None and context.news_sentiment != 0.0,
+                "news_sentiment": context.news_sentiment if context.news_sentiment is not None else 0.0,
+                "has_recent_transaction": context.has_recent_transaction if context.has_recent_transaction else False,
+                "days_since_transaction": 0  # Would need to track transaction date
             }
         except Exception:
             return {}
+    
+    @staticmethod
+    def extract_live_game_features(game_id: str, player_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Extract live game features from ESPN.
+        
+        Args:
+            game_id: ESPN game ID
+            player_id: Optional player ID for player-specific features
+            
+        Returns:
+            Dictionary with live game features
+        """
+        try:
+            from .live_game_context_service import get_live_game_context_service
+            
+            live_service = get_live_game_context_service()
+            
+            if player_id:
+                live_context = live_service.extract_live_context(game_id, player_id)
+                return {
+                    "live_pace": live_context.get("live_pace", 0.0),
+                    "live_shooting_efficiency": 0.45,  # Would extract from gamecast
+                    "foul_trouble_score": live_context.get("foul_trouble_score", 0.0),
+                    "projected_minutes_remaining": live_context.get("projected_minutes_remaining", 0.0),
+                    "game_flow_score": live_context.get("game_flow_score", 0.5)
+                }
+            else:
+                game_features = live_service.get_live_game_features(game_id)
+                return {
+                    "live_pace": game_features.get("live_pace", 0.0),
+                    "live_shooting_efficiency": game_features.get("shooting_efficiency", 0.45),
+                    "foul_trouble_score": 0.0,
+                    "projected_minutes_remaining": 0.0,
+                    "game_flow_score": 0.5
+                }
+        except Exception:
+            return {
+                "live_pace": 0.0,
+                "live_shooting_efficiency": 0.45,
+                "foul_trouble_score": 0.0,
+                "projected_minutes_remaining": 0.0,
+                "game_flow_score": 0.5
+            }
     
     @staticmethod
     def extract_market_features(

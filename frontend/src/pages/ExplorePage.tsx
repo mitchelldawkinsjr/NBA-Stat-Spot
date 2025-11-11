@@ -70,7 +70,6 @@ export default function ExplorePage() {
           return
         }
         const data = await res.json()
-        console.log(`Team ${selectedTeam.id} players response:`, data)
         setTeamPlayers(data.items || [])
       } catch (error) {
         console.error('Failed to fetch team players:', error)
@@ -82,7 +81,7 @@ export default function ExplorePage() {
     fetchTeamPlayers()
   }, [selectedTeam])
 
-  const handleEvaluate = async (result: any) => {
+  const handleEvaluate = async (result: PropSuggestionsResponse) => {
     setEvaluateResult(result)
   }
 

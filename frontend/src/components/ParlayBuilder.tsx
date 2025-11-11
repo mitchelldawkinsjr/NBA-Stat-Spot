@@ -327,7 +327,7 @@ export function ParlayBuilder() {
           </div>
           <div>
             <div className="text-xs font-medium text-gray-700 mb-0.5">Prop Type</div>
-            <select value={availType} onChange={(e) => setAvailType(e.target.value as typeof TYPES[number])} className="w-full px-2 py-1.5 text-sm rounded-md border border-gray-300 bg-white">
+            <select value={availType} onChange={(e) => setAvailType(e.target.value as typeof TYPES[number])} className="w-full px-2 pr-8 py-1.5 text-sm rounded-md border border-gray-300 bg-white">
               {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -413,12 +413,12 @@ export function ParlayBuilder() {
                 )}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-6 gap-1.5">
-                <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as unknown as typeof TYPES[number] } : x))} className="px-2 py-1 rounded-md border border-gray-300 bg-white text-xs">
+                <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as unknown as typeof TYPES[number] } : x))} className="px-2 pr-6 py-1 rounded-md border border-gray-300 bg-white text-xs">
                   {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <input value={leg.line} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, line: e.target.value } : x))} placeholder={`Line`} inputMode="decimal" className="px-2 py-1 rounded-md border border-gray-300 text-xs" />
                 <input value={leg.odds || '-110'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, odds: e.target.value } : x))} placeholder="Odds" className="px-2 py-1 rounded-md border border-gray-300 text-xs" />
-                <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as Leg['home'] } : x))} className="px-2 py-1 rounded-md border border-gray-300 bg-white text-xs">
+                <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as Leg['home'] } : x))} className="px-2 pr-6 py-1 rounded-md border border-gray-300 bg-white text-xs">
                   <option value="any">Any</option>
                   <option value="home">Home</option>
                   <option value="away">Away</option>

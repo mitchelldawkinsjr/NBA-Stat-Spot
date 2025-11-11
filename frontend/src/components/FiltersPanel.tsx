@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react'
+import type { Filters, PropSuggestionsResponse, Player } from '../types/api'
 
-export type Filters = {
-  season?: string
-  lastN?: number
-  home?: 'any' | 'home' | 'away'
-  marketLines?: { [k: string]: string }
-  direction?: 'over' | 'under'
-}
+export type { Filters }
 
 export function FiltersPanel({ 
   value, 
@@ -16,8 +11,8 @@ export function FiltersPanel({
 }: { 
   value: Filters
   onChange: (f: Filters) => void
-  player?: { id: number; name: string } | null
-  onEvaluate?: (result: any) => void
+  player?: Player | null
+  onEvaluate?: (result: PropSuggestionsResponse) => void
 }) {
   const [local, setLocal] = useState<Filters>(value)
   const [isEvaluating, setIsEvaluating] = useState(false)
@@ -25,18 +20,24 @@ export function FiltersPanel({
   useEffect(() => { setLocal(value) }, [value])
   useEffect(() => { onChange(local) }, [local])
 
-  const hasMarketLines = local.marketLines && Object.values(local.marketLines).some((v: any) => v && v !== '')
+  const hasMarketLines = local.marketLines && Object.values(local.marketLines).some((v) => v && v !== '')
 
   const handleEvaluate = async () => {
-    if (!player || !player.id || !hasMarketLines) return
+    if (!player || !player.id || !hasMarketLines) {
+      return
+    }
     
     setIsEvaluating(true)
+    // Clear previous result when starting new evaluation (set to loading state)
+    if (onEvaluate) {
+      onEvaluate({ suggestions: [], loading: true })
+    }
     try {
       const marketLines = Object.fromEntries(
         Object.entries(local.marketLines || {})
-          .map(([k, v]: any) => [k, v === '' ? undefined : Number(v)])
-          .filter(([, v]) => Number.isFinite(v as number))
-      )
+          .map(([k, v]) => [k, v === '' ? undefined : Number(v)])
+          .filter(([, v]) => v !== undefined && Number.isFinite(v as number))
+      ) as Record<string, number>
       
       const res = await fetch('/api/v1/props/player', { 
         method: 'POST', 
@@ -50,12 +51,37 @@ export function FiltersPanel({
           direction: local.direction || 'over',
         }) 
       })
+      
+      if (!res.ok) {
+        let errorMessage = `Failed to evaluate: ${res.status} ${res.statusText}`
+        try {
+          const errorData = await res.json()
+          errorMessage = errorData.detail || errorData.message || errorMessage
+        } catch {
+        const errorText = await res.text()
+          errorMessage = errorText || errorMessage
+        }
+        if (onEvaluate) {
+          onEvaluate({ suggestions: [], error: errorMessage, loading: false })
+        }
+        return
+      }
+      
       const data = await res.json()
+      // Ensure result has suggestions array and remove loading flag
+      const result = {
+        suggestions: data.suggestions || [],
+        ...data,
+        loading: false
+      }
       if (onEvaluate) {
-        onEvaluate(data)
+        onEvaluate(result)
       }
     } catch (error) {
       console.error('Failed to evaluate prop:', error)
+      if (onEvaluate) {
+        onEvaluate({ suggestions: [], error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+      }
     } finally {
       setIsEvaluating(false)
     }
@@ -90,7 +116,7 @@ export function FiltersPanel({
         <select
           value={local.home ?? 'any'}
           onChange={(e) => setLocal((p) => ({ ...p, home: e.target.value as Filters['home'] }))}
-          style={{ width: '100%', padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff', color: '#111827' }}
+          style={{ width: '100%', padding: '8px 28px 8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff', color: '#111827' }}
           className="text-gray-900 bg-white"
         >
           <option value="any" className="text-gray-900">Any</option>

@@ -25,6 +25,7 @@ type GameLog = {
   reb: number
   ast: number
   tpm: number
+  minutes?: number
 }
 
 export default function PlayerProfile() {
@@ -142,6 +143,7 @@ export default function PlayerProfile() {
               reb: Number(game.reb ?? game.REB ?? 0),
               ast: Number(game.ast ?? game.AST ?? 0),
               tpm: Number(game.tpm ?? game.FG3M ?? 0),
+              minutes: Number(game.minutes ?? game.MIN ?? 0),
             }
           })
           .filter((g: GameLog | null): g is GameLog => g !== null) // Filter out nulls
@@ -185,6 +187,7 @@ export default function PlayerProfile() {
                   reb: Number(game.reb ?? game.REB ?? 0),
                   ast: Number(game.ast ?? game.AST ?? 0),
                   tpm: Number(game.tpm ?? game.FG3M ?? 0),
+                  minutes: Number(game.minutes ?? game.MIN ?? 0),
                 }
               })
               .filter((g: GameLog | null): g is GameLog => g !== null) // Filter out nulls
@@ -232,6 +235,7 @@ export default function PlayerProfile() {
     ast: avg(enrichedLogs.map(g => g.ast)),
     tpm: avg(enrichedLogs.map(g => g.tpm)),
     pra: avg(enrichedLogs.map(g => g.pra as number)),
+    minutes: avg(enrichedLogs.map(g => g.minutes || 0)),
   }), [enrichedLogs])
 
   // Header trend badge
@@ -351,11 +355,11 @@ export default function PlayerProfile() {
       <nav className="relative z-10 mt-3" aria-label="Breadcrumb">
         <ol className="min-w-0 flex items-center gap-1 text-xs text-gray-500 overflow-hidden">
           <li>
-            <a href="/" className="hover:text-gray-700">Home</a>
+            <Link to="/" className="hover:text-gray-700">Home</Link>
           </li>
           <li aria-hidden="true" className="px-1">/</li>
           <li>
-            <a href="/explore" className="hover:text-gray-700">Players</a>
+            <Link to="/explore" className="hover:text-gray-700">Players</Link>
           </li>
           <li aria-hidden="true" className="px-1">/</li>
           <li className="flex-1 min-w-0 text-gray-700 font-medium truncate">{playerName || 'Player'}</li>
@@ -411,6 +415,9 @@ export default function PlayerProfile() {
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.tpm.color}`}>
                     {statFormBadges.tpm.tag}
                   </span>
+                </span>
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                  MIN {seasonAverages.minutes.toFixed(1)}
                 </span>
               </div>
             </div>
@@ -470,11 +477,11 @@ export default function PlayerProfile() {
           {/* Controls (TailGrids: Toolbar) */}
           <div className="mt-3 bg-white rounded-lg sm:rounded-xl shadow-md ring-1 ring-gray-100 p-2 sm:p-3 md:p-4 flex items-center gap-2 sm:gap-3 flex-wrap">
             <div className="text-[10px] sm:text-xs font-semibold text-gray-600">Window</div>
-            <select aria-label="Select window" value={windowN} onChange={(e) => setWindowN(Number(e.target.value))} className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20">
+            <select aria-label="Select window" value={windowN} onChange={(e) => setWindowN(Number(e.target.value))} className="px-2 sm:px-3 pr-8 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20">
               {[5,10,20].map(n => <option key={n} value={n}>{n} games</option>)}
             </select>
             <div className="text-[10px] sm:text-xs font-semibold text-gray-600 ml-1">Hit Rate</div>
-            <select value={hrStat} onChange={(e) => setHrStat(e.target.value as 'PTS'|'REB'|'AST'|'3PM'|'PRA')} className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20">
+            <select value={hrStat} onChange={(e) => setHrStat(e.target.value as 'PTS'|'REB'|'AST'|'3PM'|'PRA')} className="px-2 sm:px-3 pr-8 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20">
               {['PTS','REB','AST','3PM','PRA'].map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <input value={hrLine} onChange={(e) => setHrLine(e.target.value)} inputMode="decimal" placeholder="Line" className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 w-20 sm:w-auto" />
@@ -751,7 +758,7 @@ export default function PlayerProfile() {
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="text-xs px-1.5 py-0.5 border border-gray-300 rounded bg-white text-gray-900"
+                      className="text-xs px-1.5 pr-6 py-0.5 border border-gray-300 rounded bg-white text-gray-900"
                     >
                       <option value="over">Over</option>
                       <option value="under">Under</option>
@@ -809,7 +816,7 @@ export default function PlayerProfile() {
                     <select
                       value={histLastN}
                       onChange={(e) => setHistLastN(Number(e.target.value) as 5 | 10)}
-                      className="text-xs px-2 py-1 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="text-xs px-2 pr-8 py-1 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
                       <option value={5}>Last 5</option>
                       <option value={10}>Last 10</option>
@@ -836,6 +843,7 @@ export default function PlayerProfile() {
             const mkRow = (label: string, list: typeof enrichedLogs, highlight?: 'blue'|'green'|'purple') => ({
               label,
               games: list.length,
+              minutes: avg(list.map(g=>g.minutes || 0)),
               pts: avg(list.map(g=>g.pts)),
               ast: avg(list.map(g=>g.ast)),
               reb: avg(list.map(g=>g.reb)),
@@ -1047,10 +1055,11 @@ export default function PlayerProfile() {
 
           {/* Raw logs table (Slice Pro DataTable) */}
           {(() => {
-            type GameRow = { date: string; matchup: string; pts: number; reb: number; ast: number; tpm: number }
+            type GameRow = { date: string; matchup: string; pts: number; reb: number; ast: number; tpm: number; minutes: number }
             const columns: Array<DataTableColumn<GameRow>> = [
               { key: 'date', header: 'Date' },
               { key: 'matchup', header: 'Matchup' },
+              { key: 'minutes', header: 'MIN', align: 'right' },
               { key: 'pts', header: 'PTS', align: 'right' },
               { key: 'reb', header: 'REB', align: 'right' },
               { key: 'ast', header: 'AST', align: 'right' },
@@ -1059,6 +1068,7 @@ export default function PlayerProfile() {
             const rows: GameRow[] = sortedLogs.slice(-50).map(g => ({
               date: g.game_date,
               matchup: g.matchup,
+              minutes: g.minutes || 0,
               pts: g.pts,
               reb: g.reb,
               ast: g.ast,

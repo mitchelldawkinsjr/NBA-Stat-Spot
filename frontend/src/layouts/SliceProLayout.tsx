@@ -11,6 +11,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
     { to: '/explore', label: 'Explore' },
     { to: '/parlay', label: 'Parlay' },
     { to: '/bets', label: 'Bet Tracker' },
+    { to: '/over-under', label: 'Over/Under' },
     { to: '/admin', label: 'Admin' },
   ]
 
@@ -22,8 +23,13 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
           <div className="flex h-[60px] items-center justify-between gap-4">
             <div className="flex items-center gap-2 flex-shrink-0">
               <button 
-                onClick={() => setSidebarOpen(!sidebarOpen)} 
-                className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100" 
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setSidebarOpen(!sidebarOpen)
+                }} 
+                className="inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100 cursor-pointer relative z-50" 
                 aria-label="Toggle menu"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -58,9 +64,9 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* Sidebar (mobile) - slides in from left */}
+      {/* Sidebar - slides in from left */}
       {sidebarOpen && (
-        <div className="md:hidden fixed inset-0 z-50">
+        <div className="fixed inset-0 z-50">
           {/* Backdrop overlay */}
           <div 
             className="absolute inset-0 bg-black/30 transition-opacity" 
@@ -71,8 +77,13 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
             <div className="flex items-center justify-between mb-4">
               <div className="text-sm font-semibold text-gray-900">Menu</div>
               <button 
-                onClick={() => setSidebarOpen(false)} 
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-md" 
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setSidebarOpen(false)
+                }} 
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded-md cursor-pointer" 
                 aria-label="Close menu"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">

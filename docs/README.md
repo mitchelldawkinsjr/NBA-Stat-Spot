@@ -85,6 +85,25 @@ This directory contains all documentation for the NBA Stat Spot application. Eac
 
 ---
 
+### [ESPN Integration](./espn-integration.md)
+**Purpose**: Documentation for ESPN API integration that enhances predictions with real-time data.
+
+**Use when**:
+- Understanding how ESPN data improves predictions
+- Configuring ESPN API access
+- Troubleshooting ESPN data issues
+- Extending ESPN integration features
+
+**Covers**:
+- Architecture and services
+- Feature engineering enhancements
+- API endpoints
+- Caching strategy
+- Error handling
+- Database schema updates
+
+---
+
 ## Quick Links
 
 - **Getting Started**: See [Deployment Guide - Local Development](./deployment.md#local-development)

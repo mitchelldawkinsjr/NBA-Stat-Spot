@@ -55,7 +55,7 @@ export function QuickPropLab() {
           <input value={line} onChange={(e) => setLine(e.target.value)} placeholder={`${propType} line (e.g. 24.5)`} inputMode="decimal" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
           <input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="Season (e.g. 2025-26)" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
           <input value={lastN} onChange={(e) => setLastN(e.target.value ? Number(e.target.value) : '')} type="number" min={1} placeholder="Last N games" style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6 }} />
-          <select value={home} onChange={(e) => setHome(e.target.value as any)} style={{ padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
+          <select value={home} onChange={(e) => setHome(e.target.value as any)} style={{ padding: '8px 28px 8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff' }}>
             <option value="any">Venue: Any</option>
             <option value="home">Venue: Home</option>
             <option value="away">Venue: Away</option>

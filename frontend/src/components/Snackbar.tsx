@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 export type SnackbarType = 'success' | 'error' | 'info' | 'warning'
 
@@ -17,29 +17,54 @@ interface SnackbarProps {
 
 export function Snackbar({ snackbar, onClose }: SnackbarProps) {
   const [progress, setProgress] = useState(0)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Reset progress when snackbar changes
   useEffect(() => {
-    if (!snackbar) return
+    if (!snackbar) {
+      setProgress(0)
+      return
+    }
 
-    // Reset progress when snackbar changes
+    // Reset progress when snackbar ID changes (new snackbar)
     setProgress(snackbar.progress ?? 0)
+  }, [snackbar?.id])
+
+  // Update progress bar when progress value changes
+  useEffect(() => {
+    if (!snackbar || snackbar.progress === undefined) return
+    setProgress(snackbar.progress)
+  }, [snackbar?.progress])
+
+  // Auto-dismiss timer
+  useEffect(() => {
+    // Clear any existing timer first
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+
+    if (!snackbar) return
 
     // Auto-dismiss if duration is set and not showing progress
     if (snackbar.duration && snackbar.progress === undefined) {
-      const timer = setTimeout(() => {
+      timerRef.current = setTimeout(() => {
         onClose()
+        timerRef.current = null
       }, snackbar.duration)
-      return () => clearTimeout(timer)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    // Note: We don't auto-dismiss when progress reaches 100% to allow
+    // manual control (e.g., showing a success message after completion)
+    // The parent component should call hideSnackbar() when ready
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+    }
   }, [snackbar?.id, snackbar?.duration, snackbar?.progress, onClose])
-
-  useEffect(() => {
-    if (!snackbar || snackbar.progress === undefined) return
-
-    // Update progress bar
-    setProgress(snackbar.progress)
-  }, [snackbar?.progress, snackbar])
 
   if (!snackbar) return null
 
@@ -77,8 +102,8 @@ export function Snackbar({ snackbar, onClose }: SnackbarProps) {
     <div
       className={`fixed bottom-5 right-5 z-[9999] min-w-[320px] max-w-md rounded-lg shadow-lg border-2 ${typeStyles[snackbar.type]} transition-all duration-300 ease-out`}
       style={{
-        transform: snackbar ? 'translateY(0)' : 'translateY(100px)',
-        opacity: snackbar ? 1 : 0,
+        transform: 'translateY(0)',
+        opacity: 1,
       }}
     >
       <div className="p-4">

@@ -1,6 +1,7 @@
 type Row = {
   label: string
   games: number
+  minutes: number
   pts: number
   ast: number
   reb: number
@@ -24,6 +25,7 @@ export function SplitsTable({ rows }: { rows: Row[] }) {
           <tr>
             <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Split</th>
             <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Games</th>
+            <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">MIN</th>
             <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">PTS</th>
             <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">AST</th>
             <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">REB</th>
@@ -36,6 +38,7 @@ export function SplitsTable({ rows }: { rows: Row[] }) {
             <tr key={i} className={`${rowClass(r.highlight)} hover:bg-gray-50`}>
               <td className="px-4 py-2 text-sm font-semibold text-gray-800">{r.label}</td>
               <td className="px-4 py-2 text-sm text-gray-700">{r.games}</td>
+              <td className="px-4 py-2 text-sm text-gray-900">{r.minutes.toFixed(1)}</td>
               <td className="px-4 py-2 text-sm text-gray-900">{r.pts.toFixed(1)}</td>
               <td className="px-4 py-2 text-sm text-gray-900">{r.ast.toFixed(1)}</td>
               <td className="px-4 py-2 text-sm text-gray-900">{r.reb.toFixed(1)}</td>

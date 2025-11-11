@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { QuickPropLab } from './QuickPropLab'
 import { DailyPropsPanel } from './DailyPropsPanel'
 import { SuggestionCards } from './SuggestionCards'
+import { PlayerNewsSection } from './PlayerNewsSection'
 import { useSeason } from '../context/SeasonContext'
 import { useSnackbar } from '../context/SnackbarContext'
 import { getCache, setCache, clearCache, getTodayDate } from '../utils/cache'
@@ -212,7 +213,7 @@ export function GoodBetsDashboard() {
     }
     const items = (dailyData?.items ?? []) as any[]
     // Strict filter: only show props with gameDate matching today
-    const todayItems = items.filter((item: any) => {
+    const todayItems = items.filter((item) => {
       const itemDate = item.gameDate || item.game_date
       // Must have a date and it must match today
       return itemDate && (itemDate === today || itemDate.startsWith(today))
@@ -227,7 +228,7 @@ export function GoodBetsDashboard() {
     }
     const items = (dailyData?.items ?? []) as any[]
     // Strict filter: only show props with gameDate matching today
-    const todayItems = items.filter((item: any) => {
+    const todayItems = items.filter((item) => {
       const itemDate = item.gameDate || item.game_date
       // Must have a date and it must match today
       return itemDate && (itemDate === today || itemDate.startsWith(today))
@@ -412,6 +413,21 @@ export function GoodBetsDashboard() {
           ) : (
             <SuggestionCards suggestions={bestBets} horizontal={true} />
           )}
+        </div>
+      </div>
+
+      {/* Player News - Horizontal Scrolling */}
+      <div className="overflow-hidden rounded-lg bg-white border border-gray-200 shadow-sm mb-3">
+        <div className="px-2 sm:px-2.5 py-1 sm:py-1.5 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
+            <div>
+              <h3 className="text-xs sm:text-sm font-semibold text-gray-800">Player News</h3>
+              <p className="text-[9px] sm:text-[10px] text-gray-600">Latest NBA news and updates</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-1.5 sm:p-2">
+          <PlayerNewsSection />
         </div>
       </div>
 

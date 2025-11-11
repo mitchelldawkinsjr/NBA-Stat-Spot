@@ -1,8 +1,9 @@
 import { SuggestionCards } from './SuggestionCards'
+import type { Player, PropSuggestionsResponse } from '../types/api'
 
 export function EnhancedSuggest({ player, result }: { 
-  player: { id: number; name: string } | null
-  result?: any
+  player: Player | null
+  result?: PropSuggestionsResponse
 }) {
   return (
     <div>
@@ -12,6 +13,17 @@ export function EnhancedSuggest({ player, result }: {
         {!player || !player.id ? (
           <div className="text-center py-8 text-gray-500">
             <p className="text-sm">Select a player to view analysis results</p>
+          </div>
+        ) : result?.error ? (
+          <div className="text-center py-8">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800 font-medium mb-1">Error evaluating prop</p>
+              <p className="text-xs text-red-600">{result.error}</p>
+            </div>
+          </div>
+        ) : result?.loading ? (
+          <div className="text-center py-8 text-gray-500">
+            <p className="text-sm">Evaluating...</p>
           </div>
         ) : result && result.suggestions && result.suggestions.length > 0 ? (
           <SuggestionCards suggestions={result.suggestions || []} />

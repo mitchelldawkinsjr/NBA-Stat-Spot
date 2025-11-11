@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Request, Query, Path
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -10,6 +10,7 @@ from ..services.daily_props_service import DailyPropsService
 from ..services.high_hit_rate_service import HighHitRateService
 from ..services.stats_calculator import StatsCalculator
 from ..services.settings_service import SettingsService
+from ..core.rate_limiter import limiter
 
 router = APIRouter(prefix="/api/v1/props", tags=["props_v1"])
 
@@ -26,18 +27,88 @@ def build_suggestions_for_player(player_id: int, season: Optional[str]) -> List[
 
 
 class PlayerSuggestRequest(BaseModel):
-    playerId: int
-    season: Optional[str] = None
-    lastN: Optional[int] = None
-    home: Optional[str] = None  # 'home' | 'away' | None
-    marketLines: Optional[Dict[str, float]] = None  # e.g., {"PTS": 24.5}
-    direction: Optional[str] = None  # 'over' | 'under' - applies to all market lines
-    use_ai: Optional[bool] = True  # Enable AI features (ML + LLM)
-    game_date: Optional[str] = None  # Game date (YYYY-MM-DD) for context
-    opponent_team_id: Optional[int] = None  # Opponent team ID for context
+    """Request model for player prop suggestions"""
+    playerId: int = Field(..., description="NBA player ID", example=2544)
+    season: Optional[str] = Field(None, description="Season string (e.g., '2025-26'). Defaults to current season.", example="2025-26")
+    lastN: Optional[int] = Field(None, description="Number of recent games to consider for analysis", example=10, ge=1)
+    home: Optional[str] = Field(None, description="Filter by venue: 'home', 'away', or None for all", example="home")
+    marketLines: Optional[Dict[str, float]] = Field(None, description="Market lines to analyze. Keys: PTS, REB, AST, 3PM, PRA", example={"PTS": 24.5, "REB": 8.5})
+    direction: Optional[str] = Field(None, description="Direction for all props: 'over' or 'under'. Defaults to 'over'", example="over")
+    use_ai: Optional[bool] = Field(True, description="Enable AI features (ML predictions and LLM rationales)", example=True)
+    game_date: Optional[str] = Field(None, description="Game date in YYYY-MM-DD format for context", example="2025-01-15")
+    opponent_team_id: Optional[int] = Field(None, description="Opponent team ID for matchup analysis", example=1610612744)
 
-@router.post("/player")
-def suggest_player_props(req: PlayerSuggestRequest, db: Session = Depends(get_db)):
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "playerId": 2544,
+                "season": "2025-26",
+                "lastN": 10,
+                "marketLines": {"PTS": 24.5, "REB": 8.5},
+                "direction": "over",
+                "use_ai": True,
+                "game_date": "2025-01-15",
+                "opponent_team_id": 1610612744
+            }
+        }
+
+
+class PropSuggestionResponse(BaseModel):
+    """Response model for a single prop suggestion"""
+    type: str = Field(..., description="Prop type: PTS, REB, AST, 3PM, or PRA", example="PTS")
+    marketLine: float = Field(..., description="The market betting line", example=24.5)
+    fairLine: float = Field(..., description="Calculated fair line based on historical data", example=25.2)
+    direction: str = Field(..., description="Recommended direction: 'over' or 'under'", example="over")
+    confidence: float = Field(..., description="Confidence score (0-100)", example=75.5)
+    suggestion: str = Field(..., description="Suggestion: 'strong_over', 'over', 'under', 'strong_under'", example="over")
+    hitRate: Optional[float] = Field(None, description="Historical hit rate for this prop", example=0.72)
+    hitRateOver: Optional[float] = Field(None, description="Hit rate for over bets", example=0.72)
+    hitRateUnder: Optional[float] = Field(None, description="Hit rate for under bets", example=0.28)
+    mlConfidence: Optional[float] = Field(None, description="ML model confidence (if AI enabled)", example=78.3)
+    mlPredictedLine: Optional[float] = Field(None, description="ML model predicted line (if AI enabled)", example=25.8)
+    confidenceSource: Optional[str] = Field(None, description="Source of confidence: 'ml' or 'rule_based'", example="ml")
+    rationale: Optional[List[str]] = Field(None, description="Explanation for the suggestion", example=["Based on recent form and hit rate", "Player has exceeded this line in 8 of last 10 games"])
+    rationaleSource: Optional[str] = Field(None, description="Source of rationale: 'llm' or 'rule_based'", example="llm")
+
+
+class PlayerSuggestResponse(BaseModel):
+    """Response model for player prop suggestions"""
+    suggestions: List[PropSuggestionResponse] = Field(..., description="List of prop suggestions")
+
+
+@router.post(
+    "/player",
+    response_model=PlayerSuggestResponse,
+    summary="Get AI-powered prop suggestions for a player",
+    description="""
+    Analyze player prop bets with AI-enhanced predictions.
+    
+    This endpoint provides comprehensive prop analysis including:
+    - Fair line calculations based on historical performance
+    - Hit rate analysis for over/under bets
+    - AI/ML predictions (if enabled)
+    - Detailed rationales explaining the suggestions
+    
+    **Supported Prop Types:**
+    - PTS: Points
+    - REB: Rebounds
+    - AST: Assists
+    - 3PM: Three-pointers made
+    - PRA: Points + Rebounds + Assists
+    
+    **AI Features:**
+    When `use_ai` is enabled, the endpoint uses machine learning models to:
+    - Predict player performance based on matchup, venue, and recent form
+    - Generate natural language rationales using LLM
+    - Provide ML-based confidence scores
+    
+    **Rate Limit:** 30 requests per minute per IP
+    """,
+    response_description="List of prop suggestions with confidence scores and rationales",
+    tags=["props_v1"]
+)
+@limiter.limit("30/minute")  # Rate limit: 30 requests per minute per IP
+def suggest_player_props(request: Request, req: PlayerSuggestRequest, db: Session = Depends(get_db)):
     # Default season fallback
     season = req.season or "2025-26"
     try:
@@ -61,6 +132,17 @@ def suggest_player_props(req: PlayerSuggestRequest, db: Session = Depends(get_db
     # Optional lastN slice
     if req.lastN and req.lastN > 0:
         logs = logs[-req.lastN:]
+    
+    # Filter by minimum average minutes (default 22 minutes)
+    # Calculate average minutes from recent games
+    if logs:
+        minutes_list = [float(g.get("minutes", 0) or 0) for g in logs if g.get("minutes")]
+        if minutes_list:
+            avg_minutes = sum(minutes_list) / len(minutes_list)
+            if avg_minutes < 22.0:
+                # Player doesn't meet minimum minutes threshold
+                return {"suggestions": []}
+    
     # Enrich PRA
     for g in logs:
         g["pra"] = float(g.get("pts", 0) or 0) + float(g.get("reb", 0) or 0) + float(g.get("ast", 0) or 0)
@@ -165,15 +247,46 @@ def suggest_player_props(req: PlayerSuggestRequest, db: Session = Depends(get_db
             logger = structlog.get_logger()
             logger.warning("Error evaluating prop", prop_type=disp_key, error=str(e))
             continue
-    return {"suggestions": suggestions}
+    
+    # Convert dict suggestions to PropSuggestionResponse objects
+    response_suggestions = [
+        PropSuggestionResponse(**s) for s in suggestions
+    ]
+    return PlayerSuggestResponse(suggestions=response_suggestions)
 
-@router.get("/daily")
+@router.get(
+    "/daily",
+    summary="Get top daily prop suggestions",
+    description="""
+    Get the best prop suggestions for all players playing on a specific date.
+    
+    This endpoint scans all players with games scheduled for the target date and returns
+    the top prop suggestions ranked by confidence. Results are cached for performance.
+    
+    **Features:**
+    - Automatically filters to players with games on the target date
+    - Returns props for multiple stat types (PTS, REB, AST, 3PM, PRA)
+    - Includes player information, game context, and confidence scores
+    - Results are cached for 24 hours to improve response times
+    
+    **Filtering:**
+    - Use `min_confidence` to filter by minimum confidence score (0-100)
+    - Use `limit` to restrict the number of results
+    - Use `last_n` to control how many recent games to consider
+    
+    **Caching:**
+    Results are cached per date. The first request for a date may take longer,
+    but subsequent requests will be served from cache.
+    """,
+    response_description="List of daily prop suggestions with player and game information",
+    tags=["props_v1"]
+)
 def daily_props(
-    date: Optional[str] = None, 
-    min_confidence: Optional[float] = None, 
-    limit: Optional[int] = None,  # No default limit - return all
-    season: Optional[str] = None,
-    last_n: Optional[int] = None
+    date: Optional[str] = Query(None, description="Target date in YYYY-MM-DD format. Defaults to today.", example="2025-01-15"),
+    min_confidence: Optional[float] = Query(None, description="Minimum confidence score (0-100) to filter results", example=70.0, ge=0, le=100),
+    limit: Optional[int] = Query(None, description="Maximum number of results to return. No limit by default.", example=50, ge=1),
+    season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26"),
+    last_n: Optional[int] = Query(None, description="Number of recent games to consider for analysis", example=10, ge=1)
 ):
     """
     Get top daily props for all players playing today.
@@ -272,8 +385,25 @@ def daily_props(
             "cached": False
         }
 
-@router.get("/player/{player_id}")
-def player_props(player_id: int, date: Optional[str] = None, season: Optional[str] = None):
+@router.get(
+    "/player/{player_id}",
+    summary="Get basic prop suggestions for a player",
+    description="""
+    Get basic prop suggestions for a specific player without market lines.
+    
+    This is a simplified endpoint that returns suggestions for standard prop types
+    (PTS, REB, AST, 3PM) based on the player's historical performance.
+    
+    For more detailed analysis with specific market lines, use POST `/api/v1/props/player`.
+    """,
+    response_description="List of basic prop suggestions",
+    tags=["props_v1"]
+)
+def player_props(
+    player_id: int = Path(..., description="NBA player ID", example=2544),
+    date: Optional[str] = Query(None, description="Game date in YYYY-MM-DD format", example="2025-01-15"),
+    season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26")
+):
     sugs = build_suggestions_for_player(player_id, season)
     return {"items": sugs}
 
@@ -286,13 +416,38 @@ def trending_props(limit: int = 10):
     items = daily_props().get("items", [])[:limit]
     return {"items": items}
 
-@router.get("/high-hit-rate")
+@router.get(
+    "/high-hit-rate",
+    summary="Get props with high historical hit rates",
+    description="""
+    Get prop suggestions that have high historical hit rates (75%+ by default).
+    
+    This endpoint focuses on props where the player has consistently hit the over
+    or under in recent games. These are typically safer bets with higher probability
+    of success.
+    
+    **Hit Rate Calculation:**
+    The hit rate is calculated based on the player's performance in recent games
+    (controlled by `last_n` parameter). A hit rate of 0.75 means the player has
+    exceeded (for over) or stayed under (for under) the line in 75% of recent games.
+    
+    **Use Cases:**
+    - Find "safe" bets with high probability
+    - Identify players with consistent performance patterns
+    - Build conservative parlay bets
+    
+    **Caching:**
+    Results are cached per date for 24 hours to improve performance.
+    """,
+    response_description="List of high hit rate prop suggestions",
+    tags=["props_v1"]
+)
 def high_hit_rate_props(
-    date: Optional[str] = None,
-    season: Optional[str] = None,
-    min_hit_rate: float = 0.75,
-    limit: int = 10,
-    last_n: Optional[int] = None
+    date: Optional[str] = Query(None, description="Target date in YYYY-MM-DD format. Defaults to today.", example="2025-01-15"),
+    season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26"),
+    min_hit_rate: float = Query(0.75, description="Minimum hit rate threshold (0.0-1.0). Default 0.75 (75%)", example=0.75, ge=0.0, le=1.0),
+    limit: int = Query(10, description="Maximum number of results to return", example=10, ge=1),
+    last_n: Optional[int] = Query(None, description="Number of recent games to consider for hit rate calculation", example=10, ge=1)
 ):
     """
     Get props with high historical hit rates for players playing today.
@@ -355,6 +510,13 @@ def high_hit_rate_props(
     result["cached"] = False
     return result
 
-@router.get("/types")
+@router.get(
+    "/types",
+    summary="Get available prop types",
+    description="Returns a list of all supported prop bet types in the system.",
+    response_description="List of available prop types",
+    tags=["props_v1"]
+)
 def prop_types():
+    """Get list of available prop bet types"""
     return {"items": ["points", "rebounds", "assists", "3pm", "steals", "blocks"]}

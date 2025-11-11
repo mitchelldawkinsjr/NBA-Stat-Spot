@@ -13,10 +13,15 @@ class PlayerContext(Base):
     player_id = Column(Integer, index=True, nullable=False)
     game_date = Column(Date, index=True, nullable=False)
     
+    # ESPN identifiers
+    espn_team_slug = Column(String, nullable=True)
+    espn_player_id = Column(String, nullable=True)
+    
     # Injury and availability
     is_injured = Column(Boolean, default=False)
     injury_status = Column(String, nullable=True)  # "probable", "questionable", "doubtful", "out"
     injury_description = Column(Text, nullable=True)
+    injury_date = Column(Date, nullable=True)  # Date of injury
     rest_days = Column(Integer, nullable=True)  # Days since last game
     
     # Matchup context
@@ -27,6 +32,10 @@ class PlayerContext(Base):
     # Team performance context
     team_win_rate = Column(Float, nullable=True)  # Team's recent win rate
     opponent_win_rate = Column(Float, nullable=True)  # Opponent's recent win rate
+    team_conference_rank = Column(Integer, nullable=True)  # Conference rank
+    opponent_conference_rank = Column(Integer, nullable=True)  # Opponent conference rank
+    team_recent_form = Column(Float, nullable=True)  # Last 10 games win %
+    playoff_race_pressure = Column(Float, nullable=True)  # 0-1 score for playoff race pressure
     
     # Defensive/Offensive rankings
     opponent_def_rank_pts = Column(Integer, nullable=True)  # Opponent's defensive rank for points
@@ -42,6 +51,10 @@ class PlayerContext(Base):
     # Minutes and usage
     projected_minutes = Column(Float, nullable=True)
     usage_rate = Column(Float, nullable=True)
+    
+    # News and transaction context
+    news_sentiment = Column(Float, nullable=True)  # -1 to 1 sentiment score
+    has_recent_transaction = Column(Boolean, default=False)  # Recent trade/signing
     
     # Additional context (JSON for flexibility)
     additional_context = Column(JSON, nullable=True)

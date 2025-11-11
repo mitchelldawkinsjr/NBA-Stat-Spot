@@ -6,6 +6,7 @@ from typing import Dict, Optional, Any
 from datetime import datetime
 from .confidence_predictor import ConfidencePredictor
 from .line_predictor import LinePredictor
+from .total_predictor import TotalPredictor
 
 
 class ModelServer:
@@ -15,8 +16,10 @@ class ModelServer:
         """Initialize the model server"""
         self.confidence_predictor = ConfidencePredictor()
         self.line_predictor = LinePredictor()
+        self.total_predictor = TotalPredictor()
         self.confidence_loaded = False
         self.line_loaded = False
+        self.total_loaded = False
         self.last_health_check = None
         self.health_status = {}
     
@@ -47,6 +50,17 @@ class ModelServer:
             results["line"] = False
             self.line_loaded = False
         
+        # Load total predictor
+        try:
+            self.total_loaded = self.total_predictor.load_model()
+            results["total"] = self.total_loaded
+        except Exception as e:
+            import structlog
+            logger = structlog.get_logger()
+            logger.warning("Error loading total predictor", error=str(e))
+            results["total"] = False
+            self.total_loaded = False
+        
         return results
     
     def health_check(self) -> Dict[str, Any]:
@@ -68,6 +82,11 @@ class ModelServer:
                 "loaded": self.line_loaded,
                 "available": self.line_loaded and self.line_predictor.model is not None,
                 "path": self.line_predictor.model_path
+            },
+            "total_model": {
+                "loaded": self.total_loaded,
+                "available": self.total_loaded and self.total_predictor.model is not None,
+                "path": self.total_predictor.model_path
             },
             "last_check": self.last_health_check.isoformat()
         }
@@ -111,6 +130,24 @@ class ModelServer:
         
         return self.line_predictor.predict(features)
     
+    def predict_total(self, features: Dict[str, float]) -> Optional[float]:
+        """
+        Predict final game total using the ML model.
+        
+        Args:
+            features: Normalized feature dictionary
+            
+        Returns:
+            Predicted final total, or None if unavailable
+        """
+        if not self.total_loaded:
+            self.load_models()
+        
+        if not self.total_loaded:
+            return None
+        
+        return self.total_predictor.predict(features)
+    
     def is_available(self) -> bool:
         """
         Check if any models are available.
@@ -118,7 +155,7 @@ class ModelServer:
         Returns:
             True if at least one model is loaded
         """
-        return self.confidence_loaded or self.line_loaded
+        return self.confidence_loaded or self.line_loaded or self.total_loaded
 
 
 # Global model server instance
