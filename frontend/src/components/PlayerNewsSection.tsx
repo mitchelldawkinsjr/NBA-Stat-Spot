@@ -36,7 +36,7 @@ async function fetchPlayerNews() {
 
 export function PlayerNewsSection() {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isPausedRef = useRef(false)
 
   const { data: news, isLoading, error } = useQuery<NewsArticle[]>({

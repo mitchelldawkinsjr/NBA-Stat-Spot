@@ -17,7 +17,7 @@ interface SnackbarProps {
 
 export function Snackbar({ snackbar, onClose }: SnackbarProps) {
   const [progress, setProgress] = useState(0)
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Reset progress when snackbar changes
   useEffect(() => {

@@ -249,7 +249,7 @@ export interface Filters {
   season?: string
   lastN?: number
   home?: 'any' | 'home' | 'away'
-  marketLines?: Record<PropType, string>
+  marketLines?: Partial<Record<PropType, string>>
   direction?: Direction
 }
 

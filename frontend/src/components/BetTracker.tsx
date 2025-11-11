@@ -289,7 +289,17 @@ export function BetTracker() {
           }}
           onSubmit={(data) => {
             if (betType === 'parlay') {
-              createParlay.mutate(data as ParlayFormData)
+              // Convert ParlayFormData to match API expectations
+              const parlayData = data as ParlayFormData
+              const convertedData = {
+                ...parlayData,
+                legs: parlayData.legs.map(leg => ({
+                  ...leg,
+                  player_id: typeof leg.player_id === 'string' ? Number(leg.player_id) : leg.player_id,
+                  line_value: typeof leg.line_value === 'string' ? Number(leg.line_value) : leg.line_value,
+                }))
+              }
+              createParlay.mutate(convertedData)
             } else {
               createBet.mutate(data as BetFormData)
             }

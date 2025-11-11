@@ -127,14 +127,23 @@ export function FiltersPanel({
       <div style={{ gridColumn: '1 / -1' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span title="Optional. Add your book's lines to compute edge/confidence." style={{ fontSize: 12, color: '#111827' }}>Market Lines:</span>
-          {['PTS','REB','AST','3PM','PRA'].map((k) => (
+          {(['PTS','REB','AST','3PM','PRA'] as const).map((k) => (
             <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <label style={{ width: 36 }}>{k}</label>
               <input
                 inputMode="decimal"
                 aria-label={`${k} market line`}
                 value={local.marketLines?.[k] ?? ''}
-                onChange={(e) => setLocal((p) => ({ ...p, marketLines: { ...(p.marketLines ?? {}), [k]: e.target.value } }))}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setLocal((p) => ({
+                    ...p,
+                    marketLines: {
+                      ...(p.marketLines ?? {}),
+                      [k]: value
+                    }
+                  }))
+                }}
                 placeholder="e.g. 24.5"
                 style={{ width: 90, padding: '6px 8px', border: '1px solid #ddd', borderRadius: 6, color: '#111827', background: '#ffffff' }}
                 className="text-gray-900 bg-white"

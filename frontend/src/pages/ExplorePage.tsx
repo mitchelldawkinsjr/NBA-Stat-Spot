@@ -4,6 +4,7 @@ import { PlayerSearch } from '../components/PlayerSearch'
 import { FiltersPanel } from '../components/FiltersPanel'
 import { EnhancedSuggest } from '../components/EnhancedSuggest'
 import { Link } from 'react-router-dom'
+import type { PropSuggestionsResponse } from '../types/api'
 
 type Team = {
   id: number
