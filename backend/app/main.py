@@ -20,12 +20,6 @@ from .routers import over_under_v1
 from .routers import espn_v1
 from .routers import games_enhanced_v1
 
-# Legacy API routers - deprecated, use /api/v1/* routes instead
-# Keeping for backward compatibility but should be removed in future version
-from .api.players import router as players_router
-from .api.teams import router as teams_router
-from .api.schedule import router as schedule_router
-from .api.props import router as props_router
 
 app = FastAPI(
     title="NBA Stat Spot API",
@@ -195,11 +189,6 @@ def healthz():
     """
     return {"status": "ok"}
 
-# Legacy routes - deprecated, use /api/v1/* instead
-app.include_router(players_router)
-app.include_router(teams_router)
-app.include_router(schedule_router)
-app.include_router(props_router)
 # Modern v1 routes
 app.include_router(props_v1_router)
 app.include_router(players_v1_router)
