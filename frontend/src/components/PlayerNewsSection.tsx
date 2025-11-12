@@ -230,11 +230,14 @@ export function PlayerNewsSection() {
                             {article.description}
                           </p>
                         )}
-                        {published && (
-                          <div className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 transition-colors duration-200 mt-0.5 sm:mt-1">
-                            {formatDate(published)}
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1 text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 transition-colors duration-200 mt-0.5 sm:mt-1">
+                          {published && <span>{formatDate(published)}</span>}
+                          {source && source !== 'ESPN' && (
+                            <span className="text-[7px] sm:text-[8px] px-1 py-0.5 bg-gray-100 dark:bg-slate-700 rounded text-gray-600 dark:text-gray-400">
+                              {source}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
