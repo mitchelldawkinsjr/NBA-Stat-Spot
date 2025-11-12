@@ -89,9 +89,26 @@ def analyze_game(
         team_stats_lookup = {}
         
         # Build team stats lookup
+        # Normalize team names to ensure consistent lookup keys
         home_stats = team_stats_service.get_team_stats(live_game.home_team)
         away_stats = team_stats_service.get_team_stats(live_game.away_team)
         
+        # Log team stats retrieval for debugging
+        logger.debug(
+            "Team stats retrieved",
+            home_team=live_game.home_team,
+            home_stats_team=home_stats.team_name,
+            home_ppg=home_stats.ppg,
+            away_team=live_game.away_team,
+            away_stats_team=away_stats.team_name,
+            away_ppg=away_stats.ppg,
+            expected_pace=home_stats.ppg + away_stats.ppg
+        )
+        
+        # Use normalized team names from stats objects as keys
+        # Also store with original names for fallback
+        team_stats_lookup[home_stats.team_name] = home_stats
+        team_stats_lookup[away_stats.team_name] = away_stats
         team_stats_lookup[live_game.home_team] = home_stats
         team_stats_lookup[live_game.away_team] = away_stats
         
@@ -146,10 +163,28 @@ def _analyze_single_game(
     """
     try:
         # Build team stats lookup for this game
+        # Normalize team names to ensure consistent lookup keys
         team_stats_lookup = {}
         home_stats = team_stats_service.get_team_stats(game.home_team)
         away_stats = team_stats_service.get_team_stats(game.away_team)
         
+        # Log team stats retrieval for debugging
+        logger.debug(
+            "Team stats retrieved for game analysis",
+            game_id=game.game_id,
+            home_team=game.home_team,
+            home_stats_team=home_stats.team_name,
+            home_ppg=home_stats.ppg,
+            away_team=game.away_team,
+            away_stats_team=away_stats.team_name,
+            away_ppg=away_stats.ppg,
+            expected_pace=home_stats.ppg + away_stats.ppg
+        )
+        
+        # Use normalized team names from stats objects as keys
+        # Also store with original names for fallback
+        team_stats_lookup[home_stats.team_name] = home_stats
+        team_stats_lookup[away_stats.team_name] = away_stats
         team_stats_lookup[game.home_team] = home_stats
         team_stats_lookup[game.away_team] = away_stats
         
@@ -225,13 +260,15 @@ def analyze_all_games(
                     away_score=g.away_score
                 )
         
-        # Filter to only in-progress games
-        # Include games that have quarter > 0 (game has started)
-        # Exclude games that are explicitly marked as final AND have no recent activity
-        # This catches live games even if status hasn't updated yet
+        # Very permissive filter - include almost all games
+        # Only exclude games that are explicitly final AND have zero scores (likely data errors)
+        # This ensures we capture all live games, scheduled games, and recently finished games
         active_games = [
             g for g in games 
-            if g.quarter > 0 and not (g.is_final and g.home_score == 0 and g.away_score == 0)
+            # Include all games except those that are final with zero scores (data errors)
+            if not (g.is_final and g.home_score == 0 and g.away_score == 0)
+            # Also ensure we have valid team names
+            and g.home_team and g.away_team and g.home_team != "UNK" and g.away_team != "UNK"
         ]
         
         # Log why games were filtered out
@@ -245,8 +282,19 @@ def analyze_all_games(
                     away=g.away_team,
                     quarter=g.quarter,
                     is_final=g.is_final,
-                    reason="is_final=True" if g.is_final else "quarter=0" if g.quarter == 0 else "unknown"
+                    home_score=g.home_score,
+                    away_score=g.away_score,
+                    reason="is_final=True with zero scores" if (g.is_final and g.home_score == 0 and g.away_score == 0) else "is_final=True" if g.is_final else "unknown"
                 )
+        
+        # Log active games summary
+        logger.info(
+            "Active games summary",
+            total_fetched=len(games),
+            active_count=len(active_games),
+            filtered_out_count=len(filtered_out),
+            active_game_ids=[g.game_id for g in active_games[:5]]  # First 5 for debugging
+        )
         
         if not active_games:
             logger.info("No active games to analyze", total_games=len(games), filtered_out=len(filtered_out))

@@ -144,10 +144,10 @@ export function PlayerNewsSection() {
       ) : (
         <div 
           ref={scrollContainerRef}
-          className="overflow-x-auto -mx-4 px-4 pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" 
+          className="overflow-x-auto -mx-4 px-4 pb-1 sm:pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" 
           style={{ scrollbarWidth: 'thin' }}
         >
-          <div className="flex gap-3 min-w-max">
+          <div className="flex gap-2 sm:gap-3 min-w-max">
             {displayedNews.map((article, idx) => {
               const articleUrl = article.links?.web?.href || article.links?.mobile?.href || '#'
               const imageUrl = article.images?.[0]?.url
@@ -158,7 +158,7 @@ export function PlayerNewsSection() {
               return (
                 <div
                   key={idx}
-                  className="flex-none w-48 sm:w-56 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 overflow-hidden"
+                  className="flex-none w-40 sm:w-48 md:w-56 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 overflow-hidden"
                 >
                   {isExternal ? (
                     <a
@@ -168,7 +168,7 @@ export function PlayerNewsSection() {
                       className="block group h-full"
                     >
                       {imageUrl && (
-                        <div className="w-full aspect-[16/9] bg-gray-200 dark:bg-slate-700 overflow-hidden rounded-t-lg">
+                        <div className="w-full aspect-[16/9] sm:aspect-[16/9] bg-gray-200 dark:bg-slate-700 overflow-hidden rounded-t-lg">
                           <img
                             src={imageUrl}
                             alt={article.images?.[0]?.alt || article.images?.[0]?.caption || headline}
@@ -180,16 +180,16 @@ export function PlayerNewsSection() {
                           />
                         </div>
                       )}
-                      <div className="p-1.5 sm:p-2">
-                        <h4 className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-blue-400 line-clamp-2 mb-1 transition-colors duration-200">
+                      <div className="p-1 sm:p-1.5 md:p-2">
+                        <h4 className="text-[9px] sm:text-[10px] md:text-xs font-semibold text-gray-900 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-blue-400 line-clamp-2 mb-0.5 sm:mb-1 transition-colors duration-200 leading-tight">
                           {headline}
                         </h4>
                         {article.description && (
-                          <p className="text-[9px] sm:text-[10px] text-gray-600 dark:text-gray-400 line-clamp-2 mb-1 transition-colors duration-200">
+                          <p className="hidden sm:block text-[9px] md:text-[10px] text-gray-600 dark:text-gray-400 line-clamp-2 mb-0.5 sm:mb-1 transition-colors duration-200 leading-tight">
                             {article.description}
                           </p>
                         )}
-                        <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 transition-colors duration-200">
+                        <div className="flex items-center justify-between text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 transition-colors duration-200 mt-0.5 sm:mt-1">
                           {published && <span>{formatDate(published)}</span>}
                           <span className="text-blue-600 dark:text-blue-400 group-hover:text-blue-800 dark:group-hover:text-blue-300 font-medium transition-colors duration-200">
                             →
@@ -200,7 +200,7 @@ export function PlayerNewsSection() {
                   ) : (
                     <div className="h-full">
                       {imageUrl && (
-                        <div className="w-full aspect-[16/9] bg-gray-200 dark:bg-slate-700 overflow-hidden rounded-t-lg">
+                        <div className="w-full aspect-[16/9] sm:aspect-[16/9] bg-gray-200 dark:bg-slate-700 overflow-hidden rounded-t-lg">
                           <img
                             src={imageUrl}
                             alt={article.images?.[0]?.alt || article.images?.[0]?.caption || headline}
@@ -212,17 +212,17 @@ export function PlayerNewsSection() {
                           />
                         </div>
                       )}
-                      <div className="p-1.5 sm:p-2">
-                        <h4 className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-slate-100 line-clamp-2 mb-1 transition-colors duration-200">
+                      <div className="p-1 sm:p-1.5 md:p-2">
+                        <h4 className="text-[9px] sm:text-[10px] md:text-xs font-semibold text-gray-900 dark:text-slate-100 line-clamp-2 mb-0.5 sm:mb-1 transition-colors duration-200 leading-tight">
                           {headline}
                         </h4>
                         {article.description && (
-                          <p className="text-[9px] sm:text-[10px] text-gray-600 dark:text-gray-400 line-clamp-2 mb-1 transition-colors duration-200">
+                          <p className="hidden sm:block text-[9px] md:text-[10px] text-gray-600 dark:text-gray-400 line-clamp-2 mb-0.5 sm:mb-1 transition-colors duration-200 leading-tight">
                             {article.description}
                           </p>
                         )}
                         {published && (
-                          <div className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 transition-colors duration-200">
+                          <div className="text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 transition-colors duration-200 mt-0.5 sm:mt-1">
                             {formatDate(published)}
                           </div>
                         )}

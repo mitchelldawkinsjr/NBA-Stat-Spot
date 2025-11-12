@@ -154,15 +154,34 @@ class OverUnderAnalyzer:
         )
         
         # Step 2: Get team season averages
+        # Try multiple lookup keys to handle team name variations
         default_stats = self.team_stats_lookup.get('DEFAULT', TeamStats(team_name='DEFAULT', ppg=112.5, pace=100.0))
-        home_stats = self.team_stats_lookup.get(
-            live_game.home_team, 
+        
+        # Try original name first, then normalized variations
+        home_stats = (
+            self.team_stats_lookup.get(live_game.home_team) or
+            self.team_stats_lookup.get(live_game.home_team.upper().strip()) or
+            self.team_stats_lookup.get(live_game.home_team.upper().strip().replace(' ', '')) or
             default_stats
         )
-        away_stats = self.team_stats_lookup.get(
-            live_game.away_team,
+        
+        away_stats = (
+            self.team_stats_lookup.get(live_game.away_team) or
+            self.team_stats_lookup.get(live_game.away_team.upper().strip()) or
+            self.team_stats_lookup.get(live_game.away_team.upper().strip().replace(' ', '')) or
             default_stats
         )
+        
+        # Log if we're using defaults (for debugging)
+        if home_stats == default_stats or away_stats == default_stats:
+            import structlog
+            logger = structlog.get_logger()
+            logger.warning(
+                "Using default team stats for over/under analysis",
+                home_team=live_game.home_team,
+                away_team=live_game.away_team,
+                lookup_keys=list(self.team_stats_lookup.keys())[:10]  # Show first 10 keys for debugging
+            )
         
         # Step 3: Calculate current pace (points per 48 minutes)
         time_elapsed = 48 - time_remaining

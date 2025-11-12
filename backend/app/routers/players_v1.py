@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Query, Request, Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import date
 from ..services.nba_api_service import NBADataService
 from ..services.stats_calculator import StatsCalculator
 from ..services.context_collector import ContextCollector
+from ..services.live_game_service import LiveGameService
+from ..services.live_game_context_service import get_live_game_context_service
 from ..core.rate_limiter import limiter
+import structlog
+
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/api/v1/players", tags=["players_v1"])
 
@@ -235,6 +240,113 @@ def stats(
         logger = structlog.get_logger()
         logger.error("Failed to fetch player stats", player_id=player_id, season=season, error=str(e))
         return {"items": []}
+
+@router.get(
+    "/{player_id}/live-stats",
+    summary="Get live stats for player's current game",
+    description="""
+    Get live statistics for a player if they are currently playing in a game.
+    
+    Returns:
+    - Live game information (teams, score, quarter, time remaining)
+    - Player's current stats (points, rebounds, assists, minutes, etc.)
+    - Game context (pace, situation, fouls)
+    
+    Returns null if player is not currently playing.
+    """,
+    response_description="Live game stats or null if not playing",
+    tags=["players_v1"]
+)
+@limiter.limit("30/minute")
+def live_stats(
+    request: Request,
+    player_id: int = Path(..., description="NBA player ID", example=2544)
+):
+    """Get live stats for a player's current game"""
+    try:
+        # Get player info to find their team
+        players = NBADataService.fetch_all_players_including_rookies()
+        player = next((p for p in players if p.get("id") == player_id), None)
+        
+        if not player:
+            return {"playing": False, "message": "Player not found"}
+        
+        team_abbr = player.get("team_abbreviation") or player.get("team")
+        if not team_abbr:
+            return {"playing": False, "message": "Player team not found"}
+        
+        # Get today's games
+        live_game_service = LiveGameService()
+        games = live_game_service.get_todays_games()
+        
+        # Find game where player's team is playing
+        current_game = None
+        for game in games:
+            if (game.home_team == team_abbr or game.away_team == team_abbr) and not game.is_final:
+                current_game = game
+                break
+        
+        if not current_game:
+            return {"playing": False, "message": "No active game found"}
+        
+        # Get live stats from ESPN
+        live_context_service = get_live_game_context_service()
+        try:
+            # Try to get ESPN game ID - might need to convert from API-NBA game ID
+            espn_game_id = current_game.game_id
+            live_context = live_context_service.extract_live_context(espn_game_id, player_id)
+            
+            player_stats = live_context.get("player_current_stats", {})
+            
+            return {
+                "playing": True,
+                "game": {
+                    "game_id": current_game.game_id,
+                    "home_team": current_game.home_team,
+                    "away_team": current_game.away_team,
+                    "home_score": current_game.home_score,
+                    "away_score": current_game.away_score,
+                    "quarter": current_game.quarter,
+                    "time_remaining": current_game.time_remaining,
+                    "is_home": current_game.home_team == team_abbr
+                },
+                "stats": {
+                    "pts": player_stats.get("pts", 0),
+                    "reb": player_stats.get("reb", 0),
+                    "ast": player_stats.get("ast", 0),
+                    "minutes": player_stats.get("minutes", 0.0),
+                    "fouls": live_context.get("player_fouls", 0)
+                },
+                "context": {
+                    "live_pace": live_context.get("live_pace", 0.0),
+                    "game_situation": live_context.get("game_situation", "unknown"),
+                    "projected_minutes_remaining": live_context.get("projected_minutes_remaining", 0.0),
+                    "foul_trouble_score": live_context.get("foul_trouble_score", 0.0)
+                }
+            }
+        except Exception as e:
+            logger.warning("Error fetching live context", player_id=player_id, game_id=current_game.game_id, error=str(e))
+            # Return basic game info even if we can't get detailed stats
+            return {
+                "playing": True,
+                "game": {
+                    "game_id": current_game.game_id,
+                    "home_team": current_game.home_team,
+                    "away_team": current_game.away_team,
+                    "home_score": current_game.home_score,
+                    "away_score": current_game.away_score,
+                    "quarter": current_game.quarter,
+                    "time_remaining": current_game.time_remaining,
+                    "is_home": current_game.home_team == team_abbr
+                },
+                "stats": None,
+                "context": None,
+                "message": "Game found but detailed stats unavailable"
+            }
+            
+    except Exception as e:
+        logger.error("Error fetching live stats", player_id=player_id, error=str(e))
+        return {"playing": False, "message": f"Error: {str(e)}"}
 
 @router.get(
     "/{player_id}/trends",

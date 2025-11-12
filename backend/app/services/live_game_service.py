@@ -140,9 +140,16 @@ class LiveGameService:
                 period = game.get("period", 0)
                 status = game.get("status", "")
                 
-                # Mark as final if status explicitly says "Final" or if period is 0 (scheduled/not started)
-                # For live games, period should be > 0, so they won't be marked as final
-                is_final = "Final" in status or period == 0
+                # Mark as final only if status explicitly says "Final" or "Finished" or "Ended"
+                # Be very conservative - only mark as final if we're absolutely sure
+                # period == 0 means game hasn't started yet, not that it's final
+                status_upper = status.upper() if status else ""
+                # Only mark as final if status contains "FINAL" AND game has progressed (period > 4) OR explicitly says finished/ended
+                is_final = (
+                    ("FINAL" in status_upper and period > 4) or
+                    "FINISHED" in status_upper or 
+                    "ENDED" in status_upper
+                )
                 
                 live_game = LiveGame(
                     game_id=game.get("game_id", ""),
@@ -153,6 +160,18 @@ class LiveGameService:
                     quarter=period if period > 0 else 1,
                     time_remaining=game.get("time_remaining", "12:00"),
                     is_final=is_final
+                )
+                logger.debug(
+                    "API-NBA game parsed",
+                    game_id=live_game.game_id,
+                    home=live_game.home_team,
+                    away=live_game.away_team,
+                    period=period,
+                    quarter=live_game.quarter,
+                    is_final=live_game.is_final,
+                    status=status,
+                    home_score=live_game.home_score,
+                    away_score=live_game.away_score
                 )
                 live_games.append(live_game)
                 logger.debug(
@@ -230,11 +249,16 @@ class LiveGameService:
                 period = status.get("period", 0)
                 clock = status.get("displayClock", "")
                 
-                is_final = status_id == 3 or status_type.get("name") == "STATUS_FINAL"
+                # Be conservative with final status - only mark as final if explicitly final
+                # status_id == 3 typically means final, but double-check
+                is_final = (
+                    status_id == 3 and 
+                    (status_type.get("name") == "STATUS_FINAL" or period >= 4)
+                )
                 
-                # Include all games that are not final, or games that have started (period > 0)
-                # This includes scheduled games (period=0, not final) and in-progress games
-                if not is_final or period > 0:
+                # Include all games that are not final (includes scheduled and in-progress)
+                # This ensures we capture all games for today, not just live ones
+                if not is_final:
                     live_game = LiveGame(
                         game_id=game_id,
                         home_team=home_team or "UNK",
@@ -287,14 +311,18 @@ class LiveGameService:
                 time_remaining = game.get('gameClock') or game.get('time_remaining') or game.get('clock', '12:00')
                 game_status = game.get('gameStatusText') or game.get('status') or game.get('gameStatus', '')
                 
+                # Mark as final only if status explicitly indicates final AND game has progressed
+                # quarter == 0 means game hasn't started, not that it's final
+                # Be very conservative - only mark as final if we're absolutely sure
+                game_status_upper = game_status.upper() if game_status else ""
                 is_final = (
-                    game_status == 'Final' or 
-                    game_status == 'Final/OT' or
-                    game.get('gameStatus') == 3 or
-                    quarter == 0
+                    ('FINAL' in game_status_upper and quarter >= 4) or
+                    (game.get('gameStatus') == 3 and quarter >= 4)
                 )
                 
-                if not is_final or quarter > 0:
+                # Include all games that are not final (includes scheduled and in-progress)
+                # This ensures we capture all games for today
+                if not is_final:
                     live_game = LiveGame(
                         game_id=game_id,
                         home_team=home_team,

@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { analyzeAllGames } from '../services/overUnderService'
+import { useState, useEffect, useRef } from 'react'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { analyzeAllGames, analyzeGame } from '../services/overUnderService'
 import type { GameAnalysisResult } from '../types/overUnder'
+import { apiFetch } from '../utils/api'
 
 const REFRESH_INTERVAL = 30000 // 30 seconds
 
@@ -9,7 +10,12 @@ function RecommendationBadge({ recommendation, confidence }: { recommendation: s
   const getBadgeColor = () => {
     if (recommendation === 'OVER') return 'bg-green-500'
     if (recommendation === 'UNDER') return 'bg-red-500'
-    return 'bg-gray-500'
+    return 'bg-gray-600 dark:bg-gray-700'
+  }
+
+  const getTextColor = () => {
+    if (recommendation === 'OVER' || recommendation === 'UNDER') return 'text-white'
+    return 'text-gray-900 dark:text-gray-100' // Darker text for NO BET
   }
 
   const getConfidenceColor = () => {
@@ -20,7 +26,7 @@ function RecommendationBadge({ recommendation, confidence }: { recommendation: s
 
   return (
     <div className="flex items-center gap-2">
-      <span className={`px-3 py-1 rounded-full text-white font-semibold ${getBadgeColor()}`}>
+      <span className={`px-3 py-1 rounded-full font-semibold ${getBadgeColor()} ${getTextColor()}`}>
         {recommendation}
       </span>
       {confidence !== 'N/A' && (
@@ -33,7 +39,101 @@ function RecommendationBadge({ recommendation, confidence }: { recommendation: s
 }
 
 function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
-  const { game, analysis } = gameResult
+  const { game, analysis: initialAnalysis } = gameResult
+  const gameId = gameResult.game_id // game_id is at the top level of gameResult, not in game object
+  const [customLine, setCustomLine] = useState<string>('')
+  const [analysis, setAnalysis] = useState(initialAnalysis)
+  const [hasCustomAnalysis, setHasCustomAnalysis] = useState(false)
+  
+  // Sync analysis when gameResult prop changes (from auto-refresh)
+  // But only if we don't have a custom analysis
+  useEffect(() => {
+    if (!hasCustomAnalysis) {
+      setAnalysis(initialAnalysis)
+    }
+  }, [initialAnalysis, hasCustomAnalysis])
+  
+  // Mutation to analyze with custom line
+  const analyzeWithLine = useMutation({
+    mutationFn: async (line: number) => {
+      if (!gameId) {
+        throw new Error('Game ID is missing')
+      }
+      const response = await apiFetch(`api/v1/over-under/analyze/${gameId}?live_line=${line}`)
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Failed to analyze game: ${response.status} ${errorText}`)
+      }
+      const data = await response.json()
+      if (!data.analysis) {
+        throw new Error('No analysis data returned')
+      }
+      return data.analysis
+    },
+    onSuccess: (newAnalysis) => {
+      console.log('Analysis updated with custom line:', newAnalysis)
+      console.log('Recommendation:', newAnalysis.recommendation, 'Live line:', newAnalysis.live_line)
+      setAnalysis(newAnalysis)
+      setHasCustomAnalysis(true)
+      // Clear the input after successful analysis
+      setCustomLine('')
+    },
+    onError: (error) => {
+      console.error('Error analyzing with custom line:', error)
+    }
+  })
+  
+  const handleLineSubmit = () => {
+    const lineValue = parseFloat(customLine)
+    if (isNaN(lineValue) || lineValue <= 0) {
+      console.warn('Invalid line value:', customLine)
+      return
+    }
+    console.log('Submitting custom line:', lineValue, 'for game:', gameId)
+    analyzeWithLine.mutate(lineValue)
+  }
+  
+  // Debounce timer ref
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  
+  const handleLineChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setCustomLine(value)
+    
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    
+    // Only analyze if value is valid and we have a game ID
+    const lineValue = parseFloat(value)
+    if (!isNaN(lineValue) && lineValue > 0 && gameId) {
+      // Debounce the analysis - wait 1 second after user stops typing
+      debounceTimerRef.current = setTimeout(() => {
+        console.log('Auto-analyzing with line:', lineValue, 'for game:', gameId)
+        analyzeWithLine.mutate(lineValue)
+      }, 1000) // 1 second delay
+    }
+  }
+  
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [])
+  
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      // Clear debounce and submit immediately
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+      handleLineSubmit()
+    }
+  }
 
   // Calculate the difference between projected and line
   const getRecommendationText = () => {
@@ -112,6 +212,46 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
                 </span>
               </div>
             )}
+            
+            {/* Input box for changing the line even after recommendation */}
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Try a different line:</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={customLine}
+                  onChange={handleLineChange}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Enter new line (e.g., 225.5)"
+                  className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                  step="0.5"
+                  min="0"
+                />
+                <button
+                  onClick={handleLineSubmit}
+                  disabled={analyzeWithLine.isPending || !customLine || isNaN(parseFloat(customLine))}
+                  className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  title="Or press Enter to analyze immediately"
+                >
+                  {analyzeWithLine.isPending ? 'Analyzing...' : 'Analyze'}
+                </button>
+              </div>
+              {analyzeWithLine.isPending && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                  Analyzing with line {customLine}...
+                </p>
+              )}
+              {analyzeWithLine.isError && (
+                <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                  Error: {analyzeWithLine.error instanceof Error ? analyzeWithLine.error.message : 'Failed to analyze. Please try again.'}
+                </p>
+              )}
+              {customLine && !analyzeWithLine.isPending && !analyzeWithLine.isError && parseFloat(customLine) > 0 && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Analysis will run automatically 1 second after you stop typing...
+                </p>
+              )}
+            </div>
           </div>
         ) : (
           <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
@@ -119,14 +259,88 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
               <RecommendationBadge recommendation={analysis.recommendation} confidence={analysis.confidence} />
             </div>
             {!analysis.live_line && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                No betting line provided. Projected total: <span className="font-semibold text-gray-900 dark:text-white">{analysis.projected_total.toFixed(1)}</span>
-              </p>
+              <div className="mt-3">
+                <p className="text-sm text-gray-800 dark:text-gray-200 mb-3 font-medium">
+                  No betting line provided. Projected total: <span className="font-semibold text-gray-900 dark:text-white">{analysis.projected_total.toFixed(1)}</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={customLine}
+                    onChange={handleLineChange}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Enter betting line (e.g., 225.5)"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                    step="0.5"
+                    min="0"
+                  />
+                  <button
+                    onClick={handleLineSubmit}
+                    disabled={analyzeWithLine.isPending || !customLine || isNaN(parseFloat(customLine))}
+                    className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    title="Or press Enter to analyze immediately"
+                  >
+                    {analyzeWithLine.isPending ? 'Analyzing...' : 'Analyze'}
+                  </button>
+                </div>
+                {analyzeWithLine.isPending && (
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                    Analyzing with line {customLine}...
+                  </p>
+                )}
+                {analyzeWithLine.isError && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                    Error: {analyzeWithLine.error instanceof Error ? analyzeWithLine.error.message : 'Failed to analyze. Please try again.'}
+                  </p>
+                )}
+                {customLine && !analyzeWithLine.isPending && !analyzeWithLine.isError && parseFloat(customLine) > 0 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Analysis will run automatically 1 second after you stop typing...
+                  </p>
+                )}
+              </div>
             )}
             {analysis.live_line && analysis.recommendation === 'NO BET' && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                No clear edge. Projected: <span className="font-semibold">{analysis.projected_total.toFixed(1)}</span> vs Line: <span className="font-semibold">{analysis.live_line}</span> (difference: <span className={Math.abs(diff) < 3 ? 'text-gray-500' : ''}>{diff > 0 ? '+' : ''}{diff.toFixed(1)}</span>)
-              </p>
+              <div className="mt-3">
+                <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                  No clear edge. Projected: <span className="font-semibold">{analysis.projected_total.toFixed(1)}</span> vs Line: <span className="font-semibold">{analysis.live_line}</span> (difference: <span className={Math.abs(diff) < 3 ? 'text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'}>{diff > 0 ? '+' : ''}{diff.toFixed(1)}</span>)
+                </p>
+                <div className="flex items-center gap-2 mt-3">
+                  <input
+                    type="number"
+                    value={customLine}
+                    onChange={handleLineChange}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Enter new line (e.g., 225.5)"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                    step="0.5"
+                    min="0"
+                  />
+                  <button
+                    onClick={handleLineSubmit}
+                    disabled={analyzeWithLine.isPending || !customLine || isNaN(parseFloat(customLine))}
+                    className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    title="Or press Enter to analyze immediately"
+                  >
+                    {analyzeWithLine.isPending ? 'Analyzing...' : 'Analyze'}
+                  </button>
+                </div>
+                {analyzeWithLine.isPending && (
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                    Analyzing with line {customLine}...
+                  </p>
+                )}
+                {analyzeWithLine.isError && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                    Error: {analyzeWithLine.error instanceof Error ? analyzeWithLine.error.message : 'Failed to analyze. Please try again.'}
+                  </p>
+                )}
+                {customLine && !analyzeWithLine.isPending && !analyzeWithLine.isError && parseFloat(customLine) > 0 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Analysis will run automatically 1 second after you stop typing...
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}

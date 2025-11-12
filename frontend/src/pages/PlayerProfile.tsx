@@ -40,6 +40,59 @@ export default function PlayerProfile() {
   const [playerName, setPlayerName] = useState<string>('')
   const [teamId, setTeamId] = useState<number | null>(null)
   const [teamName, setTeamName] = useState<string | null>(null)
+  
+  // Live stats state
+  const [liveStats, setLiveStats] = useState<{
+    playing: boolean
+    game?: {
+      game_id: string
+      home_team: string
+      away_team: string
+      home_score: number
+      away_score: number
+      quarter: number
+      time_remaining: string
+      is_home: boolean
+    }
+    stats?: {
+      pts: number
+      reb: number
+      ast: number
+      minutes: number
+      fouls: number
+    }
+    context?: {
+      live_pace: number
+      game_situation: string
+      projected_minutes_remaining: number
+      foul_trouble_score: number
+    }
+  } | null>(null)
+
+  // Fetch live stats if player is playing
+  useEffect(() => {
+    if (!id) return
+    
+    const fetchLiveStats = async () => {
+      try {
+        const res = await apiFetch(`api/v1/players/${id}/live-stats`)
+        if (res.ok) {
+          const data = await res.json()
+          setLiveStats(data)
+        }
+      } catch (e) {
+        // Silently fail - not all players are playing
+      }
+    }
+    
+    // Fetch immediately
+    fetchLiveStats()
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchLiveStats, 30000)
+    
+    return () => clearInterval(interval)
+  }, [id])
 
   useEffect(() => {
     (async () => {
@@ -523,7 +576,95 @@ export default function PlayerProfile() {
           </div>
         </div>
       </div>
-      
+
+      {/* Live Game Stats - Show if player is currently playing */}
+      {liveStats?.playing && liveStats.game && (
+        <div className="mt-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-800 shadow-lg ring-1 ring-green-300 dark:ring-green-700 transition-colors duration-200">
+          <div className="px-4 py-3 sm:px-5 sm:py-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-bold text-green-800 dark:text-green-300 transition-colors duration-200">LIVE</span>
+              </div>
+              <span className="text-xs text-green-700 dark:text-green-400 transition-colors duration-200">
+                Q{liveStats.game.quarter} • {liveStats.game.time_remaining}
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="text-center">
+                <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">
+                  {liveStats.game.is_home ? 'HOME' : 'AWAY'}
+                </div>
+                <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">
+                  {liveStats.game.is_home ? liveStats.game.home_team : liveStats.game.away_team}
+                </div>
+                <div className="text-2xl font-bold text-green-900 dark:text-green-200 mt-1 transition-colors duration-200">
+                  {liveStats.game.is_home ? liveStats.game.home_score : liveStats.game.away_score}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">
+                  {liveStats.game.is_home ? 'AWAY' : 'HOME'}
+                </div>
+                <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">
+                  {liveStats.game.is_home ? liveStats.game.away_team : liveStats.game.home_team}
+                </div>
+                <div className="text-2xl font-bold text-green-900 dark:text-green-200 mt-1 transition-colors duration-200">
+                  {liveStats.game.is_home ? liveStats.game.away_score : liveStats.game.home_score}
+                </div>
+              </div>
+            </div>
+
+            {liveStats.stats && (
+              <div className="border-t border-green-200 dark:border-green-800 pt-3 mt-3">
+                <div className="text-xs font-semibold text-green-800 dark:text-green-300 mb-2 transition-colors duration-200">Current Stats</div>
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="text-center">
+                    <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">PTS</div>
+                    <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">{liveStats.stats.pts}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">REB</div>
+                    <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">{liveStats.stats.reb}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">AST</div>
+                    <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">{liveStats.stats.ast}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">MIN</div>
+                    <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">{liveStats.stats.minutes.toFixed(1)}</div>
+                  </div>
+                </div>
+                {liveStats.stats.fouls > 0 && (
+                  <div className="mt-2 text-center">
+                    <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 ring-1 ring-yellow-600/20 dark:ring-yellow-600/50 transition-colors duration-200">
+                      {liveStats.stats.fouls} Foul{liveStats.stats.fouls !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {liveStats.context && (
+              <div className="border-t border-green-200 dark:border-green-800 pt-2 mt-2 text-xs text-green-700 dark:text-green-400 transition-colors duration-200">
+                <div className="flex items-center justify-between">
+                  <span>Pace: {liveStats.context.live_pace.toFixed(1)}</span>
+                  <span>•</span>
+                  <span>{liveStats.context.game_situation}</span>
+                  {liveStats.context.projected_minutes_remaining > 0 && (
+                    <>
+                      <span>•</span>
+                      <span>~{liveStats.context.projected_minutes_remaining.toFixed(1)} min remaining</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       
       {loading ? (
         <div className="mt-4">

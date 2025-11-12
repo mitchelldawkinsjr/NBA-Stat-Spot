@@ -528,7 +528,7 @@ export function GoodBetsDashboard() {
             </div>
           </div>
         </div>
-        <div className="p-1.5 sm:p-2">
+        <div className="p-1 sm:p-1.5 md:p-2">
           <PlayerNewsSection />
         </div>
       </div>
