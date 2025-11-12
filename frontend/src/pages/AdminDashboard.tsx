@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch, apiGet, apiPost } from '../utils/api'
+import { apiGet, apiPost } from '../utils/api'
 
 async function fetchHealth() {
   return apiGet('/api/v1/admin/health')
