@@ -38,6 +38,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
                 </svg>
               </button>
               <Link to="/" className="inline-flex items-center gap-2">
+                <img src="/nba-ss-icon.png" alt="NBA Stat Spot" className="h-6 w-6 sm:h-7 sm:w-7 flex-shrink-0" />
                 <span className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 transition-colors duration-200">NBA Stat Spot</span>
                 <span className="hidden sm:inline text-xs text-slate-500 dark:text-slate-400 transition-colors duration-200">Sliced Pro Layout</span>
               </Link>
