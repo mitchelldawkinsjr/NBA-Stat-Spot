@@ -68,7 +68,7 @@ export function PlayerNewsSection() {
     }
   }
 
-  const displayedNews = news?.slice(0, 8) || []
+  const displayedNews = news?.slice(0, 10) || []
 
   // Auto-scroll functionality
   useEffect(() => {
