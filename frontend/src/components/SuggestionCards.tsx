@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 type Direction = 'over' | 'under'
 type SuggestionItem = {
   type: string
@@ -21,7 +23,7 @@ export function SuggestionCards({ suggestions, horizontal = false }: { suggestio
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <strong className="text-xs font-bold text-gray-900 dark:text-slate-100 truncate transition-colors duration-200">{s.type}</strong>
             {s.playerId && s.playerName && (
-              <a href={`/player/${s.playerId}`} className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 truncate transition-colors duration-200" title={s.playerName}>{s.playerName}</a>
+              <Link to={`/player/${s.playerId}`} className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 truncate transition-colors duration-200 hover:underline" title={s.playerName}>{s.playerName}</Link>
             )}
           </div>
           {s.marketLine != null && (
