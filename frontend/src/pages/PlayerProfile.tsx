@@ -407,8 +407,6 @@ export default function PlayerProfile() {
     const parts = matchup.split(/\s+(?:vs\.?|@)\s+/i)
     if (parts.length !== 2) return null
     
-    // Get player's team abbreviation (first part)
-    const playerTeamAbbr = parts[0].trim().toUpperCase()
     // Get opponent abbreviation (second part)
     const opponentAbbr = parts[1].trim().toUpperCase()
     
@@ -422,7 +420,7 @@ export default function PlayerProfile() {
 
   // Fetch player context with H2H data
   // Cached for 6 hours on backend, so use cache aggressively on frontend
-  const { data: playerContext, isLoading: contextLoading } = useQuery({
+  const { data: playerContext } = useQuery({
     queryKey: ['player-context', id, opponentTeamId, season],
     queryFn: async () => {
       if (!id || !opponentTeamId) return null

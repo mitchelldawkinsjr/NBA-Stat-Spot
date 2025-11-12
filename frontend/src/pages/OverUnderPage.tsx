@@ -35,6 +35,24 @@ function RecommendationBadge({ recommendation, confidence }: { recommendation: s
 function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
   const { game, analysis } = gameResult
 
+  // Calculate the difference between projected and line
+  const getRecommendationText = () => {
+    if (analysis.recommendation === 'NO BET' || !analysis.live_line) {
+      return null
+    }
+    
+    const diff = analysis.projected_total - analysis.live_line
+    if (analysis.recommendation === 'OVER') {
+      return `Take the OVER - Projected ${diff.toFixed(1)} points above the line`
+    } else if (analysis.recommendation === 'UNDER') {
+      return `Take the UNDER - Projected ${Math.abs(diff).toFixed(1)} points below the line`
+    }
+    return null
+  }
+
+  const recommendationText = getRecommendationText()
+  const diff = analysis.live_line ? analysis.projected_total - analysis.live_line : 0
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-4 border border-gray-200 dark:border-gray-700">
       {/* Game Header */}
@@ -57,9 +75,61 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
         </div>
       </div>
 
-      {/* Recommendation */}
+      {/* Recommendation - Enhanced */}
       <div className="mb-4">
-        <RecommendationBadge recommendation={analysis.recommendation} confidence={analysis.confidence} />
+        {analysis.recommendation !== 'NO BET' && analysis.live_line ? (
+          <div className={`border-2 rounded-lg p-4 ${
+            analysis.recommendation === 'OVER' 
+              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
+              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+          }`}>
+            <div className="flex items-center gap-3 mb-2">
+              <RecommendationBadge recommendation={analysis.recommendation} confidence={analysis.confidence} />
+            </div>
+            {recommendationText && (
+              <p className={`text-base font-semibold mt-2 ${
+                analysis.recommendation === 'OVER' 
+                  ? 'text-green-900 dark:text-green-200' 
+                  : 'text-red-900 dark:text-red-200'
+              }`}>
+                {recommendationText}
+              </p>
+            )}
+            {analysis.edge_percentage > 0 && (
+              <div className={`text-sm mt-2 ${
+                analysis.recommendation === 'OVER' 
+                  ? 'text-green-700 dark:text-green-300' 
+                  : 'text-red-700 dark:text-red-300'
+              }`}>
+                <span className="font-semibold">Edge: {analysis.edge_percentage.toFixed(2)}%</span>
+                {' | '}
+                Projected: <span className="font-semibold">{analysis.projected_total.toFixed(1)}</span>
+                {' vs '}
+                Line: <span className="font-semibold">{analysis.live_line}</span>
+                {' '}
+                <span className={diff > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                  ({diff > 0 ? '+' : ''}{diff.toFixed(1)})
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <RecommendationBadge recommendation={analysis.recommendation} confidence={analysis.confidence} />
+            </div>
+            {!analysis.live_line && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                No betting line provided. Projected total: <span className="font-semibold text-gray-900 dark:text-white">{analysis.projected_total.toFixed(1)}</span>
+              </p>
+            )}
+            {analysis.live_line && analysis.recommendation === 'NO BET' && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                No clear edge. Projected: <span className="font-semibold">{analysis.projected_total.toFixed(1)}</span> vs Line: <span className="font-semibold">{analysis.live_line}</span> (difference: <span className={Math.abs(diff) < 3 ? 'text-gray-500' : ''}>{diff > 0 ? '+' : ''}{diff.toFixed(1)}</span>)
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Analysis Details */}
@@ -76,6 +146,13 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
             <div className="text-lg font-semibold text-gray-900 dark:text-white">
               {analysis.live_line}
             </div>
+            {analysis.recommendation !== 'NO BET' && (
+              <div className="text-xs mt-1">
+                <span className={diff > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                  {diff > 0 ? '↑' : '↓'} {Math.abs(diff).toFixed(1)} from projected
+                </span>
+              </div>
+            )}
           </div>
         )}
         <div className="bg-gray-50 dark:bg-gray-700 rounded p-3">
@@ -113,14 +190,6 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
         </div>
       )}
 
-      {/* Edge Percentage */}
-      {analysis.edge_percentage > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Edge: <span className="font-semibold text-gray-900 dark:text-white">{analysis.edge_percentage.toFixed(2)}%</span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
