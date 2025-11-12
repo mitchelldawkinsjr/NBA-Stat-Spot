@@ -71,7 +71,7 @@ export function QuickPropLab() {
                 onClick={() => setPropType(t)} 
                 className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-all duration-200 ${
                   propType === t 
-                    ? 'bg-purple-600 dark:bg-purple-700 text-white border-purple-600 dark:border-purple-700 shadow-sm' 
+                    ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700 shadow-sm font-semibold' 
                     : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 hover:border-gray-400 dark:hover:border-slate-500'
                 }`}
               >
