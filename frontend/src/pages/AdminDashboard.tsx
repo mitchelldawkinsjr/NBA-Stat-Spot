@@ -1,46 +1,33 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiFetch, apiGet, apiPost } from '../utils/api'
 
 async function fetchHealth() {
-  const res = await fetch('/api/v1/admin/health')
-  if (!res.ok) throw new Error('Failed to fetch health')
-  return res.json()
+  return apiGet('/api/v1/admin/health')
 }
 
 async function fetchScanStatus() {
-  const res = await fetch('/api/v1/admin/scan/status')
-  if (!res.ok) throw new Error('Failed to fetch scan status')
-  return res.json()
+  return apiGet('/api/v1/admin/scan/status')
 }
 
 async function fetchBestBets() {
-  const res = await fetch('/api/v1/admin/best-bets')
-  if (!res.ok) throw new Error('Failed to fetch best bets')
-  return res.json()
+  return apiGet('/api/v1/admin/best-bets')
 }
 
 async function fetchCacheStatus() {
-  const res = await fetch('/api/v1/admin/cache/status')
-  if (!res.ok) throw new Error('Failed to fetch cache status')
-  return res.json()
+  return apiGet('/api/v1/admin/cache/status')
 }
 
 async function refreshDailyProps() {
-  const res = await fetch('/api/v1/admin/refresh/daily-props?min_confidence=50&limit=50', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to refresh daily props')
-  return res.json()
+  return apiPost('/api/v1/admin/refresh/daily-props?min_confidence=50&limit=50')
 }
 
 async function refreshHighHitRate() {
-  const res = await fetch('/api/v1/admin/refresh/high-hit-rate?min_hit_rate=0.75&limit=10&last_n=10', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to refresh high hit rate')
-  return res.json()
+  return apiPost('/api/v1/admin/refresh/high-hit-rate?min_hit_rate=0.75&limit=10&last_n=10')
 }
 
 async function refreshAll() {
-  const res = await fetch('/api/v1/admin/refresh/all', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to refresh all')
-  return res.json()
+  return apiPost('/api/v1/admin/refresh/all')
 }
 
 async function triggerScan(params: { season: string; minConfidence: number; limit: number }) {
@@ -49,67 +36,43 @@ async function triggerScan(params: { season: string; minConfidence: number; limi
     min_confidence: String(params.minConfidence),
     limit: String(params.limit),
   })
-  const res = await fetch(`/api/v1/admin/scan/best-bets?${qs}`, { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to trigger scan')
-  return res.json()
+  return apiPost(`/api/v1/admin/scan/best-bets?${qs}`)
 }
 
 async function syncPlayers() {
-  const res = await fetch('/api/v1/admin/sync/players', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to sync players')
-  return res.json()
+  return apiPost('/api/v1/admin/sync/players')
 }
 
 async function syncTeams() {
-  const res = await fetch('/api/v1/admin/sync/teams', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to sync teams')
-  return res.json()
+  return apiPost('/api/v1/admin/sync/teams')
 }
 
 async function fetchTeamsStatus() {
-  const res = await fetch('/api/v1/admin/teams/status')
-  if (!res.ok) throw new Error('Failed to fetch teams status')
-  return res.json()
+  return apiGet('/api/v1/admin/teams/status')
 }
 
 async function clearAllCache() {
-  const res = await fetch('/api/v1/admin/cache/clear', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to clear cache')
-  return res.json()
+  return apiPost('/api/v1/admin/cache/clear')
 }
 
 async function clearDailyPropsCache() {
-  const res = await fetch('/api/v1/admin/cache/clear/daily-props', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to clear daily props cache')
-  return res.json()
+  return apiPost('/api/v1/admin/cache/clear/daily-props')
 }
 
 async function clearHighHitRateCache() {
-  const res = await fetch('/api/v1/admin/cache/clear/high-hit-rate', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to clear high hit rate cache')
-  return res.json()
+  return apiPost('/api/v1/admin/cache/clear/high-hit-rate')
 }
 
 async function clearBestBetsCache() {
-  const res = await fetch('/api/v1/admin/cache/clear/best-bets', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to clear best bets cache')
-  return res.json()
+  return apiPost('/api/v1/admin/cache/clear/best-bets')
 }
 
 async function fetchAIEnabled() {
-  const res = await fetch('/api/v1/admin/settings/ai-enabled')
-  if (!res.ok) throw new Error('Failed to fetch AI enabled status')
-  return res.json()
+  return apiGet('/api/v1/admin/settings/ai-enabled')
 }
 
 async function setAIEnabled(enabled: boolean) {
-  const res = await fetch('/api/v1/admin/settings/ai-enabled', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ enabled })
-  })
-  if (!res.ok) throw new Error('Failed to set AI enabled status')
-  return res.json()
+  return apiPost('/api/v1/admin/settings/ai-enabled', { enabled })
 }
 
 async function refreshDailyPropsCustom(params: { minConfidence: number; limit: number }) {
@@ -117,9 +80,7 @@ async function refreshDailyPropsCustom(params: { minConfidence: number; limit: n
     min_confidence: String(params.minConfidence),
     limit: String(params.limit),
   })
-  const res = await fetch(`/api/v1/admin/refresh/daily-props?${qs}`, { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to refresh daily props')
-  return res.json()
+  return apiPost(`/api/v1/admin/refresh/daily-props?${qs}`)
 }
 
 async function refreshHighHitRateCustom(params: { minHitRate: number; limit: number; lastN: number }) {
@@ -128,41 +89,29 @@ async function refreshHighHitRateCustom(params: { minHitRate: number; limit: num
     limit: String(params.limit),
     last_n: String(params.lastN),
   })
-  const res = await fetch(`/api/v1/admin/refresh/high-hit-rate?${qs}`, { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to refresh high hit rate')
-  return res.json()
+  return apiPost(`/api/v1/admin/refresh/high-hit-rate?${qs}`)
 }
 
 async function runDataIntegrityCheck(season?: string) {
-  const qs = season ? new URLSearchParams({ season }) : ''
-  const res = await fetch(`/api/v1/admin/data-integrity/check?${qs}`, { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to run integrity check')
-  return res.json()
+  const endpoint = season ? `/api/v1/admin/data-integrity/check?season=${encodeURIComponent(season)}` : '/api/v1/admin/data-integrity/check'
+  return apiPost(endpoint)
 }
 
 async function fetchDataIntegrityStatus() {
-  const res = await fetch('/api/v1/admin/data-integrity/status')
-  if (!res.ok) throw new Error('Failed to fetch integrity status')
-  return res.json()
+  return apiGet('/api/v1/admin/data-integrity/status')
 }
 
 async function checkPlayersIntegrity() {
-  const res = await fetch('/api/v1/admin/data-integrity/check/players', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to check players integrity')
-  return res.json()
+  return apiPost('/api/v1/admin/data-integrity/check/players')
 }
 
 async function checkGameStatsIntegrity(season?: string) {
-  const qs = season ? new URLSearchParams({ season }) : ''
-  const res = await fetch(`/api/v1/admin/data-integrity/check/game-stats?${qs}`, { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to check game stats integrity')
-  return res.json()
+  const endpoint = season ? `/api/v1/admin/data-integrity/check/game-stats?season=${encodeURIComponent(season)}` : '/api/v1/admin/data-integrity/check/game-stats'
+  return apiPost(endpoint)
 }
 
 async function checkPropSuggestionsIntegrity() {
-  const res = await fetch('/api/v1/admin/data-integrity/check/prop-suggestions', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to check prop suggestions integrity')
-  return res.json()
+  return apiPost('/api/v1/admin/data-integrity/check/prop-suggestions')
 }
 
 interface ActivityLog {
