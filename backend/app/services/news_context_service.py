@@ -372,9 +372,11 @@ class NewsContextService:
             cache_key = "yahoo_rss_news:15m"
             cached_articles = self.cache.get(cache_key)
             if cached_articles is not None:
+                logger.debug("Returning cached Yahoo RSS news", article_count=len(cached_articles))
                 return cached_articles
             
             # Fetch RSS feed
+            logger.debug("Fetching Yahoo RSS feed", url=self.yahoo_rss_url)
             with httpx.Client(timeout=10.0) as client:
                 response = client.get(
                     self.yahoo_rss_url,
@@ -384,6 +386,7 @@ class NewsContextService:
                 )
                 response.raise_for_status()
                 xml_content = response.text
+                logger.debug("Fetched Yahoo RSS feed", content_length=len(xml_content))
             
             # Parse RSS XML
             root = ET.fromstring(xml_content)
@@ -395,9 +398,11 @@ class NewsContextService:
             }
             
             articles = []
+            items = root.findall('.//item')
+            logger.debug("Found RSS items", item_count=len(items))
             
             # Find all item elements
-            for item in root.findall('.//item'):
+            for idx, item in enumerate(items):
                 try:
                     title_elem = item.find('title')
                     link_elem = item.find('link')
@@ -406,28 +411,23 @@ class NewsContextService:
                     content_elem = item.find('content:encoded', ns)
                     
                     if not title_elem or not link_elem:
+                        logger.debug("Skipping item - missing title or link", index=idx)
                         continue
                     
-                    # Extract title (handle CDATA)
+                    # Extract title (ElementTree automatically handles CDATA)
                     title = (title_elem.text or '').strip()
-                    if title.startswith('<![CDATA[') and title.endswith(']]>'):
-                        title = title[9:-3].strip()
                     
                     # Extract link
                     link = (link_elem.text or '').strip()
                     
-                    # Extract description (handle CDATA)
+                    # Extract description (ElementTree automatically handles CDATA)
                     description = ''
-                    if description_elem is not None:
-                        description = description_elem.text or ''
-                        if description.startswith('<![CDATA[') and description.endswith(']]>'):
-                            description = description[9:-3].strip()
+                    if description_elem is not None and description_elem.text:
+                        description = description_elem.text.strip()
                     
                     # Try to get full content from content:encoded if available
                     if content_elem is not None and content_elem.text:
-                        content_text = content_elem.text
-                        if content_text.startswith('<![CDATA[') and content_text.endswith(']]>'):
-                            content_text = content_text[9:-3].strip()
+                        content_text = content_elem.text.strip()
                         # Use content if description is empty or short
                         if not description or len(description) < 50:
                             description = content_text
@@ -445,7 +445,8 @@ class NewsContextService:
                             # Parse RFC 822 date format (e.g., "Wed, 12 Nov 2025 00:55:19 +0000")
                             from email.utils import parsedate_to_datetime
                             published = parsedate_to_datetime(pub_date_elem.text).isoformat()
-                        except Exception:
+                        except Exception as date_error:
+                            logger.debug("Error parsing pubDate", error=str(date_error), pub_date=pub_date_elem.text)
                             # Fallback to current time if parsing fails
                             published = datetime.now().isoformat()
                     else:
@@ -460,8 +461,9 @@ class NewsContextService:
                     }
                     
                     articles.append(article)
+                    logger.debug("Parsed Yahoo article", index=idx, headline=title[:50])
                 except Exception as e:
-                    logger.debug("Error parsing RSS item", error=str(e))
+                    logger.warning("Error parsing RSS item", error=str(e), index=idx, exc_info=True)
                     continue
             
             # Cache for 15 minutes
@@ -470,7 +472,7 @@ class NewsContextService:
             return articles
             
         except Exception as e:
-            logger.warning("Error fetching Yahoo RSS news", error=str(e))
+            logger.error("Error fetching Yahoo RSS news", error=str(e), exc_info=True)
             return []
     
     def _get_default_news_context(self) -> Dict[str, Any]:
