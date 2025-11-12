@@ -554,14 +554,45 @@ class ContextCollector:
             
             # Get defensive ranks (this is already cached at league level for 24 hours)
             # This should return instantly if cached, or take 1-2 minutes on first calculation
-            defensive_ranks = ContextCollector._calculate_defensive_ranks(season_to_use)
-            team_ranks = defensive_ranks.get(team_id, {})
-            
-            # Log if defensive ranks are missing for debugging (only log once per team to avoid spam)
-            if not team_ranks and len(defensive_ranks) > 0:
-                logger.debug("No defensive ranks found for team", team_id=team_id, season=season_to_use, total_ranks=len(defensive_ranks))
-            elif not team_ranks and len(defensive_ranks) == 0:
-                logger.warning("Defensive ranks calculation returned empty - may still be calculating", team_id=team_id, season=season_to_use)
+            # Fallback to previous season if current season has no data
+            team_ranks = {}
+            try:
+                defensive_ranks = ContextCollector._calculate_defensive_ranks(season_to_use)
+                team_ranks = defensive_ranks.get(team_id, {})
+                
+                # If no ranks for current season, try previous season as fallback
+                if not team_ranks and len(defensive_ranks) == 0:
+                    logger.debug("No defensive ranks for current season, trying previous season", team_id=team_id, season=season_to_use)
+                    # Try previous season (e.g., 2025-26 -> 2024-25)
+                    if season_to_use == "2025-26":
+                        fallback_ranks = ContextCollector._calculate_defensive_ranks("2024-25")
+                        team_ranks = fallback_ranks.get(team_id, {})
+                        if team_ranks:
+                            logger.info("Using previous season defensive ranks as fallback", team_id=team_id, season="2024-25")
+                    elif season_to_use == "2024-25":
+                        fallback_ranks = ContextCollector._calculate_defensive_ranks("2023-24")
+                        team_ranks = fallback_ranks.get(team_id, {})
+                        if team_ranks:
+                            logger.info("Using previous season defensive ranks as fallback", team_id=team_id, season="2023-24")
+                
+                # Log if defensive ranks are missing for debugging (only log once per team to avoid spam)
+                if not team_ranks and len(defensive_ranks) > 0:
+                    logger.debug("No defensive ranks found for team", team_id=team_id, season=season_to_use, total_ranks=len(defensive_ranks))
+                elif not team_ranks:
+                    logger.warning("Defensive ranks calculation returned empty - may still be calculating", team_id=team_id, season=season_to_use)
+            except Exception as e:
+                logger.warning("Error getting defensive ranks, trying fallback", team_id=team_id, error=str(e))
+                # Try fallback season on error too
+                try:
+                    if season_to_use == "2025-26":
+                        fallback_ranks = ContextCollector._calculate_defensive_ranks("2024-25")
+                        team_ranks = fallback_ranks.get(team_id, {})
+                    elif season_to_use == "2024-25":
+                        fallback_ranks = ContextCollector._calculate_defensive_ranks("2023-24")
+                        team_ranks = fallback_ranks.get(team_id, {})
+                except Exception as fallback_error:
+                    logger.warning("Fallback defensive ranks also failed", team_id=team_id, error=str(fallback_error))
+                    team_ranks = {}
             
             result = {
                 "win_rate": win_loss.get("win_percentage", 0.0),
