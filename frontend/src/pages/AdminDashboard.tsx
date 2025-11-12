@@ -355,6 +355,23 @@ export default function AdminDashboard() {
     }
   })
 
+  const clearTeamsCacheMutation = useMutation({
+    mutationFn: clearTeamsCache,
+    onMutate: () => {
+      addActivityLog('warning', 'Clearing teams and players cache...')
+    },
+    onSuccess: (data: any) => {
+      const teamsCount = data?.teams_cleared || 0
+      const playersCount = data?.players_cleared || 0
+      addActivityLog('success', `Teams and players cache cleared (${teamsCount} teams, ${playersCount} players)`)
+      refetchCacheStatus()
+      refetchTeamsStatus()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Cache clear failed', error.message)
+    }
+  })
+
   const setAIEnabledMutation = useMutation({
     mutationFn: setAIEnabled,
     onMutate: (enabled: boolean) => {
@@ -1252,7 +1269,7 @@ export default function AdminDashboard() {
               <h3 className="text-xs font-semibold text-red-900 dark:text-red-300 mb-3 transition-colors duration-200">⚠️ Cache Management</h3>
               <p className="text-xs text-red-700 dark:text-red-400 mb-3 transition-colors duration-200">Clear caches to force fresh data on next request. Use with caution.</p>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                 <button
                   onClick={() => clearDailyPropsCacheMutation.mutate()}
                   disabled={clearDailyPropsCacheMutation.isPending}
