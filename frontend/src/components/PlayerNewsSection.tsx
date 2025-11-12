@@ -149,11 +149,13 @@ export function PlayerNewsSection() {
         >
           <div className="flex gap-2 sm:gap-3 min-w-max">
             {displayedNews.map((article, idx) => {
-              const articleUrl = article.links?.web?.href || article.links?.mobile?.href || '#'
+              // Handle both ESPN (nested links) and Yahoo (direct link) formats
+              const articleUrl = article.links?.web?.href || article.links?.mobile?.href || article.link || '#'
               const imageUrl = article.images?.[0]?.url
               const isExternal = articleUrl.startsWith('http')
               const headline = article.headline || article.title || 'No title'
               const published = article.published || article.publishDate
+              const source = article.source || 'ESPN'
 
               return (
                 <div
@@ -190,7 +192,14 @@ export function PlayerNewsSection() {
                           </p>
                         )}
                         <div className="flex items-center justify-between text-[8px] sm:text-[9px] md:text-[10px] text-gray-500 dark:text-gray-400 transition-colors duration-200 mt-0.5 sm:mt-1">
-                          {published && <span>{formatDate(published)}</span>}
+                          <div className="flex items-center gap-1">
+                            {published && <span>{formatDate(published)}</span>}
+                            {source && source !== 'ESPN' && (
+                              <span className="text-[7px] sm:text-[8px] px-1 py-0.5 bg-gray-100 dark:bg-slate-700 rounded text-gray-600 dark:text-gray-400">
+                                {source}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-blue-600 dark:text-blue-400 group-hover:text-blue-800 dark:group-hover:text-blue-300 font-medium transition-colors duration-200">
                             →
                           </span>
