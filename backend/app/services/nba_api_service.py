@@ -232,19 +232,75 @@ class NBADataService:
             try:
                 gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use)
                 df = gl.get_data_frames()[0]
+                
+                # Log available columns for debugging
+                if len(df) > 0:
+                    logger.info(
+                        "Player game log API response",
+                        player_id=player_id,
+                        season=season_to_use,
+                        row_count=len(df),
+                        available_columns=list(df.columns),
+                        sample_row=df.iloc[0].to_dict() if len(df) > 0 else None
+                    )
+                
                 items: List[Dict[str, Any]] = []
-                for _, row in df.iterrows():
+                for idx, row in df.iterrows():
                     # Parse minutes from "MM:SS" format to float
-                    min_str = str(row.get("MIN", "0:00") or "0:00")
+                    # Try multiple possible column names
+                    min_str = None
+                    min_col_found = None
+                    for col_name in ["MIN", "MINUTES", "MP"]:
+                        if col_name in row.index:
+                            min_val = row.get(col_name)
+                            if min_val is not None and str(min_val).strip():
+                                min_str = str(min_val).strip()
+                                min_col_found = col_name
+                                break
+                    
                     minutes = 0.0
-                    try:
-                        if ":" in min_str:
-                            parts = min_str.split(":")
-                            minutes = float(parts[0]) + (float(parts[1]) / 60.0) if len(parts) == 2 else float(parts[0])
-                        else:
-                            minutes = float(min_str)
-                    except (ValueError, TypeError):
-                        minutes = 0.0
+                    if min_str:
+                        try:
+                            # Handle "MM:SS" format
+                            if ":" in min_str:
+                                parts = min_str.split(":")
+                                if len(parts) >= 2:
+                                    minutes = float(parts[0]) + (float(parts[1]) / 60.0)
+                                elif len(parts) == 1:
+                                    minutes = float(parts[0])
+                            else:
+                                # Try to parse as float directly
+                                minutes = float(min_str)
+                        except (ValueError, TypeError) as e:
+                            logger.warning(
+                                "Failed to parse minutes",
+                                player_id=player_id,
+                                game_id=str(row.get("Game_ID")),
+                                raw_value=min_str,
+                                column=min_col_found,
+                                error=str(e)
+                            )
+                            minutes = 0.0
+                    else:
+                        # Log when minutes column is not found
+                        if idx == 0:  # Only log for first row to avoid spam
+                            logger.warning(
+                                "Minutes column not found in API response",
+                                player_id=player_id,
+                                available_columns=list(row.index),
+                                checked_columns=["MIN", "MINUTES", "MP"]
+                            )
+                    
+                    # Log first game's minutes parsing for debugging
+                    if idx == 0:
+                        logger.info(
+                            "Minutes parsing result",
+                            player_id=player_id,
+                            game_id=str(row.get("Game_ID")),
+                            raw_value=min_str,
+                            column_found=min_col_found,
+                            parsed_minutes=minutes
+                        )
                     
                     items.append({
                         "game_id": str(row.get("Game_ID")),
@@ -256,6 +312,19 @@ class NBADataService:
                         "tpm": float(row.get("FG3M", 0) or 0),
                         "minutes": minutes,
                     })
+                
+                # Log summary of parsed minutes
+                minutes_list = [item["minutes"] for item in items]
+                valid_minutes = [m for m in minutes_list if m > 0]
+                logger.info(
+                    "Player game log parsing complete",
+                    player_id=player_id,
+                    total_games=len(items),
+                    games_with_minutes=len(valid_minutes),
+                    avg_minutes=sum(valid_minutes) / len(valid_minutes) if valid_minutes else 0.0,
+                    sample_minutes=minutes_list[:5] if minutes_list else []
+                )
+                
                 return items
             except Exception as e:
                 error_str = str(e)

@@ -408,13 +408,153 @@ def player_props(
     return {"items": sugs}
 
 @router.get("/game/{game_id}")
-def game_props(game_id: str):
-    return {"items": []}
+def game_props(
+    game_id: str = Path(..., description="NBA game ID", example="0022400123"),
+    min_confidence: Optional[float] = Query(None, description="Minimum confidence score (0-100) to filter results", example=65.0, ge=0, le=100),
+    season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26")
+):
+    """
+    Get prop suggestions for all players in a specific game.
+    
+    Fetches game details to identify teams, then generates prop suggestions
+    for players on both teams.
+    """
+    try:
+        from ..services.live_game_service import LiveGameService
+        from ..services.espn_api_service import get_espn_service
+        from ..services.team_player_service import TeamPlayerService
+        from ..services.nba_api_service import NBADataService
+        
+        # Get game details to identify teams
+        live_game_service = LiveGameService()
+        game = live_game_service.get_game_by_id(game_id)
+        
+        home_team_abbr = None
+        away_team_abbr = None
+        
+        if game:
+            home_team_abbr = game.home_team
+            away_team_abbr = game.away_team
+        else:
+            # Try ESPN
+            try:
+                espn_service = get_espn_service()
+                summary = espn_service.get_game_summary(game_id)
+                if summary:
+                    competitions = summary.get("header", {}).get("competitions", [])
+                    if competitions:
+                        comp = competitions[0]
+                        competitors = comp.get("competitors", [])
+                        for competitor in competitors:
+                            team_data = competitor.get("team", {})
+                            team_abbr = team_data.get("abbreviation", "")
+                            is_home = competitor.get("homeAway") == "home"
+                            if is_home:
+                                home_team_abbr = team_abbr
+                            else:
+                                away_team_abbr = team_abbr
+            except Exception:
+                pass
+        
+        if not home_team_abbr or not away_team_abbr:
+            return {"items": [], "error": "Could not identify teams for this game"}
+        
+        # Get team IDs from abbreviations
+        teams = NBADataService.fetch_all_teams()
+        home_team = next((t for t in teams if t.get("abbreviation") == home_team_abbr), None)
+        away_team = next((t for t in teams if t.get("abbreviation") == away_team_abbr), None)
+        
+        if not home_team or not away_team:
+            return {"items": [], "error": "Could not find team IDs"}
+        
+        home_team_id = home_team.get("id")
+        away_team_id = away_team.get("id")
+        
+        # Get players from both teams
+        home_players = TeamPlayerService.get_players_for_team(home_team_id)
+        away_players = TeamPlayerService.get_players_for_team(away_team_id)
+        
+        all_players = home_players + away_players
+        
+        if not all_players:
+            return {"items": [], "error": "No players found for teams in this game"}
+        
+        # Generate props for each player
+        all_suggestions = []
+        for player in all_players:
+            player_id = player.get("id")
+            if not player_id:
+                continue
+            
+            try:
+                suggestions = build_suggestions_for_player(player_id, season)
+                for sug in suggestions:
+                    # Filter by confidence if specified
+                    if min_confidence is None or (sug.get("confidence") or 0) >= min_confidence:
+                        all_suggestions.append(sug)
+            except Exception:
+                continue
+        
+        # Sort by confidence (highest first)
+        all_suggestions.sort(key=lambda x: x.get("confidence", 0), reverse=True)
+        
+        return {"items": all_suggestions, "game_id": game_id, "home_team": home_team_abbr, "away_team": away_team_abbr}
+    except Exception as e:
+        import structlog
+        logger = structlog.get_logger()
+        logger.error("Failed to fetch game props", game_id=game_id, error=str(e))
+        return {"items": [], "error": str(e)}
 
 @router.get("/trending")
-def trending_props(limit: int = 10):
-    items = daily_props().get("items", [])[:limit]
-    return {"items": items}
+def trending_props(
+    limit: int = Query(10, description="Maximum number of trending props to return", example=10, ge=1, le=50),
+    min_confidence: Optional[float] = Query(70.0, description="Minimum confidence score (0-100)", example=70.0, ge=0, le=100),
+    season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26")
+):
+    """
+    Get trending prop suggestions based on recent performance and high confidence.
+    
+    Trending props are determined by:
+    - High confidence scores
+    - Recent strong performance (exceeding lines consistently)
+    - High hit rates
+    """
+    try:
+        # Get daily props as base
+        daily_items = daily_props(
+            min_confidence=min_confidence,
+            season=season,
+            limit=limit * 3  # Get more to filter
+        ).get("items", [])
+        
+        if not daily_items:
+            return {"items": []}
+        
+        # Score and rank by trending factors
+        trending_items = []
+        for item in daily_items:
+            confidence = item.get("confidence", 0)
+            hit_rate = item.get("hitRate", 0)
+            
+            # Calculate trending score
+            # Higher confidence + higher hit rate = more trending
+            trending_score = (confidence * 0.6) + (hit_rate * 100 * 0.4)
+            
+            # Only include items with good trending score
+            if trending_score >= (min_confidence or 70):
+                item["trending_score"] = trending_score
+                trending_items.append(item)
+        
+        # Sort by trending score (highest first)
+        trending_items.sort(key=lambda x: x.get("trending_score", 0), reverse=True)
+        
+        # Return top N
+        return {"items": trending_items[:limit]}
+    except Exception as e:
+        import structlog
+        logger = structlog.get_logger()
+        logger.error("Failed to fetch trending props", error=str(e))
+        return {"items": []}
 
 @router.get(
     "/high-hit-rate",

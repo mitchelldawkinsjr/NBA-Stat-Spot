@@ -58,48 +58,48 @@ export function TrendChart({ title, data, color, yLabel, ariaLabel, showRollingA
     if (active && payload && payload.length && payload[0]?.payload) {
       const data = payload[0].payload
       return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-          <p className="text-xs font-semibold text-gray-900 mb-1">
+        <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg p-3 transition-colors duration-200">
+          <p className="text-xs font-semibold text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">
             Game {data.idx}
           </p>
           {data.date && (
-            <p className="text-xs text-gray-600 mb-2">{data.date}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 transition-colors duration-200">{data.date}</p>
           )}
           {data.matchup && (
-            <p className="text-xs text-gray-600 mb-2">{data.matchup}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 transition-colors duration-200">{data.matchup}</p>
           )}
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-xs text-gray-600">Actual:</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">Actual:</span>
               <span className="text-xs font-bold" style={{ color: primary }}>
                 {data.value}
               </span>
             </div>
             {data.rolling5 !== null && (
               <div className="flex items-center justify-between gap-4">
-                <span className="text-xs text-gray-600">5-Game Avg:</span>
-                <span className="text-xs font-medium text-amber-600">
+                <span className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">5-Game Avg:</span>
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400 transition-colors duration-200">
                   {data.rolling5}
                 </span>
               </div>
             )}
             {data.rolling10 !== null && (
               <div className="flex items-center justify-between gap-4">
-                <span className="text-xs text-gray-600">10-Game Avg:</span>
-                <span className="text-xs font-medium text-purple-600">
+                <span className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">10-Game Avg:</span>
+                <span className="text-xs font-medium text-purple-600 dark:text-purple-400 transition-colors duration-200">
                   {data.rolling10}
                 </span>
               </div>
             )}
             <div className="flex items-center justify-between gap-4">
-              <span className="text-xs text-gray-600">Prop Line:</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">Prop Line:</span>
               <span className="text-xs font-bold" style={{ color: danger }}>
                 {data.propLine}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-4 pt-1 border-t border-gray-200">
-              <span className="text-xs text-gray-600">Result:</span>
-              <span className={`text-xs font-bold ${data.isOver ? 'text-green-600' : 'text-red-600'}`}>
+            <div className="flex items-center justify-between gap-4 pt-1 border-t border-gray-200 dark:border-slate-700 transition-colors duration-200">
+              <span className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">Result:</span>
+              <span className={`text-xs font-bold ${data.isOver ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} transition-colors duration-200`}>
                 {data.isOver ? 'OVER' : 'UNDER'} ({data.isOver ? '+' : ''}{(data.value - data.propLine).toFixed(1)})
               </span>
             </div>
@@ -111,10 +111,10 @@ export function TrendChart({ title, data, color, yLabel, ariaLabel, showRollingA
   }
 
   return (
-    <div className="rounded-2xl bg-white ring-1 ring-gray-100 p-4 shadow-sm">
+    <div className="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-100 dark:ring-slate-700 p-4 shadow-sm transition-colors duration-200">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-sm font-semibold text-gray-900">{title}</div>
-        <div className="flex items-center gap-3 text-xs text-gray-600">
+        <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{title}</div>
+        <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: primary }}></div>
             <span>Actual</span>
@@ -257,20 +257,20 @@ export function TrendChart({ title, data, color, yLabel, ariaLabel, showRollingA
         </div>
       </div>
       {/* Stats summary */}
-      <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-xs">
+      <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700 grid grid-cols-3 gap-2 text-xs transition-colors duration-200">
         <div>
-          <div className="text-gray-500">Avg</div>
-          <div className="font-semibold text-gray-900">{overallAvg.toFixed(1)}</div>
+          <div className="text-gray-500 dark:text-gray-400 transition-colors duration-200">Avg</div>
+          <div className="font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{overallAvg.toFixed(1)}</div>
         </div>
         <div>
-          <div className="text-gray-500">Over Line</div>
-          <div className="font-semibold text-green-600">
+          <div className="text-gray-500 dark:text-gray-400 transition-colors duration-200">Over Line</div>
+          <div className="font-semibold text-green-600 dark:text-green-400 transition-colors duration-200">
             {enrichedData.filter(d => d.isOver).length}/{enrichedData.length}
           </div>
         </div>
         <div>
-          <div className="text-gray-500">Hit Rate</div>
-          <div className="font-semibold text-blue-600">
+          <div className="text-gray-500 dark:text-gray-400 transition-colors duration-200">Hit Rate</div>
+          <div className="font-semibold text-blue-600 dark:text-blue-400 transition-colors duration-200">
             {((enrichedData.filter(d => d.isOver).length / enrichedData.length) * 100).toFixed(0)}%
           </div>
         </div>

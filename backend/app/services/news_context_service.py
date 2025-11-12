@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Dict, Optional, Any, List
 from datetime import datetime, timedelta
 import structlog
+import xml.etree.ElementTree as ET
+import httpx
 from .espn_api_service import get_espn_service
 from .espn_mapping_service import get_espn_mapping_service
 from .team_player_service import TeamPlayerService
@@ -20,6 +22,7 @@ class NewsContextService:
         self.espn_service = get_espn_service()
         self.mapping_service = get_espn_mapping_service()
         self.cache = get_cache_service()
+        self.yahoo_rss_url = "https://sports.yahoo.com/nba/rss/"
     
     def get_player_news_context(self, player_id: int, days: int = 7) -> Dict[str, Any]:
         """
@@ -51,12 +54,19 @@ class NewsContextService:
             
             player_name = player.get("full_name", "")
             
-            # Fetch news from ESPN
-            news_data = self.espn_service.get_news()
-            if not news_data:
-                return self._get_default_news_context()
+            # Fetch news from multiple sources
+            articles = []
             
-            articles = news_data.get("articles", [])
+            # Fetch from ESPN
+            news_data = self.espn_service.get_news()
+            if news_data:
+                espn_articles = news_data.get("articles", [])
+                articles.extend(espn_articles)
+            
+            # Fetch from Yahoo Sports RSS
+            yahoo_articles = self._fetch_yahoo_rss_news()
+            articles.extend(yahoo_articles)
+            
             if not articles:
                 return self._get_default_news_context()
             
@@ -148,12 +158,19 @@ class NewsContextService:
             team_name = team.get("full_name", "")
             team_city = team.get("city", "")
             
-            # Fetch news
-            news_data = self.espn_service.get_news()
-            if not news_data:
-                return self._get_default_news_context()
+            # Fetch news from multiple sources
+            articles = []
             
-            articles = news_data.get("articles", [])
+            # Fetch from ESPN
+            news_data = self.espn_service.get_news()
+            if news_data:
+                espn_articles = news_data.get("articles", [])
+                articles.extend(espn_articles)
+            
+            # Fetch from Yahoo Sports RSS
+            yahoo_articles = self._fetch_yahoo_rss_news()
+            articles.extend(yahoo_articles)
+            
             if not articles:
                 return self._get_default_news_context()
             
@@ -343,6 +360,118 @@ class NewsContextService:
             return max(0.0, 0.5 - (negative_count * 0.1))
         else:
             return 0.5
+    
+    def _fetch_yahoo_rss_news(self) -> List[Dict[str, Any]]:
+        """
+        Fetch and parse Yahoo Sports NBA RSS feed.
+        
+        Returns:
+            List of article dictionaries in the same format as ESPN articles
+        """
+        try:
+            cache_key = "yahoo_rss_news:15m"
+            cached_articles = self.cache.get(cache_key)
+            if cached_articles is not None:
+                return cached_articles
+            
+            # Fetch RSS feed
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(
+                    self.yahoo_rss_url,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    }
+                )
+                response.raise_for_status()
+                xml_content = response.text
+            
+            # Parse RSS XML
+            root = ET.fromstring(xml_content)
+            
+            # RSS namespaces
+            ns = {
+                'content': 'http://purl.org/rss/1.0/modules/content/',
+                'dc': 'http://purl.org/dc/elements/1.1/'
+            }
+            
+            articles = []
+            
+            # Find all item elements
+            for item in root.findall('.//item'):
+                try:
+                    title_elem = item.find('title')
+                    link_elem = item.find('link')
+                    description_elem = item.find('description')
+                    pub_date_elem = item.find('pubDate')
+                    content_elem = item.find('content:encoded', ns)
+                    
+                    if not title_elem or not link_elem:
+                        continue
+                    
+                    # Extract title (handle CDATA)
+                    title = (title_elem.text or '').strip()
+                    if title.startswith('<![CDATA[') and title.endswith(']]>'):
+                        title = title[9:-3].strip()
+                    
+                    # Extract link
+                    link = (link_elem.text or '').strip()
+                    
+                    # Extract description (handle CDATA)
+                    description = ''
+                    if description_elem is not None:
+                        description = description_elem.text or ''
+                        if description.startswith('<![CDATA[') and description.endswith(']]>'):
+                            description = description[9:-3].strip()
+                    
+                    # Try to get full content from content:encoded if available
+                    if content_elem is not None and content_elem.text:
+                        content_text = content_elem.text
+                        if content_text.startswith('<![CDATA[') and content_text.endswith(']]>'):
+                            content_text = content_text[9:-3].strip()
+                        # Use content if description is empty or short
+                        if not description or len(description) < 50:
+                            description = content_text
+                    
+                    # Clean up HTML tags from description
+                    import re
+                    description = re.sub(r'<[^>]+>', '', description).strip()
+                    # Remove extra whitespace
+                    description = ' '.join(description.split())
+                    
+                    # Parse publication date
+                    published = None
+                    if pub_date_elem is not None and pub_date_elem.text:
+                        try:
+                            # Parse RFC 822 date format (e.g., "Wed, 12 Nov 2025 00:55:19 +0000")
+                            from email.utils import parsedate_to_datetime
+                            published = parsedate_to_datetime(pub_date_elem.text).isoformat()
+                        except Exception:
+                            # Fallback to current time if parsing fails
+                            published = datetime.now().isoformat()
+                    else:
+                        published = datetime.now().isoformat()
+                    
+                    article = {
+                        "headline": title,
+                        "description": description[:500] if description else "",  # Limit description length
+                        "link": link,
+                        "published": published,
+                        "source": "Yahoo Sports"
+                    }
+                    
+                    articles.append(article)
+                except Exception as e:
+                    logger.debug("Error parsing RSS item", error=str(e))
+                    continue
+            
+            # Cache for 15 minutes
+            self.cache.set(cache_key, articles, ttl=900)
+            logger.info("Fetched Yahoo RSS news", article_count=len(articles))
+            return articles
+            
+        except Exception as e:
+            logger.warning("Error fetching Yahoo RSS news", error=str(e))
+            return []
     
     def _get_default_news_context(self) -> Dict[str, Any]:
         """Return default news context"""

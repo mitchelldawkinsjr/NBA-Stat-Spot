@@ -58,4 +58,42 @@
   --panel-bg: #ffffff;
   --panel-border: #e5e7eb; /* gray-200 */
 }
-body { margin: 0; min-width: 320px; min-height: 100vh; }
+
+/* Dark mode CSS variables */
+:root.dark,
+[data-mode="dark"] {
+  color: #f1f5f9; /* text-slate-100 */
+  background-color: #0f172a; /* slate-900 */
+  /* Theme tokens for charts - adjusted for dark mode */
+  --chart-primary: #60a5fa; /* lighter blue for dark mode */
+  --chart-accent-1: #fbbf24; /* lighter amber */
+  --chart-accent-2: #34d399; /* lighter emerald */
+  --chart-danger: #f87171; /* lighter red */
+  --panel-bg: #1e293b; /* slate-800 */
+  --panel-border: #334155; /* slate-700 */
+}
+
+html {
+  background-color: #ffffff;
+  transition: background-color 0.2s ease;
+}
+
+html.dark,
+html[data-mode="dark"] {
+  background-color: #0f172a; /* slate-900 */
+}
+
+body { 
+  margin: 0; 
+  min-width: 320px; 
+  min-height: 100vh;
+  background-color: #ffffff;
+  color: #111827;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark body,
+html[data-mode="dark"] body {
+  background-color: #0f172a; /* slate-900 */
+  color: #f1f5f9; /* slate-100 */
+}

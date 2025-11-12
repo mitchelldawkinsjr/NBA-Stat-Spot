@@ -69,10 +69,10 @@ export function Snackbar({ snackbar, onClose }: SnackbarProps) {
   if (!snackbar) return null
 
   const typeStyles = {
-    success: 'bg-green-500 text-white border-green-600',
-    error: 'bg-red-500 text-white border-red-600',
-    info: 'bg-blue-500 text-white border-blue-600',
-    warning: 'bg-amber-500 text-white border-amber-600',
+    success: 'bg-green-500 dark:bg-green-600 text-white border-green-600 dark:border-green-700',
+    error: 'bg-red-500 dark:bg-red-600 text-white border-red-600 dark:border-red-700',
+    info: 'bg-blue-500 dark:bg-blue-600 text-white border-blue-600 dark:border-blue-700',
+    warning: 'bg-amber-500 dark:bg-amber-600 text-white border-amber-600 dark:border-amber-700',
   }
 
   const iconStyles = {
@@ -100,7 +100,7 @@ export function Snackbar({ snackbar, onClose }: SnackbarProps) {
 
   return (
     <div
-      className={`fixed bottom-5 right-5 z-[9999] min-w-[320px] max-w-md rounded-lg shadow-lg border-2 ${typeStyles[snackbar.type]} transition-all duration-300 ease-out`}
+      className={`fixed bottom-5 right-5 z-[9999] min-w-[320px] max-w-md rounded-lg shadow-2xl border-2 ${typeStyles[snackbar.type]} transition-all duration-300 ease-out`}
       style={{
         transform: 'translateY(0)',
         opacity: 1,

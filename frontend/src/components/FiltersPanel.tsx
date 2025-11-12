@@ -88,48 +88,45 @@ export function FiltersPanel({
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, padding: 12, border: '1px solid #e5e7eb', borderRadius: 8, background: '#ffffff' }}>
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 p-3 border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 transition-colors duration-200">
       <div>
-        <label style={{ display: 'block', fontSize: 12, color: '#111827', marginBottom: 4 }}>Season (e.g. 2024-25)</label>
+        <label className="block text-xs text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">Season (e.g. 2024-25)</label>
         <input
           value={local.season ?? ''}
           onChange={(e) => setLocal((p) => ({ ...p, season: e.target.value }))}
           placeholder="YYYY-YY"
-          style={{ width: '100%', padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, color: '#111827', background: '#ffffff' }}
-          className="text-gray-900 bg-white"
+          className="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-md text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
         />
       </div>
       <div>
-        <label style={{ display: 'block', fontSize: 12, color: '#111827', marginBottom: 4 }}>Last N Games</label>
+        <label className="block text-xs text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">Last N Games</label>
         <input
           type="number"
           min={1}
           value={local.lastN ?? ''}
           onChange={(e) => setLocal((p) => ({ ...p, lastN: e.target.value ? Number(e.target.value) : undefined }))}
           placeholder="10"
-          style={{ width: '100%', padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, color: '#111827', background: '#ffffff' }}
-          className="text-gray-900 bg-white"
+          className="w-full px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-md text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
         />
       </div>
       <div>
-        <label style={{ display: 'block', fontSize: 12, color: '#111827', marginBottom: 4 }}>Venue</label>
+        <label className="block text-xs text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">Venue</label>
         <select
           value={local.home ?? 'any'}
           onChange={(e) => setLocal((p) => ({ ...p, home: e.target.value as Filters['home'] }))}
-          style={{ width: '100%', padding: '8px 28px 8px 10px', border: '1px solid #ddd', borderRadius: 6, background: '#fff', color: '#111827' }}
-          className="text-gray-900 bg-white"
+          className="w-full px-2.5 py-2 pr-7 text-sm border border-gray-300 dark:border-slate-600 rounded-md text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
         >
-          <option value="any" className="text-gray-900">Any</option>
-          <option value="home" className="text-gray-900">Home</option>
-          <option value="away" className="text-gray-900">Away</option>
+          <option value="any" className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">Any</option>
+          <option value="home" className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">Home</option>
+          <option value="away" className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">Away</option>
         </select>
       </div>
-      <div style={{ gridColumn: '1 / -1' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span title="Optional. Add your book's lines to compute edge/confidence." style={{ fontSize: 12, color: '#111827' }}>Market Lines:</span>
+      <div className="col-span-full">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span title="Optional. Add your book's lines to compute edge/confidence." className="text-xs text-gray-900 dark:text-slate-100 transition-colors duration-200">Market Lines:</span>
           {(['PTS','REB','AST','3PM','PRA'] as const).map((k) => (
-            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <label style={{ width: 36 }}>{k}</label>
+            <div key={k} className="flex items-center gap-1.5">
+              <label className="w-9 text-xs text-gray-900 dark:text-slate-100 transition-colors duration-200">{k}</label>
               <input
                 inputMode="decimal"
                 aria-label={`${k} market line`}
@@ -145,47 +142,32 @@ export function FiltersPanel({
                   }))
                 }}
                 placeholder="e.g. 24.5"
-                style={{ width: 90, padding: '6px 8px', border: '1px solid #ddd', borderRadius: 6, color: '#111827', background: '#ffffff' }}
-                className="text-gray-900 bg-white"
+                className="w-24 px-2 py-1.5 text-xs border border-gray-300 dark:border-slate-600 rounded-md text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
               />
             </div>
           ))}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-            <label style={{ fontSize: 12, color: '#111827', fontWeight: 500 }}>Direction:</label>
-            <div style={{ display: 'flex', gap: 2, border: '1px solid #ddd', borderRadius: 6, padding: 2 }}>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <label className="text-xs text-gray-900 dark:text-slate-100 font-medium transition-colors duration-200">Direction:</label>
+            <div className="flex gap-0.5 border border-gray-300 dark:border-slate-600 rounded-md p-0.5 transition-colors duration-200">
               <button
                 type="button"
                 onClick={() => setLocal((p) => ({ ...p, direction: 'over' }))}
-                style={{
-                  padding: '4px 12px',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  borderRadius: 4,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  ...(local.direction === 'over' || !local.direction
-                    ? { background: '#1d4ed8', color: '#ffffff' }
-                    : { background: 'transparent', color: '#6b7280' })
-                }}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors duration-200 ${
+                  local.direction === 'over' || !local.direction
+                    ? 'bg-blue-700 dark:bg-blue-600 text-white'
+                    : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
               >
                 Over
               </button>
               <button
                 type="button"
                 onClick={() => setLocal((p) => ({ ...p, direction: 'under' }))}
-                style={{
-                  padding: '4px 12px',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  borderRadius: 4,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  ...(local.direction === 'under'
-                    ? { background: '#1d4ed8', color: '#ffffff' }
-                    : { background: 'transparent', color: '#6b7280' })
-                }}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors duration-200 ${
+                  local.direction === 'under'
+                    ? 'bg-blue-700 dark:bg-blue-600 text-white'
+                    : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
               >
                 Under
               </button>
@@ -194,18 +176,11 @@ export function FiltersPanel({
               type="button"
               onClick={handleEvaluate}
               disabled={!player || !player.id || !hasMarketLines || isEvaluating}
-              style={{
-                padding: '6px 16px',
-                fontSize: 12,
-                fontWeight: 600,
-                borderRadius: 6,
-                border: 'none',
-                cursor: (!player || !player.id || !hasMarketLines || isEvaluating) ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s',
-                ...((!player || !player.id || !hasMarketLines || isEvaluating)
-                  ? { background: '#d1d5db', color: '#6b7280' }
-                  : { background: '#1d4ed8', color: '#ffffff' })
-              }}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-colors duration-200 ${
+                !player || !player.id || !hasMarketLines || isEvaluating
+                  ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-700 dark:bg-blue-600 text-white hover:bg-blue-800 dark:hover:bg-blue-700 cursor-pointer'
+              }`}
             >
               {isEvaluating ? 'Evaluating...' : 'Evaluate'}
             </button>

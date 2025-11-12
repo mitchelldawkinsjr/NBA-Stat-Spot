@@ -56,7 +56,7 @@ export default function TeamProfile() {
     return (
       <div className="container mx-auto px-3 md:px-4 max-w-7xl">
         <div className="text-center py-12">
-          <div className="text-gray-500">Loading team...</div>
+          <div className="text-gray-500 dark:text-gray-400 transition-colors duration-200">Loading team...</div>
         </div>
       </div>
     )
@@ -66,8 +66,8 @@ export default function TeamProfile() {
     return (
       <div className="container mx-auto px-3 md:px-4 max-w-7xl">
         <div className="text-center py-12">
-          <div className="text-red-600 mb-4">{error || 'Team not found'}</div>
-          <Link to="/explore" className="text-blue-600 hover:underline">
+          <div className="text-red-600 dark:text-red-400 mb-4 transition-colors duration-200">{error || 'Team not found'}</div>
+          <Link to="/explore" className="text-blue-600 dark:text-blue-400 hover:underline transition-colors duration-200">
             Return to Explore
           </Link>
         </div>
@@ -79,27 +79,27 @@ export default function TeamProfile() {
     <div className="container mx-auto px-3 md:px-4 max-w-7xl">
       {/* Breadcrumbs */}
       <nav className="relative z-10 mt-3" aria-label="Breadcrumb">
-        <ol className="min-w-0 flex items-center gap-1 text-xs text-gray-500 overflow-hidden">
+        <ol className="min-w-0 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 overflow-hidden transition-colors duration-200">
           <li>
-            <Link to="/" className="hover:text-gray-700">Home</Link>
+            <Link to="/" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200">Home</Link>
           </li>
           <li aria-hidden="true" className="px-1">/</li>
           <li>
-            <Link to="/explore" className="hover:text-gray-700">Explore</Link>
+            <Link to="/explore" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200">Explore</Link>
           </li>
           <li aria-hidden="true" className="px-1">/</li>
-          <li className="flex-1 min-w-0 text-gray-700 font-medium truncate">{team.full_name}</li>
+          <li className="flex-1 min-w-0 text-gray-700 dark:text-gray-300 font-medium truncate transition-colors duration-200">{team.full_name}</li>
         </ol>
       </nav>
 
       {/* Team Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-gray-200 mt-3 mb-6">
+      <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 shadow-xl ring-1 ring-gray-200 dark:ring-slate-700 mt-3 mb-6 transition-colors duration-200">
         <div className="px-6 py-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">{team.full_name}</h1>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-slate-100 mb-2 transition-colors duration-200">{team.full_name}</h1>
               {team.conference && (
-                <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">
                   <span>{team.conference}</span>
                   {team.division && (
                     <>
@@ -111,17 +111,17 @@ export default function TeamProfile() {
               )}
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-gray-400">{team.abbreviation}</div>
+              <div className="text-2xl font-bold text-gray-400 dark:text-gray-500 transition-colors duration-200">{team.abbreviation}</div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Roster Section */}
-      <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 p-6">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 transition-colors duration-200">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Roster</h2>
-          <div className="text-sm text-gray-600">{roster.length} players</div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Roster</h2>
+          <div className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">{roster.length} players</div>
         </div>
         {roster.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -129,26 +129,26 @@ export default function TeamProfile() {
               <Link
                 key={player.id}
                 to={`/player/${player.id}`}
-                className="p-4 bg-gray-50 border border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-md transition-all group"
+                className="p-4 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all group"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <div className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                    <div className="font-semibold text-gray-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {player.name}
                     </div>
                     {player.position && (
-                      <div className="text-xs text-gray-500 mt-1">{player.position}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 transition-colors duration-200">{player.position}</div>
                     )}
                   </div>
                   {player.jersey_number && (
-                    <div className="text-2xl font-bold text-gray-300 ml-3">#{player.jersey_number}</div>
+                    <div className="text-2xl font-bold text-gray-300 dark:text-gray-600 ml-3 transition-colors duration-200">#{player.jersey_number}</div>
                   )}
                 </div>
               </Link>
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500">No players found</div>
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400 transition-colors duration-200">No players found</div>
         )}
       </div>
     </div>

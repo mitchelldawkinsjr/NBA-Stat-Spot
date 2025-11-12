@@ -1,5 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+
 from .database import Base, engine
 from .models import user_bets, user_parlays, player_context, market_context, ai_features, app_settings  # Import models so tables are created
 from .services.cache_service import CacheEntry  # Import cache model so table is created

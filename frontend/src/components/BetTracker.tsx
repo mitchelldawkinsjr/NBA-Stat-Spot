@@ -226,10 +226,10 @@ export function BetTracker() {
       </button>
       
       {/* Action Bar - Always Visible at Top */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-lg shadow-md ring-1 ring-gray-200 border-2 border-blue-100">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-lg shadow-md ring-1 ring-gray-200 dark:ring-slate-700 border-2 border-blue-100 dark:border-blue-900/30 transition-colors duration-200">
         <div>
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900">My Bets</h2>
-          <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">Track your betting performance</p>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">My Bets</h2>
+          <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 transition-colors duration-200">Track your betting performance</p>
         </div>
         <button
           onClick={handleOpenForm}
@@ -247,33 +247,33 @@ export function BetTracker() {
       {/* Stats Summary */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
-          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm ring-1 ring-gray-100">
-            <div className="text-[10px] sm:text-xs text-gray-500 mb-1">Overall Win Rate</div>
-            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.overall.win_rate.toFixed(1)}%</div>
-            <div className="text-[10px] sm:text-xs text-gray-600">{stats.overall.won}W / {stats.overall.lost}L / {stats.overall.push}P</div>
+          <div className="p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Overall Win Rate</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{stats.overall.win_rate.toFixed(1)}%</div>
+            <div className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">{stats.overall.won}W / {stats.overall.lost}L / {stats.overall.push}P</div>
           </div>
-          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm ring-1 ring-gray-100">
-            <div className="text-[10px] sm:text-xs text-gray-500 mb-1">System Accuracy</div>
-            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.system_accuracy.win_rate.toFixed(1)}%</div>
-            <div className="text-[10px] sm:text-xs text-gray-600">{stats.system_accuracy.won}W / {stats.system_accuracy.total} total</div>
+          <div className="p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">System Accuracy</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{stats.system_accuracy.win_rate.toFixed(1)}%</div>
+            <div className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">{stats.system_accuracy.won}W / {stats.system_accuracy.total} total</div>
           </div>
-          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm ring-1 ring-gray-100">
-            <div className="text-[10px] sm:text-xs text-gray-500 mb-1">Total Wagered</div>
-            <div className="text-xl sm:text-2xl font-bold text-gray-900">${financialStats.totalWagered.toFixed(2)}</div>
+          <div className="p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Total Wagered</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">${financialStats.totalWagered.toFixed(2)}</div>
             {financialStats.pendingWagered > 0 && (
-              <div className="text-[10px] sm:text-xs text-gray-600">${financialStats.pendingWagered.toFixed(2)} pending</div>
+              <div className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">${financialStats.pendingWagered.toFixed(2)} pending</div>
             )}
           </div>
-          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm ring-1 ring-gray-100 col-span-2 sm:col-span-1">
-            <div className="text-[10px] sm:text-xs text-gray-500 mb-1">Total Profit/Loss</div>
-            <div className={`text-xl sm:text-2xl font-bold ${financialStats.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <div className="p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 col-span-2 sm:col-span-1 transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Total Profit/Loss</div>
+            <div className={`text-xl sm:text-2xl font-bold ${financialStats.totalProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} transition-colors duration-200`}>
               {financialStats.totalProfit >= 0 ? '+' : ''}${financialStats.totalProfit.toFixed(2)}
             </div>
-            <div className="text-[10px] sm:text-xs text-gray-600">ROI: {financialStats.roi.toFixed(1)}%</div>
+            <div className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">ROI: {financialStats.roi.toFixed(1)}%</div>
           </div>
-          <div className="p-3 sm:p-4 bg-white rounded-lg shadow-sm ring-1 ring-gray-100">
-            <div className="text-[10px] sm:text-xs text-gray-500 mb-1">Pending Bets</div>
-            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.pending}</div>
+          <div className="p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Pending Bets</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{stats.pending}</div>
           </div>
         </div>
       )}
@@ -334,7 +334,7 @@ export function BetTracker() {
       {/* Settled Bets */}
       {settledBets.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Settled ({settledBets.length})</h3>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">Settled ({settledBets.length})</h3>
           <div className="space-y-2">
             {settledBets.map(bet => (
               <BetCard key={bet.id} bet={bet} onSelect={() => setSelectedBet(bet)} />
@@ -345,50 +345,50 @@ export function BetTracker() {
       
       {/* Pending Parlays */}
       {parlaysLoading ? (
-        <div className="bg-white p-4 rounded-lg shadow-sm ring-1 ring-gray-100">
-          <div className="text-gray-500">Loading parlays...</div>
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
+          <div className="text-gray-500 dark:text-gray-400 transition-colors duration-200">Loading parlays...</div>
         </div>
       ) : parlays.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Parlays ({parlays.length})</h3>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">Parlays ({parlays.length})</h3>
           <div className="space-y-3">
             {parlays.map((parlay) => (
-              <div key={parlay.id} className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div key={parlay.id} className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm transition-colors duration-200">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h4 className="font-semibold text-gray-900">{parlay.name || `Parlay #${parlay.id}`}</h4>
-                    <p className="text-xs text-gray-600 mt-0.5">
+                    <h4 className="font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{parlay.name || `Parlay #${parlay.id}`}</h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">
                       {new Date(parlay.game_date).toLocaleDateString()} • {parlay.leg_count} legs
                     </p>
                   </div>
                   <div className="text-right">
-                    <div className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      parlay.result === 'won' ? 'bg-green-100 text-green-700' :
-                      parlay.result === 'lost' ? 'bg-red-100 text-red-700' :
-                      parlay.result === 'push' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-gray-100 text-gray-700'
+                    <div className={`text-xs font-semibold px-2 py-1 rounded-full transition-colors duration-200 ${
+                      parlay.result === 'won' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                      parlay.result === 'lost' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                      parlay.result === 'push' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
+                      'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300'
                     }`}>
                       {parlay.result.toUpperCase()}
                     </div>
                     {parlay.total_amount && (
-                      <div className="text-sm font-semibold text-gray-900 mt-1">${parlay.total_amount.toFixed(2)}</div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 mt-1 transition-colors duration-200">${parlay.total_amount.toFixed(2)}</div>
                     )}
                   </div>
                 </div>
                 <div className="space-y-2">
                   {parlay.legs && parlay.legs.map((leg, idx) => (
-                    <div key={leg.id || idx} className="p-2 bg-gray-50 rounded border border-gray-100">
+                    <div key={leg.id || idx} className="p-2 bg-gray-50 dark:bg-slate-700 rounded border border-gray-100 dark:border-slate-600 transition-colors duration-200">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900">{leg.player_name}</span>
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-white text-gray-700 border border-gray-200">{leg.prop_type}</span>
+                            <span className="font-medium text-gray-900 dark:text-slate-100 transition-colors duration-200">{leg.player_name}</span>
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-600 transition-colors duration-200">{leg.prop_type}</span>
                           </div>
-                          <div className="text-xs text-gray-600 mt-0.5">
+                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">
                             {leg.direction.toUpperCase()} {leg.line_value}
                           </div>
                           {leg.system_confidence !== undefined && leg.system_confidence !== null && (
-                            <div className="text-xs text-gray-600 mt-1">
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 transition-colors duration-200">
                               System: {leg.system_confidence.toFixed(1)}% confidence ({leg.system_suggestion?.toUpperCase() || 'N/A'})
                               {leg.system_fair_line && (
                                 <span className="ml-2">• Fair line: {leg.system_fair_line.toFixed(1)}</span>
@@ -400,16 +400,16 @@ export function BetTracker() {
                           )}
                         </div>
                         <div className="text-right">
-                          <div className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                            leg.result === 'won' ? 'bg-green-100 text-green-700' :
-                            leg.result === 'lost' ? 'bg-red-100 text-red-700' :
-                            leg.result === 'push' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-gray-100 text-gray-600'
+                          <div className={`text-xs font-semibold px-2 py-0.5 rounded transition-colors duration-200 ${
+                            leg.result === 'won' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                            leg.result === 'lost' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                            leg.result === 'push' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
+                            'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'
                           }`}>
                             {leg.result.toUpperCase()}
                           </div>
                           {leg.actual_value !== undefined && leg.actual_value !== null && (
-                            <div className="text-xs text-gray-600 mt-0.5">Actual: {leg.actual_value.toFixed(1)}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Actual: {leg.actual_value.toFixed(1)}</div>
                           )}
                         </div>
                       </div>
@@ -417,7 +417,7 @@ export function BetTracker() {
                   ))}
                 </div>
                 {parlay.system_confidence && (
-                  <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600">
+                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
                     <span className="font-medium">Avg System Confidence:</span> {parlay.system_confidence.toFixed(1)}%
                   </div>
                 )}
@@ -469,12 +469,12 @@ export function BetTracker() {
 
 function BetCard({ bet, onSelect }: { bet: Bet; onSelect: () => void }) {
   const resultColor = {
-    won: 'bg-green-50 text-green-700 ring-green-200',
-    lost: 'bg-red-50 text-red-700 ring-red-200',
-    push: 'bg-yellow-50 text-yellow-700 ring-yellow-200',
-    pending: 'bg-gray-50 text-gray-700 ring-gray-200',
-    void: 'bg-gray-50 text-gray-500 ring-gray-200'
-  }[bet.result] || 'bg-gray-50 text-gray-700 ring-gray-200'
+    won: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-green-200 dark:ring-green-800',
+    lost: 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 ring-red-200 dark:ring-red-800',
+    push: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 ring-yellow-200 dark:ring-yellow-800',
+    pending: 'bg-gray-50 dark:bg-slate-700 text-gray-700 dark:text-gray-300 ring-gray-200 dark:ring-slate-600',
+    void: 'bg-gray-50 dark:bg-slate-700 text-gray-500 dark:text-gray-400 ring-gray-200 dark:ring-slate-600'
+  }[bet.result] || 'bg-gray-50 dark:bg-slate-700 text-gray-700 dark:text-gray-300 ring-gray-200 dark:ring-slate-600'
   
   return (
     <div
@@ -484,19 +484,19 @@ function BetCard({ bet, onSelect }: { bet: Bet; onSelect: () => void }) {
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900">{bet.player_name}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-white/80 text-gray-900 font-medium border border-gray-200">{bet.prop_type}</span>
+            <span className="font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{bet.player_name}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-white/80 dark:bg-slate-700/80 text-gray-900 dark:text-slate-100 font-medium border border-gray-200 dark:border-slate-600 transition-colors duration-200">{bet.prop_type}</span>
           </div>
-          <div className="text-sm text-gray-700 mt-1">
+          <div className="text-sm text-gray-700 dark:text-gray-300 mt-1 transition-colors duration-200">
             {bet.direction.toUpperCase()} {bet.line_value} • {new Date(bet.game_date).toLocaleDateString()}
           </div>
           {bet.system_confidence && (
-            <div className="text-xs text-gray-600 mt-1">
+            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 transition-colors duration-200">
               System: {bet.system_confidence.toFixed(0)}% confidence ({bet.system_suggestion?.toUpperCase()})
             </div>
           )}
           {bet.result === 'pending' && bet.actual_value !== null && bet.actual_value !== undefined && (
-            <div className="text-xs text-gray-600 mt-1">
+            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 transition-colors duration-200">
               Actual: {bet.actual_value.toFixed(1)}
             </div>
           )}
@@ -506,13 +506,13 @@ function BetCard({ bet, onSelect }: { bet: Bet; onSelect: () => void }) {
             {bet.result.toUpperCase()}
           </div>
           {bet.amount && (
-            <div className="text-sm font-semibold text-gray-900 mt-1">${bet.amount.toFixed(2)}</div>
+            <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 mt-1 transition-colors duration-200">${bet.amount.toFixed(2)}</div>
           )}
           {bet.odds && (
-            <div className="text-xs text-gray-600 mt-0.5">{bet.odds}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">{bet.odds}</div>
           )}
           {bet.amount && bet.odds && bet.result === 'won' && bet.payout && (
-            <div className="text-xs text-green-700 font-medium mt-0.5">+${(bet.payout - bet.amount).toFixed(2)}</div>
+            <div className="text-xs text-green-700 dark:text-green-300 font-medium mt-0.5 transition-colors duration-200">+${(bet.payout - bet.amount).toFixed(2)}</div>
           )}
         </div>
       </div>

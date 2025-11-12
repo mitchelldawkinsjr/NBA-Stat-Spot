@@ -62,15 +62,15 @@ export function PropCard({ label, value, trend, trendText, confidence, recommend
     barColorHex = '#4b5563' // gray-600
   }
   return (
-    <div className={`bg-gradient-to-br from-white via-gray-50 to-gray-100 rounded-lg p-2.5 sm:p-3 border-l-2 ${borderClass} shadow-sm`}> 
+    <div className={`bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-slate-800 dark:via-slate-800 dark:to-slate-700 rounded-lg p-2.5 sm:p-3 border-l-2 ${borderClass} shadow-sm transition-colors duration-200`}> 
       <div className="flex items-center justify-between">
-        <div className="text-[9px] sm:text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-0.5">{label}</div>
-        <span className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${recommendation === 'OVER' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{recommendation}</span>
+        <div className="text-[9px] sm:text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-0.5 transition-colors duration-200">{label}</div>
+        <span className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${recommendation === 'OVER' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'} transition-colors duration-200`}>{recommendation}</span>
       </div>
-      <div className={`text-xl sm:text-2xl font-extrabold ${highlight ? 'text-blue-800' : 'text-blue-900'}`}>{value}</div>
-      <div className={`mt-0.5 text-[11px] font-bold ${trendColor}`}>{arrow} {trendText}</div>
+      <div className={`text-xl sm:text-2xl font-extrabold ${highlight ? 'text-blue-800 dark:text-blue-300' : 'text-blue-900 dark:text-blue-200'} transition-colors duration-200`}>{value}</div>
+      <div className={`mt-0.5 text-[11px] font-bold ${trendColor} transition-colors duration-200`}>{arrow} {trendText}</div>
       <div
-        className="mt-1.5 h-2 bg-gray-200 rounded-full overflow-hidden"
+        className="mt-1.5 h-2 bg-gray-200 dark:bg-slate-600 rounded-full overflow-hidden transition-colors duration-200"
         role="progressbar"
         aria-label={`Confidence ${clamped}%`}
         aria-valuemin={0}
@@ -86,13 +86,13 @@ export function PropCard({ label, value, trend, trendText, confidence, recommend
           }} 
         />
       </div>
-      <div className="mt-1 text-[10px] text-gray-700 font-semibold">{clamped}% confidence {recommendation}</div>
+      <div className="mt-1 text-[10px] text-gray-700 dark:text-gray-300 font-semibold transition-colors duration-200">{clamped}% confidence {recommendation}</div>
       {Array.isArray(details) && details.length > 0 && (
         <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
           {details.map((d, i) => (
-            <div key={i} className="border border-gray-200 rounded-md p-1.5 bg-white">
-              <div className="text-[10px] text-gray-500">{d.label}</div>
-              <div className="text-xs font-bold text-gray-900">{d.value}</div>
+            <div key={i} className="border border-gray-200 dark:border-slate-600 rounded-md p-1.5 bg-white dark:bg-slate-700 transition-colors duration-200">
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 transition-colors duration-200">{d.label}</div>
+              <div className="text-xs font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{d.value}</div>
             </div>
           ))}
         </div>

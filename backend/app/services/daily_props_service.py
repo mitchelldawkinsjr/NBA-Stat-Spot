@@ -37,20 +37,11 @@ class DailyPropsService:
             List of prop suggestions with player info
         """
         try:
-            # Fetch player game logs - try current season first, then fallback to previous season
+            # Fetch player game logs - ONLY use current season, no fallback
+            # If player doesn't have stats from current season, exclude them
             logs = NBADataService.fetch_player_game_log(player_id, season)
             
-            # If no logs for current season, try previous season as fallback
-            if not logs and season:
-                # Extract year from season string (e.g., "2025-26" -> "2024-25")
-                try:
-                    year_part = season.split("-")[0]
-                    prev_year = int(year_part) - 1
-                    prev_season = f"{prev_year}-{str(prev_year + 1)[-2:]}"
-                    logs = NBADataService.fetch_player_game_log(player_id, prev_season)
-                except Exception:
-                    pass
-            
+            # Require logs from current season - no fallback to previous season
             if not logs:
                 return []
             
@@ -58,15 +49,24 @@ class DailyPropsService:
             if last_n and last_n > 0:
                 logs = logs[-last_n:]
             
-            # Filter by minimum average minutes (default 22 minutes)
+            # Filter by minimum average minutes (22 minutes)
             # Calculate average minutes from recent games
             if logs:
-                minutes_list = [float(game.get("minutes", 0) or 0) for game in logs if game.get("minutes")]
+                # Filter out games with 0 or missing minutes, then calculate average
+                minutes_list = [
+                    float(game.get("minutes", 0) or 0) 
+                    for game in logs 
+                    if game.get("minutes") and float(game.get("minutes", 0) or 0) > 0
+                ]
                 if minutes_list:
                     avg_minutes = sum(minutes_list) / len(minutes_list)
                     if avg_minutes < 22.0:
                         # Player doesn't meet minimum minutes threshold
                         return []
+                elif len(logs) > 0:
+                    # If we have logs but no valid minutes data, check if we can still proceed
+                    # For now, skip players with no minutes data
+                    return []
             
             # Enrich with PRA (Points + Rebounds + Assists)
             for game in logs:

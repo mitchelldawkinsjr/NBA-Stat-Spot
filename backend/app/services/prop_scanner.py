@@ -71,11 +71,52 @@ class PropScannerService:
                     continue
                 
                 try:
-                    # Fetch recent game logs
+                    # Fetch recent game logs - ONLY use current season
+                    # If player doesn't have stats from current season, exclude them
                     logs = NBADataService.fetch_player_game_log(player_id, season)
                     
                     # Need at least 5 games to make meaningful suggestions
-                    if len(logs) < 5:
+                    if not logs or len(logs) < 5:
+                        continue
+                    
+                    # Verify logs are from the requested season
+                    if season:
+                        try:
+                            season_year = int(season.split("-")[0])
+                            # Check if any logs have game dates from the current season
+                            has_current_season_logs = False
+                            for log in logs:
+                                game_date = log.get("game_date", "")
+                                if game_date:
+                                    try:
+                                        from datetime import datetime
+                                        date_obj = datetime.strptime(game_date.split("T")[0] if "T" in game_date else game_date, "%Y-%m-%d")
+                                        if date_obj.year >= season_year:
+                                            has_current_season_logs = True
+                                            break
+                                    except (ValueError, AttributeError):
+                                        pass
+                            
+                            # If no current season logs found, skip this player
+                            if not has_current_season_logs:
+                                continue
+                        except (ValueError, AttributeError):
+                            # If we can't parse season, still include player (backward compatibility)
+                            pass
+                    
+                    # Filter by minimum average minutes (22 minutes)
+                    minutes_list = [
+                        float(game.get("minutes", 0) or 0) 
+                        for game in logs 
+                        if game.get("minutes") and float(game.get("minutes", 0) or 0) > 0
+                    ]
+                    if minutes_list:
+                        avg_minutes = sum(minutes_list) / len(minutes_list)
+                        if avg_minutes < 22.0:
+                            # Player doesn't meet minimum minutes threshold
+                            continue
+                    elif len(logs) > 0:
+                        # If we have logs but no valid minutes data, skip
                         continue
                     
                     # Analyze each stat category

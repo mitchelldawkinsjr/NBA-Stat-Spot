@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, Depends
+from fastapi import APIRouter, Query, Depends, Request
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
@@ -13,6 +13,7 @@ from ..services.data_integrity_service import DataIntegrityService
 from ..services.game_status_monitor import GameStatusMonitor
 from ..services.cache_service import get_cache_service
 from ..services.external_api_rate_limiter import get_rate_limiter
+from ..core.rate_limiter import limiter
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin_v1"])
 
@@ -353,7 +354,9 @@ def health():
         }
 
 @router.post("/refresh/daily-props")
+@limiter.limit("5/hour")  # Rate limit: 5 requests per hour per IP (expensive operation)
 def refresh_daily_props(
+    request: Request,
     min_confidence: Optional[float] = Query(50.0, description="Minimum confidence threshold"),
     limit: Optional[int] = Query(50, description="Maximum number of results")
 ):
@@ -377,7 +380,9 @@ def refresh_daily_props(
         return {"status": "error", "message": str(e)}
 
 @router.post("/refresh/high-hit-rate")
+@limiter.limit("5/hour")  # Rate limit: 5 requests per hour per IP (expensive operation)
 def refresh_high_hit_rate(
+    request: Request,
     min_hit_rate: Optional[float] = Query(0.75, description="Minimum hit rate threshold"),
     limit: Optional[int] = Query(10, description="Maximum number of results"),
     last_n: Optional[int] = Query(10, description="Number of recent games to consider")
@@ -403,8 +408,14 @@ def refresh_high_hit_rate(
         return {"status": "error", "message": str(e)}
 
 @router.post("/refresh/all")
-def refresh_all():
-    """Refresh all cached data"""
+@limiter.limit("3/hour")  # Rate limit: 3 requests per hour per IP (very expensive operation - makes many API calls)
+def refresh_all(request: Request):
+    """Refresh all cached data
+    
+    WARNING: This endpoint makes many external API calls and should be used sparingly.
+    It regenerates both daily props and high hit rate caches, which can involve
+    fetching game logs for dozens of players.
+    """
     results = {}
     
     # Refresh daily props
@@ -764,3 +775,131 @@ def get_rate_limits_status():
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+@router.get("/debug/player-game-log")
+def debug_player_game_log(
+    player_id: int = Query(..., description="Player ID to inspect"),
+    season: Optional[str] = Query(None, description="Season string (e.g., '2025-26'). Defaults to current season.")
+):
+    """
+    Debug endpoint to inspect raw API response for player game logs.
+    Shows exactly what data is returned from the NBA API, including all columns and raw values.
+    
+    This is useful for debugging issues with minutes or other fields not being parsed correctly.
+    
+    Args:
+        player_id: NBA player ID
+        season: Optional season string
+        
+    Returns:
+        Raw API response data with detailed column information
+    """
+    try:
+        from nba_api.stats.endpoints import playergamelog
+        import pandas as pd
+        import structlog
+        
+        logger = structlog.get_logger()
+        season_to_use = season or "2025-26"
+        
+        logger.info("Debug: Fetching player game log", player_id=player_id, season=season_to_use)
+        
+        # Fetch raw data from NBA API
+        gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use)
+        df = gl.get_data_frames()[0]
+        
+        # Convert DataFrame to dict for JSON serialization
+        raw_data = []
+        for idx, row in df.iterrows():
+            row_dict = {}
+            for col in df.columns:
+                val = row.get(col)
+                # Convert pandas types to native Python types
+                if pd.isna(val):
+                    row_dict[col] = None
+                elif isinstance(val, (pd.Timestamp, pd.DatetimeTZDtype)):
+                    row_dict[col] = str(val)
+                else:
+                    row_dict[col] = val
+            raw_data.append(row_dict)
+        
+        # Check for minutes-related columns
+        minutes_columns = [col for col in df.columns if any(x in col.upper() for x in ["MIN", "MP", "MINUTES"])]
+        
+        # Sample first row's minutes data
+        sample_minutes_data = {}
+        if len(df) > 0:
+            first_row = df.iloc[0]
+            for col in minutes_columns:
+                sample_minutes_data[col] = {
+                    "raw_value": str(first_row.get(col)),
+                    "type": str(type(first_row.get(col))),
+                    "is_null": pd.isna(first_row.get(col)) if col in first_row.index else True
+                }
+        
+        # Parse minutes using the same logic as the service
+        parsed_items = []
+        for idx, row in df.iterrows():
+            min_str = None
+            min_col_found = None
+            for col_name in ["MIN", "MINUTES", "MP"]:
+                if col_name in row.index:
+                    min_val = row.get(col_name)
+                    if min_val is not None and str(min_val).strip():
+                        min_str = str(min_val).strip()
+                        min_col_found = col_name
+                        break
+            
+            minutes = 0.0
+            if min_str:
+                try:
+                    if ":" in min_str:
+                        parts = min_str.split(":")
+                        if len(parts) >= 2:
+                            minutes = float(parts[0]) + (float(parts[1]) / 60.0)
+                        elif len(parts) == 1:
+                            minutes = float(parts[0])
+                    else:
+                        minutes = float(min_str)
+                except (ValueError, TypeError):
+                    minutes = 0.0
+            
+            parsed_items.append({
+                "game_id": str(row.get("Game_ID", "")),
+                "game_date": str(row.get("GAME_DATE", "")),
+                "raw_minutes_value": min_str,
+                "minutes_column_found": min_col_found,
+                "parsed_minutes": minutes
+            })
+        
+        return {
+            "status": "success",
+            "player_id": player_id,
+            "season": season_to_use,
+            "summary": {
+                "total_games": len(df),
+                "available_columns": list(df.columns),
+                "minutes_columns_found": minutes_columns,
+                "sample_minutes_data": sample_minutes_data
+            },
+            "raw_data": raw_data[:10],  # First 10 games to avoid huge response
+            "parsed_minutes_sample": parsed_items[:10],  # First 10 parsed results
+            "all_parsed_minutes": [item["parsed_minutes"] for item in parsed_items],
+            "minutes_statistics": {
+                "total_games": len(parsed_items),
+                "games_with_minutes": len([m for m in [item["parsed_minutes"] for item in parsed_items] if m > 0]),
+                "games_without_minutes": len([m for m in [item["parsed_minutes"] for item in parsed_items] if m == 0]),
+                "average_minutes": sum([item["parsed_minutes"] for item in parsed_items]) / len(parsed_items) if parsed_items else 0.0,
+                "min_minutes": min([item["parsed_minutes"] for item in parsed_items]) if parsed_items else 0.0,
+                "max_minutes": max([item["parsed_minutes"] for item in parsed_items]) if parsed_items else 0.0
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error",
+            "message": str(e),
+            "traceback": traceback.format_exc(),
+            "timestamp": datetime.now().isoformat()
+        }

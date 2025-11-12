@@ -574,74 +574,74 @@ export default function AdminDashboard() {
   return (
     <div className="container mx-auto px-2 sm:px-3 md:px-4 max-w-7xl">
       <div className="mt-2">
-        <h1 className="text-lg md:text-xl font-bold tracking-tight text-gray-900">Admin Dashboard</h1>
-        <p className="mt-0.5 text-xs text-gray-600">Monitor system health, data consistency, and refresh cached services.</p>
+        <h1 className="text-lg md:text-xl font-bold tracking-tight text-gray-900 dark:text-slate-100 transition-colors duration-200">Admin Dashboard</h1>
+        <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">Monitor system health, data consistency, and refresh cached services.</p>
       </div>
 
       {/* System Health & Data Consistency */}
       <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3 ${health?.status === 'healthy' ? 'ring-emerald-500/20' : 'ring-red-500/20'} ${healthLoading ? 'opacity-60' : ''}`}>
+        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${health?.status === 'healthy' ? 'ring-emerald-500/20 dark:ring-emerald-500/30' : 'ring-red-500/20 dark:ring-red-500/30'} ${healthLoading ? 'opacity-60' : ''}`}>
           <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-emerald-50">
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-emerald-50 dark:bg-emerald-900/30 transition-colors duration-200">
               {healthLoading ? (
-                <svg className="animate-spin h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-5 w-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 text-emerald-600">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 text-emerald-600 dark:text-emerald-400">
                   <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
                 </svg>
               )}
             </div>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${health?.status === 'healthy' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full transition-colors duration-200 ${health?.status === 'healthy' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'}`}>
               {healthLoading ? 'Loading...' : (health?.status === 'healthy' ? 'Healthy' : 'Degraded')}
             </span>
           </div>
-          <div className="mt-2 text-xs font-medium text-gray-500">System Status</div>
-          <div className="text-lg font-semibold text-gray-900">
+          <div className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">System Status</div>
+          <div className="text-lg font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
             {healthLoading ? '...' : (health?.nbaApiAvailable ? '✅' : '❌')} NBA API
           </div>
-          <div className="mt-1 text-xs text-gray-500">
+          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
             {healthLoading ? 'Loading...' : `${health?.todayGames || 0} games today`}
-            {healthError && <span className="text-red-600 ml-1">(Error)</span>}
+            {healthError && <span className="text-red-600 dark:text-red-400 ml-1">(Error)</span>}
           </div>
         </div>
 
-        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3 ${scanStatusLoading ? 'opacity-60' : ''}`}>
-          <div className="text-xs font-medium text-gray-500">Total Players</div>
-          <div className="text-xl sm:text-2xl font-semibold text-gray-900">
+        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${scanStatusLoading ? 'opacity-60' : ''}`}>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">Total Players</div>
+          <div className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
             {scanStatusLoading ? '...' : (scanStatus?.totalPlayers || health?.totalPlayers || 0)}
           </div>
-          <div className="mt-1 text-xs text-gray-500">
+          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
             {scanStatusLoading ? 'Loading...' : 'In database'}
-            {scanStatusError && <span className="text-red-600 ml-1">(Error)</span>}
+            {scanStatusError && <span className="text-red-600 dark:text-red-400 ml-1">(Error)</span>}
           </div>
         </div>
 
-        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3 ${bestBetsLoading ? 'opacity-60' : ''}`}>
-          <div className="text-xs font-medium text-gray-500">Best Bets</div>
-          <div className="text-xl sm:text-2xl font-semibold text-gray-900">
+        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${bestBetsLoading ? 'opacity-60' : ''}`}>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">Best Bets</div>
+          <div className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
             {bestBetsLoading ? '...' : bestBets.length}
           </div>
-          <div className="mt-1 text-xs text-gray-500">
+          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
             {bestBetsLoading ? 'Loading...' : (
               scanStatus?.lastScan || bestBetsData?.lastScanned 
                 ? formatTimeAgo(scanStatus?.lastScan || bestBetsData?.lastScanned) 
                 : (scanStatus?.bestBetsCount ? `${scanStatus.bestBetsCount} cached` : 'Not scanned')
             )}
-            {bestBetsError && <span className="text-red-600 ml-1">(Error)</span>}
+            {bestBetsError && <span className="text-red-600 dark:text-red-400 ml-1">(Error)</span>}
           </div>
         </div>
 
-        <div className={`rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3 ${healthLoading ? 'opacity-60' : ''}`}>
-          <div className="text-xs font-medium text-gray-500">Last Health Check</div>
-          <div className="text-sm font-semibold text-gray-900">
+        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${healthLoading ? 'opacity-60' : ''}`}>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">Last Health Check</div>
+          <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
             {healthLoading ? '...' : (health?.timestamp ? formatTimeAgo(health.timestamp) : 'Never')}
           </div>
-          <div className="mt-1 text-xs text-gray-500">
+          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
             Auto-refreshes every 30s
-            {healthError && <span className="text-red-600 ml-1">(Error)</span>}
+            {healthError && <span className="text-red-600 dark:text-red-400 ml-1">(Error)</span>}
           </div>
         </div>
       </div>
@@ -649,40 +649,40 @@ export default function AdminDashboard() {
       {/* Activity Log & Cache Status - Side by Side */}
       <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3">
         {/* Activity Log & Pipeline Status */}
-        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-2.5 sm:p-3">
+        <div className="rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">Activity Log</h2>
-              <p className="text-xs text-gray-600 mt-0.5">Real-time monitoring</p>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Activity Log</h2>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Real-time monitoring</p>
             </div>
             <button
               onClick={() => setActivityLog([])}
-              className="px-2 py-1 text-xs font-medium text-gray-900 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200"
+              className="px-2 py-1 text-xs font-medium text-gray-900 dark:text-slate-100 bg-gray-100 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors duration-200"
             >
               Clear
             </button>
           </div>
-          <div className="h-24 overflow-y-auto bg-gray-50 rounded-lg p-2 border border-gray-200">
+          <div className="h-24 overflow-y-auto bg-gray-50 dark:bg-slate-700/50 rounded-lg p-2 border border-gray-200 dark:border-slate-600 transition-colors duration-200">
             {activityLog.length === 0 ? (
-              <div className="text-xs text-gray-500 text-center py-6">No activity yet</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 text-center py-6 transition-colors duration-200">No activity yet</div>
             ) : (
               <div className="space-y-1">
                 {activityLog.map((log) => (
                   <div key={log.id} className="text-xs flex items-start gap-2 py-0.5">
-                    <span className="text-gray-400 font-mono text-[10px]">
+                    <span className="text-gray-400 dark:text-gray-500 font-mono text-[10px] transition-colors duration-200">
                       {log.timestamp.toLocaleTimeString()}
                     </span>
-                    <span className={`font-medium text-[10px] ${
-                      log.type === 'success' ? 'text-green-700' :
-                      log.type === 'error' ? 'text-red-700' :
-                      log.type === 'warning' ? 'text-amber-700' :
-                      'text-blue-700'
+                    <span className={`font-medium text-[10px] transition-colors duration-200 ${
+                      log.type === 'success' ? 'text-green-700 dark:text-green-400' :
+                      log.type === 'error' ? 'text-red-700 dark:text-red-400' :
+                      log.type === 'warning' ? 'text-amber-700 dark:text-amber-400' :
+                      'text-blue-700 dark:text-blue-400'
                     }`}>
                       [{log.type.toUpperCase()}]
                     </span>
-                    <span className="text-gray-700 flex-1 text-[10px]">{log.message}</span>
+                    <span className="text-gray-700 dark:text-gray-300 flex-1 text-[10px] transition-colors duration-200">{log.message}</span>
                     {log.details && (
-                      <span className="text-gray-500 text-[9px]">({log.details})</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-[9px] transition-colors duration-200">({log.details})</span>
                     )}
                   </div>
                 ))}
@@ -693,11 +693,11 @@ export default function AdminDashboard() {
         </div>
 
         {/* Data Consistency & Cache Status */}
-        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+        <div className="rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">Cache Status</h2>
-              <p className="text-xs text-gray-600 mt-0.5">Data freshness</p>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Cache Status</h2>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Data freshness</p>
             </div>
             <button
               onClick={() => {
@@ -708,7 +708,7 @@ export default function AdminDashboard() {
                 refetchBestBets()
               }}
               disabled={cacheStatusLoading || healthLoading}
-              className="px-2 py-1 text-xs font-medium text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+              className="px-2 py-1 text-xs font-medium text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors duration-200"
             >
               {cacheStatusLoading ? '...' : 'Refresh'}
             </button>
@@ -716,77 +716,77 @@ export default function AdminDashboard() {
 
           {cacheStatusLoading ? (
             <div className="flex items-center justify-center py-3">
-              <svg className="animate-spin h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-4 w-4 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             </div>
           ) : cacheStatusError ? (
-            <div className="p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+            <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
               Error: {String(cacheStatusError)}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-1.5">
             {/* Daily Props Cache */}
-            <div className={`p-2 rounded-lg border-2 ${cacheStatus?.dailyProps?.valid ? 'border-green-200 bg-green-50/50' : 'border-amber-200 bg-amber-50/50'}`}>
+            <div className={`p-2 rounded-lg border-2 transition-colors duration-200 ${cacheStatus?.dailyProps?.valid ? 'border-green-200 dark:border-green-700/50 bg-green-50/50 dark:bg-green-900/20' : 'border-amber-200 dark:border-amber-700/50 bg-amber-50/50 dark:bg-amber-900/20'}`}>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-semibold text-gray-900">Daily Props</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Daily Props</div>
                 {cacheStatus?.dailyProps?.valid ? (
-                  <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">Valid</span>
+                  <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full font-medium transition-colors duration-200">Valid</span>
                 ) : (
-                  <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium">Stale/None</span>
+                  <span className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full font-medium transition-colors duration-200">Stale/None</span>
                 )}
               </div>
-              <div className="text-xs text-gray-600 mb-1">
+              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 transition-colors duration-200">
                 <span className="font-medium">Count:</span> {cacheStatus?.dailyProps?.count || 0}
               </div>
-              <div className="text-xs text-gray-600">
+              <div className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
                 <span className="font-medium">Updated:</span> {formatTimeAgo(cacheStatus?.dailyProps?.lastUpdated)}
               </div>
               {cacheStatus?.dailyProps?.date && (
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-gray-500 dark:text-gray-500 mt-1 transition-colors duration-200">
                   Date: {cacheStatus.dailyProps.date}
                 </div>
               )}
             </div>
 
             {/* High Hit Rate Cache */}
-            <div className={`p-2 rounded-lg border-2 ${cacheStatus?.highHitRate?.valid ? 'border-green-200 bg-green-50/50' : 'border-amber-200 bg-amber-50/50'}`}>
+            <div className={`p-2 rounded-lg border-2 transition-colors duration-200 ${cacheStatus?.highHitRate?.valid ? 'border-green-200 dark:border-green-700/50 bg-green-50/50 dark:bg-green-900/20' : 'border-amber-200 dark:border-amber-700/50 bg-amber-50/50 dark:bg-amber-900/20'}`}>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-semibold text-gray-900">High Hit Rate</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">High Hit Rate</div>
                 {cacheStatus?.highHitRate?.valid ? (
-                  <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">Valid</span>
+                  <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full font-medium transition-colors duration-200">Valid</span>
                 ) : (
-                  <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-medium">Stale/None</span>
+                  <span className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full font-medium transition-colors duration-200">Stale/None</span>
                 )}
               </div>
-              <div className="text-xs text-gray-600 mb-1">
+              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 transition-colors duration-200">
                 <span className="font-medium">Count:</span> {cacheStatus?.highHitRate?.count || 0}
               </div>
-              <div className="text-xs text-gray-600">
+              <div className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
                 <span className="font-medium">Updated:</span> {formatTimeAgo(cacheStatus?.highHitRate?.lastUpdated)}
               </div>
               {cacheStatus?.highHitRate?.date && (
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-gray-500 dark:text-gray-500 mt-1 transition-colors duration-200">
                   Date: {cacheStatus.highHitRate.date}
                 </div>
               )}
             </div>
 
             {/* Best Bets Cache */}
-            <div className={`p-2 rounded-lg border-2 ${cacheStatus?.bestBets?.cached ? 'border-blue-200 bg-blue-50/50' : 'border-gray-200 bg-gray-50/50'}`}>
+            <div className={`p-2 rounded-lg border-2 transition-colors duration-200 ${cacheStatus?.bestBets?.cached ? 'border-blue-200 dark:border-blue-700/50 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-slate-600 bg-gray-50/50 dark:bg-slate-700/50'}`}>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-semibold text-gray-900">Best Bets Scan</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Best Bets Scan</div>
                 {cacheStatus?.bestBets?.cached ? (
-                  <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">Cached</span>
+                  <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full font-medium transition-colors duration-200">Cached</span>
                 ) : (
-                  <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full font-medium">None</span>
+                  <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-full font-medium transition-colors duration-200">None</span>
                 )}
               </div>
-              <div className="text-xs text-gray-600 mb-1">
+              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 transition-colors duration-200">
                 <span className="font-medium">Count:</span> {cacheStatus?.bestBets?.count || 0}
               </div>
-              <div className="text-xs text-gray-600">
+              <div className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
                 <span className="font-medium">Updated:</span> {formatTimeAgo(cacheStatus?.bestBets?.lastUpdated)}
               </div>
             </div>
@@ -798,11 +798,11 @@ export default function AdminDashboard() {
       {/* Data Integrity & AI Features - Side by Side */}
       <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
         {/* Data Integrity & Checksum */}
-        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+        <div className="rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">Data Integrity</h2>
-              <p className="text-xs text-gray-600 mt-0.5">Validate data consistency</p>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Data Integrity</h2>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Validate data consistency</p>
             </div>
             <button
               onClick={() => {
@@ -810,7 +810,7 @@ export default function AdminDashboard() {
                 refetchIntegrityStatus()
               }}
               disabled={integrityStatusLoading}
-              className="px-2 py-1 text-xs font-medium text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+              className="px-2 py-1 text-xs font-medium text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors duration-200"
             >
               {integrityStatusLoading ? '...' : 'Refresh'}
             </button>
@@ -818,51 +818,51 @@ export default function AdminDashboard() {
 
           {/* Overall Status */}
           {integrityStatus?.status === 'no_check' ? (
-            <div className="p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600">
+            <div className="p-2 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
               No check run yet. Click "Run Full Check".
             </div>
           ) : integrityStatus?.results ? (
             <div className="space-y-1.5">
               {/* Overall Status Badge */}
-              <div className={`p-2 rounded-lg border-2 ${
-              integrityStatus.results.overall_status === 'pass' ? 'border-green-200 bg-green-50/50' :
-              integrityStatus.results.overall_status === 'warning' ? 'border-amber-200 bg-amber-50/50' :
-              'border-red-200 bg-red-50/50'
+              <div className={`p-2 rounded-lg border-2 transition-colors duration-200 ${
+              integrityStatus.results.overall_status === 'pass' ? 'border-green-200 dark:border-green-700/50 bg-green-50/50 dark:bg-green-900/20' :
+              integrityStatus.results.overall_status === 'warning' ? 'border-amber-200 dark:border-amber-700/50 bg-amber-50/50 dark:bg-amber-900/20' :
+              'border-red-200 dark:border-red-700/50 bg-red-50/50 dark:bg-red-900/20'
             }`}>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-semibold text-gray-900">Overall Status</div>
-                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                  integrityStatus.results.overall_status === 'pass' ? 'bg-green-100 text-green-700' :
-                  integrityStatus.results.overall_status === 'warning' ? 'bg-amber-100 text-amber-700' :
-                  'bg-red-100 text-red-700'
+                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Overall Status</div>
+                <span className={`text-xs px-2 py-1 rounded-full font-medium transition-colors duration-200 ${
+                  integrityStatus.results.overall_status === 'pass' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                  integrityStatus.results.overall_status === 'warning' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                  'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                 }`}>
                   {integrityStatus.results.overall_status?.toUpperCase() || 'UNKNOWN'}
                 </span>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5 text-xs">
                 <div>
-                  <div className="text-gray-600">Total Issues</div>
-                  <div className="font-bold text-gray-900">{integrityStatus.results.summary?.total_issues || 0}</div>
+                  <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">Total Issues</div>
+                  <div className="font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{integrityStatus.results.summary?.total_issues || 0}</div>
                 </div>
                 <div>
-                  <div className="text-gray-600">Critical</div>
-                  <div className="font-bold text-red-700">{integrityStatus.results.summary?.critical_issues || 0}</div>
+                  <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">Critical</div>
+                  <div className="font-bold text-red-700 dark:text-red-400 transition-colors duration-200">{integrityStatus.results.summary?.critical_issues || 0}</div>
                 </div>
                 <div>
-                  <div className="text-gray-600">High</div>
-                  <div className="font-bold text-orange-700">{integrityStatus.results.summary?.high_issues || 0}</div>
+                  <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">High</div>
+                  <div className="font-bold text-orange-700 dark:text-orange-400 transition-colors duration-200">{integrityStatus.results.summary?.high_issues || 0}</div>
                 </div>
                 <div>
-                  <div className="text-gray-600">Medium</div>
-                  <div className="font-bold text-amber-700">{integrityStatus.results.summary?.medium_issues || 0}</div>
+                  <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">Medium</div>
+                  <div className="font-bold text-amber-700 dark:text-amber-400 transition-colors duration-200">{integrityStatus.results.summary?.medium_issues || 0}</div>
                 </div>
                 <div>
-                  <div className="text-gray-600">Low</div>
-                  <div className="font-bold text-gray-700">{integrityStatus.results.summary?.low_issues || 0}</div>
+                  <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">Low</div>
+                  <div className="font-bold text-gray-700 dark:text-gray-300 transition-colors duration-200">{integrityStatus.results.summary?.low_issues || 0}</div>
                 </div>
               </div>
               {integrityStatus.checked_at && (
-                <div className="mt-2 text-xs text-gray-500">
+                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
                   Last checked: {formatTimeAgo(integrityStatus.checked_at)}
                 </div>
               )}
@@ -872,34 +872,34 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 gap-1.5">
               {/* Players Check */}
               {integrityStatus.results.checks?.players && (
-                <div className={`p-2 rounded-lg border ${
-                  integrityStatus.results.checks.players.status === 'pass' ? 'border-green-200 bg-green-50/30' : 'border-red-200 bg-red-50/30'
+                <div className={`p-2 rounded-lg border transition-colors duration-200 ${
+                  integrityStatus.results.checks.players.status === 'pass' ? 'border-green-200 dark:border-green-700/50 bg-green-50/30 dark:bg-green-900/20' : 'border-red-200 dark:border-red-700/50 bg-red-50/30 dark:bg-red-900/20'
                 }`}>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-semibold text-gray-900">Players</div>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                      integrityStatus.results.checks.players.status === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    <div className="text-xs font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Players</div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors duration-200 ${
+                      integrityStatus.results.checks.players.status === 'pass' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                     }`}>
                       {integrityStatus.results.checks.players.status?.toUpperCase()}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-600 space-y-0.5">
+                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5 transition-colors duration-200">
                     <div>Source: {integrityStatus.results.checks.players.stats?.source_count || 0}</div>
                     <div>DB: {integrityStatus.results.checks.players.stats?.db_count || 0}</div>
                     <div>Missing: {integrityStatus.results.checks.players.stats?.missing_in_db || 0}</div>
                     {integrityStatus.results.checks.players.stats?.checksum_source && (
-                      <div className="text-[10px] text-gray-500 mt-1 font-mono truncate" title={integrityStatus.results.checks.players.stats.checksum_source}>
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 font-mono truncate transition-colors duration-200" title={integrityStatus.results.checks.players.stats.checksum_source}>
                         Source: {integrityStatus.results.checks.players.stats.checksum_source.slice(0, 8)}...
                       </div>
                     )}
                     {integrityStatus.results.checks.players.stats?.checksum_db && (
-                      <div className="text-[10px] text-gray-500 font-mono truncate" title={integrityStatus.results.checks.players.stats.checksum_db}>
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate transition-colors duration-200" title={integrityStatus.results.checks.players.stats.checksum_db}>
                         DB: {integrityStatus.results.checks.players.stats.checksum_db.slice(0, 8)}...
                       </div>
                     )}
                   </div>
                   {integrityStatus.results.checks.players.issues?.length > 0 && (
-                    <div className="mt-2 text-[10px] text-red-700">
+                    <div className="mt-2 text-[10px] text-red-700 dark:text-red-400 transition-colors duration-200">
                       {integrityStatus.results.checks.players.issues.length} issue(s)
                     </div>
                   )}
@@ -908,25 +908,25 @@ export default function AdminDashboard() {
 
               {/* Game Stats Check */}
               {integrityStatus.results.checks?.game_stats && (
-                <div className={`p-3 rounded-lg border ${
-                  integrityStatus.results.checks.game_stats.status === 'pass' ? 'border-green-200 bg-green-50/30' : 'border-red-200 bg-red-50/30'
+                <div className={`p-3 rounded-lg border transition-colors duration-200 ${
+                  integrityStatus.results.checks.game_stats.status === 'pass' ? 'border-green-200 dark:border-green-700/50 bg-green-50/30 dark:bg-green-900/20' : 'border-red-200 dark:border-red-700/50 bg-red-50/30 dark:bg-red-900/20'
                 }`}>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-semibold text-gray-900">Game Stats</div>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                      integrityStatus.results.checks.game_stats.status === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    <div className="text-xs font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Game Stats</div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors duration-200 ${
+                      integrityStatus.results.checks.game_stats.status === 'pass' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                     }`}>
                       {integrityStatus.results.checks.game_stats.status?.toUpperCase()}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-600 space-y-0.5">
+                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5 transition-colors duration-200">
                     <div>Source: {integrityStatus.results.checks.game_stats.stats?.source_count || 0}</div>
                     <div>DB: {integrityStatus.results.checks.game_stats.stats?.db_count || 0}</div>
                     <div>Missing: {integrityStatus.results.checks.game_stats.stats?.missing_in_db || 0}</div>
                     <div>Invalid: {integrityStatus.results.checks.game_stats.stats?.invalid_data || 0}</div>
                   </div>
                   {integrityStatus.results.checks.game_stats.issues?.length > 0 && (
-                    <div className="mt-2 text-[10px] text-red-700">
+                    <div className="mt-2 text-[10px] text-red-700 dark:text-red-400 transition-colors duration-200">
                       {integrityStatus.results.checks.game_stats.issues.length} issue(s)
                     </div>
                   )}
@@ -935,25 +935,25 @@ export default function AdminDashboard() {
 
               {/* Prop Suggestions Check */}
               {integrityStatus.results.checks?.prop_suggestions && (
-                <div className={`p-3 rounded-lg border ${
-                  integrityStatus.results.checks.prop_suggestions.status === 'pass' ? 'border-green-200 bg-green-50/30' : 'border-red-200 bg-red-50/30'
+                <div className={`p-3 rounded-lg border transition-colors duration-200 ${
+                  integrityStatus.results.checks.prop_suggestions.status === 'pass' ? 'border-green-200 dark:border-green-700/50 bg-green-50/30 dark:bg-green-900/20' : 'border-red-200 dark:border-red-700/50 bg-red-50/30 dark:bg-red-900/20'
                 }`}>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-semibold text-gray-900">Prop Suggestions</div>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                      integrityStatus.results.checks.prop_suggestions.status === 'pass' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    <div className="text-xs font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Prop Suggestions</div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors duration-200 ${
+                      integrityStatus.results.checks.prop_suggestions.status === 'pass' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                     }`}>
                       {integrityStatus.results.checks.prop_suggestions.status?.toUpperCase()}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-600 space-y-0.5">
+                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5 transition-colors duration-200">
                     <div>Total: {integrityStatus.results.checks.prop_suggestions.stats?.total_suggestions || 0}</div>
                     <div>Recent: {integrityStatus.results.checks.prop_suggestions.stats?.recent_suggestions || 0}</div>
                     <div>Stale: {integrityStatus.results.checks.prop_suggestions.stats?.stale_suggestions || 0}</div>
                     <div>Invalid: {integrityStatus.results.checks.prop_suggestions.stats?.invalid_confidence || 0}</div>
                   </div>
                   {integrityStatus.results.checks.prop_suggestions.issues?.length > 0 && (
-                    <div className="mt-2 text-[10px] text-red-700">
+                    <div className="mt-2 text-[10px] text-red-700 dark:text-red-400 transition-colors duration-200">
                       {integrityStatus.results.checks.prop_suggestions.issues.length} issue(s)
                     </div>
                   )}
@@ -963,30 +963,30 @@ export default function AdminDashboard() {
 
               {/* Issues List */}
               {integrityStatus.results.all_issues && integrityStatus.results.all_issues.length > 0 && (
-                <div className="mt-1.5 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="text-xs font-semibold text-gray-900 mb-1">Issues ({integrityStatus.results.all_issues.length})</div>
+                <div className="mt-1.5 p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600 transition-colors duration-200">
+                  <div className="text-xs font-semibold text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">Issues ({integrityStatus.results.all_issues.length})</div>
                   <div className="space-y-1 max-h-32 overflow-y-auto">
                   {integrityStatus.results.all_issues.slice(0, 10).map((issue: any, idx: number) => (
-                    <div key={idx} className={`text-xs p-2 rounded border ${
-                      issue.severity === 'critical' ? 'border-red-300 bg-red-50' :
-                      issue.severity === 'high' ? 'border-orange-300 bg-orange-50' :
-                      issue.severity === 'medium' ? 'border-amber-300 bg-amber-50' :
-                      'border-gray-300 bg-gray-50'
+                    <div key={idx} className={`text-xs p-2 rounded border transition-colors duration-200 ${
+                      issue.severity === 'critical' ? 'border-red-300 dark:border-red-700/50 bg-red-50 dark:bg-red-900/20' :
+                      issue.severity === 'high' ? 'border-orange-300 dark:border-orange-700/50 bg-orange-50 dark:bg-orange-900/20' :
+                      issue.severity === 'medium' ? 'border-amber-300 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/20' :
+                      'border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50'
                     }`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <div className="font-medium text-gray-900">{issue.message}</div>
+                          <div className="font-medium text-gray-900 dark:text-slate-100 transition-colors duration-200">{issue.message}</div>
                           {issue.details && (
-                            <div className="text-[10px] text-gray-600 mt-0.5">
+                            <div className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">
                               {typeof issue.details === 'string' ? issue.details : JSON.stringify(issue.details).slice(0, 100)}
                             </div>
                           )}
                         </div>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                          issue.severity === 'critical' ? 'bg-red-100 text-red-700' :
-                          issue.severity === 'high' ? 'bg-orange-100 text-orange-700' :
-                          issue.severity === 'medium' ? 'bg-amber-100 text-amber-700' :
-                          'bg-gray-100 text-gray-700'
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors duration-200 ${
+                          issue.severity === 'critical' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                          issue.severity === 'high' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
+                          issue.severity === 'medium' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                          'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300'
                         }`}>
                           {issue.severity}
                         </span>
@@ -994,7 +994,7 @@ export default function AdminDashboard() {
                     </div>
                   ))}
                   {integrityStatus.results.all_issues.length > 10 && (
-                    <div className="text-xs text-gray-500 text-center">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 text-center transition-colors duration-200">
                       ... and {integrityStatus.results.all_issues.length - 10} more issues
                     </div>
                   )}
@@ -1009,7 +1009,7 @@ export default function AdminDashboard() {
           <button
             onClick={() => integrityCheckMutation.mutate()}
             disabled={integrityCheckMutation.isPending}
-            className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-900 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-blue-300"
+            className="px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-blue-300 dark:border-blue-700 transition-colors duration-200"
           >
             {integrityCheckMutation.isPending ? (
               <>
@@ -1026,21 +1026,21 @@ export default function AdminDashboard() {
           <button
             onClick={() => playersIntegrityMutation.mutate()}
             disabled={playersIntegrityMutation.isPending}
-            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300"
+            className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300 dark:border-slate-600 transition-colors duration-200"
           >
             {playersIntegrityMutation.isPending ? 'Checking...' : 'Check Players'}
           </button>
           <button
             onClick={() => gameStatsIntegrityMutation.mutate()}
             disabled={gameStatsIntegrityMutation.isPending}
-            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300"
+            className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300 dark:border-slate-600 transition-colors duration-200"
           >
             {gameStatsIntegrityMutation.isPending ? 'Checking...' : 'Check Game Stats'}
           </button>
           <button
             onClick={() => propSuggestionsIntegrityMutation.mutate()}
             disabled={propSuggestionsIntegrityMutation.isPending}
-            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300"
+            className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300 dark:border-slate-600 transition-colors duration-200"
           >
             {propSuggestionsIntegrityMutation.isPending ? 'Checking...' : 'Check Props'}
           </button>
@@ -1048,15 +1048,15 @@ export default function AdminDashboard() {
         </div>
 
         {/* AI Features Toggle */}
-        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+        <div className="rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
           <div className="mb-2">
-            <h2 className="text-sm font-semibold text-gray-900">AI Features</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Enable/disable ML & LLM</p>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">AI Features</h2>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Enable/disable ML & LLM</p>
           </div>
-          <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600 transition-colors duration-200">
           <div className="flex-1">
-            <div className="text-sm font-medium text-gray-900">Enable AI Features</div>
-            <div className="text-xs text-gray-600 mt-0.5">
+            <div className="text-sm font-medium text-gray-900 dark:text-slate-100 transition-colors duration-200">Enable AI Features</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">
               When enabled, prop evaluations use ML models for confidence prediction and LLM for rationale generation.
               When disabled, the system uses rule-based calculations only.
             </div>
@@ -1068,8 +1068,8 @@ export default function AdminDashboard() {
                 setAIEnabledMutation.mutate(newValue)
               }}
               disabled={setAIEnabledMutation.isPending || aiStatusLoading}
-              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                (aiStatus?.aiEnabled ?? false) ? 'bg-blue-600' : 'bg-gray-300'
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-offset-2 ${
+                (aiStatus?.aiEnabled ?? false) ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-300 dark:bg-slate-600'
               } ${setAIEnabledMutation.isPending || aiStatusLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <span
@@ -1080,12 +1080,12 @@ export default function AdminDashboard() {
             </button>
           </div>
         </div>
-          <div className="mt-2 text-xs text-gray-600">
-            Status: <span className={`font-medium ${(aiStatus?.aiEnabled ?? false) ? 'text-green-600' : 'text-gray-500'}`}>
+          <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
+            Status: <span className={`font-medium transition-colors duration-200 ${(aiStatus?.aiEnabled ?? false) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
               {(aiStatus?.aiEnabled ?? false) ? 'Enabled' : 'Disabled'}
             </span>
             {setAIEnabledMutation.isPending && (
-              <span className="ml-2 text-blue-600">Updating...</span>
+              <span className="ml-2 text-blue-600 dark:text-blue-400 transition-colors duration-200">Updating...</span>
             )}
           </div>
         </div>
@@ -1094,17 +1094,17 @@ export default function AdminDashboard() {
       {/* Data Refresh Controls & Scanning Controls - Side by Side */}
       <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
         {/* Data Refresh Controls */}
-        <div className="rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+        <div className="rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
           <div className="mb-2">
-            <h2 className="text-sm font-semibold text-gray-900">Data Refresh</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Refresh cached services</p>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Data Refresh</h2>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Refresh cached services</p>
           </div>
 
           <div className="grid grid-cols-1 gap-1.5">
           <button
             onClick={() => refreshDailyPropsMutation.mutate()}
             disabled={refreshDailyPropsMutation.isPending}
-            className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-900 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-blue-300"
+            className="px-3 py-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-blue-300 dark:border-blue-700 transition-colors duration-200"
           >
             {refreshDailyPropsMutation.isPending ? (
               <>
@@ -1127,7 +1127,7 @@ export default function AdminDashboard() {
           <button
             onClick={() => refreshHighHitRateMutation.mutate()}
             disabled={refreshHighHitRateMutation.isPending}
-            className="px-3 py-2 bg-green-100 hover:bg-green-200 text-green-900 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-green-300"
+            className="px-3 py-2 bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-900 dark:text-green-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-green-300 dark:border-green-700 transition-colors duration-200"
           >
             {refreshHighHitRateMutation.isPending ? (
               <>
@@ -1150,7 +1150,7 @@ export default function AdminDashboard() {
           <button
             onClick={() => refreshAllMutation.mutate()}
             disabled={refreshAllMutation.isPending || refreshDailyPropsMutation.isPending || refreshHighHitRateMutation.isPending}
-            className="px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-900 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-purple-300"
+            className="px-3 py-2 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 text-purple-900 dark:text-purple-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-purple-300 dark:border-purple-700 transition-colors duration-200"
           >
             {refreshAllMutation.isPending ? (
               <>
@@ -1173,7 +1173,7 @@ export default function AdminDashboard() {
 
         {/* Success/Error Messages */}
         {(refreshDailyPropsMutation.isSuccess || refreshHighHitRateMutation.isSuccess || refreshAllMutation.isSuccess) && (
-          <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
+          <div className="mt-2 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs text-emerald-800 dark:text-emerald-300 transition-colors duration-200">
             {refreshAllMutation.isSuccess && 'All services refreshed successfully! '}
             {refreshDailyPropsMutation.isSuccess && !refreshAllMutation.isSuccess && 'Daily props refreshed successfully! '}
             {refreshHighHitRateMutation.isSuccess && !refreshAllMutation.isSuccess && 'High hit rate bets refreshed successfully! '}
@@ -1182,16 +1182,16 @@ export default function AdminDashboard() {
         )}
 
         {(refreshDailyPropsMutation.isError || refreshHighHitRateMutation.isError || refreshAllMutation.isError) && (
-          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+          <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
             Error: {refreshAllMutation.error?.message || refreshDailyPropsMutation.error?.message || refreshHighHitRateMutation.error?.message}
           </div>
         )}
 
           {/* Advanced Controls Toggle */}
-          <div className="mt-2 pt-2 border-t border-gray-200">
+          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700 transition-colors duration-200">
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-xs font-medium text-gray-700 hover:text-gray-900 flex items-center gap-1"
+              className="text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 flex items-center gap-1 transition-colors duration-200"
             >
               <svg className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -1204,32 +1204,32 @@ export default function AdminDashboard() {
           {showAdvanced && (
             <div className="mt-2 space-y-1.5">
             {/* Custom Refresh Parameters */}
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <h3 className="text-xs font-semibold text-gray-900 mb-3">Custom Refresh Parameters</h3>
+            <div className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600 transition-colors duration-200">
+              <h3 className="text-xs font-semibold text-gray-900 dark:text-slate-100 mb-3 transition-colors duration-200">Custom Refresh Parameters</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {/* Daily Props Custom */}
                 <div className="space-y-2">
-                  <div className="text-xs font-medium text-gray-700">Daily Props</div>
+                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">Daily Props</div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] text-gray-600 mb-0.5">Min Confidence</label>
+                      <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Min Confidence</label>
                       <input
                         type="number"
                         value={dailyPropsParams.minConfidence}
                         onChange={(e) => setDailyPropsParams({ ...dailyPropsParams, minConfidence: Number(e.target.value) })}
-                        className="w-full px-2 py-1 text-xs rounded border border-gray-300"
+                        className="w-full px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
                         min="0"
                         max="100"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-gray-600 mb-0.5">Limit</label>
+                      <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Limit</label>
                       <input
                         type="number"
                         value={dailyPropsParams.limit}
                         onChange={(e) => setDailyPropsParams({ ...dailyPropsParams, limit: Number(e.target.value) })}
-                        className="w-full px-2 py-1 text-xs rounded border border-gray-300"
+                        className="w-full px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
                         min="1"
                         max="200"
                       />
@@ -1238,7 +1238,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => refreshDailyPropsCustomMutation.mutate(dailyPropsParams)}
                     disabled={refreshDailyPropsCustomMutation.isPending}
-                    className="w-full px-3 py-1.5 text-xs bg-blue-100 hover:bg-blue-200 text-blue-900 rounded disabled:opacity-50 border border-blue-300"
+                    className="w-full px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 rounded disabled:opacity-50 border border-blue-300 dark:border-blue-700 transition-colors duration-200"
                   >
                     {refreshDailyPropsCustomMutation.isPending ? 'Refreshing...' : 'Refresh with Custom Params'}
                   </button>
@@ -1246,38 +1246,38 @@ export default function AdminDashboard() {
 
                 {/* High Hit Rate Custom */}
                 <div className="space-y-2">
-                  <div className="text-xs font-medium text-gray-700">High Hit Rate</div>
+                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">High Hit Rate</div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="block text-[10px] text-gray-600 mb-0.5">Min Hit Rate</label>
+                      <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Min Hit Rate</label>
                       <input
                         type="number"
                         step="0.05"
                         value={highHitRateParams.minHitRate}
                         onChange={(e) => setHighHitRateParams({ ...highHitRateParams, minHitRate: Number(e.target.value) })}
-                        className="w-full px-2 py-1 text-xs rounded border border-gray-300"
+                        className="w-full px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
                         min="0"
                         max="1"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-gray-600 mb-0.5">Limit</label>
+                      <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Limit</label>
                       <input
                         type="number"
                         value={highHitRateParams.limit}
                         onChange={(e) => setHighHitRateParams({ ...highHitRateParams, limit: Number(e.target.value) })}
-                        className="w-full px-2 py-1 text-xs rounded border border-gray-300"
+                        className="w-full px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
                         min="1"
                         max="50"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-gray-600 mb-0.5">Last N</label>
+                      <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Last N</label>
                       <input
                         type="number"
                         value={highHitRateParams.lastN}
                         onChange={(e) => setHighHitRateParams({ ...highHitRateParams, lastN: Number(e.target.value) })}
-                        className="w-full px-2 py-1 text-xs rounded border border-gray-300"
+                        className="w-full px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
                         min="5"
                         max="20"
                       />
@@ -1286,7 +1286,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => refreshHighHitRateCustomMutation.mutate(highHitRateParams)}
                     disabled={refreshHighHitRateCustomMutation.isPending}
-                    className="w-full px-3 py-1.5 text-xs bg-green-100 hover:bg-green-200 text-green-900 rounded disabled:opacity-50 border border-green-300"
+                    className="w-full px-3 py-1.5 text-xs bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-900 dark:text-green-300 rounded disabled:opacity-50 border border-green-300 dark:border-green-700 transition-colors duration-200"
                   >
                     {refreshHighHitRateCustomMutation.isPending ? 'Refreshing...' : 'Refresh with Custom Params'}
                   </button>
@@ -1295,29 +1295,29 @@ export default function AdminDashboard() {
             </div>
 
             {/* Cache Management */}
-            <div className="p-3 bg-red-50 rounded-lg border-2 border-red-200">
-              <h3 className="text-xs font-semibold text-red-900 mb-3">⚠️ Cache Management</h3>
-              <p className="text-xs text-red-700 mb-3">Clear caches to force fresh data on next request. Use with caution.</p>
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border-2 border-red-200 dark:border-red-800 transition-colors duration-200">
+              <h3 className="text-xs font-semibold text-red-900 dark:text-red-300 mb-3 transition-colors duration-200">⚠️ Cache Management</h3>
+              <p className="text-xs text-red-700 dark:text-red-400 mb-3 transition-colors duration-200">Clear caches to force fresh data on next request. Use with caution.</p>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <button
                   onClick={() => clearDailyPropsCacheMutation.mutate()}
                   disabled={clearDailyPropsCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-100 hover:bg-red-200 text-red-900 rounded disabled:opacity-50 border border-red-300"
+                  className="px-3 py-2 text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-900 dark:text-red-300 rounded disabled:opacity-50 border border-red-300 dark:border-red-700 transition-colors duration-200"
                 >
                   Clear Daily Props
                 </button>
                 <button
                   onClick={() => clearHighHitRateCacheMutation.mutate()}
                   disabled={clearHighHitRateCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-100 hover:bg-red-200 text-red-900 rounded disabled:opacity-50 border border-red-300"
+                  className="px-3 py-2 text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-900 dark:text-red-300 rounded disabled:opacity-50 border border-red-300 dark:border-red-700 transition-colors duration-200"
                 >
                   Clear High Hit Rate
                 </button>
                 <button
                   onClick={() => clearBestBetsCacheMutation.mutate()}
                   disabled={clearBestBetsCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-100 hover:bg-red-200 text-red-900 rounded disabled:opacity-50 border border-red-300"
+                  className="px-3 py-2 text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-900 dark:text-red-300 rounded disabled:opacity-50 border border-red-300 dark:border-red-700 transition-colors duration-200"
                 >
                   Clear Best Bets
                 </button>
@@ -1328,14 +1328,14 @@ export default function AdminDashboard() {
                     }
                   }}
                   disabled={clearAllCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-200 hover:bg-red-300 text-red-900 rounded font-bold disabled:opacity-50 border-2 border-red-400"
+                  className="px-3 py-2 text-xs bg-red-200 dark:bg-red-900/40 hover:bg-red-300 dark:hover:bg-red-900/60 text-red-900 dark:text-red-200 rounded font-bold disabled:opacity-50 border-2 border-red-400 dark:border-red-700 transition-colors duration-200"
                 >
                   Clear All Caches
                 </button>
               </div>
 
               {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearHighHitRateCacheMutation.isSuccess || clearBestBetsCacheMutation.isSuccess) && (
-                <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-xs text-red-800">
+                <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
                   Cache cleared successfully. Next request will fetch fresh data.
                 </div>
               )}
@@ -1345,13 +1345,13 @@ export default function AdminDashboard() {
       </div>
 
       {/* Scanning Controls */}
-      <div className="mt-2 rounded-lg bg-white shadow-sm ring-1 ring-gray-100 p-3">
+      <div className="mt-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
           <div className="mb-2">
-            <h2 className="text-sm font-semibold text-gray-900">Prop Scanner</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Scan games for best bets</p>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Prop Scanner</h2>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Scan games for best bets</p>
           </div>
           {scanStatus?.lastScan && (
-            <div className="text-xs text-gray-500 mb-1">
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">
               Last: {new Date(scanStatus.lastScan).toLocaleTimeString()}
               {scanStatus?.todayGames !== undefined && ` • ${scanStatus.todayGames} games`}
             </div>
@@ -1359,32 +1359,32 @@ export default function AdminDashboard() {
 
           <div className="grid grid-cols-1 gap-1.5 mb-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Season</label>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Season</label>
             <input
               value={scanParams.season}
               onChange={(e) => setScanParams({ ...scanParams, season: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/20"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
               placeholder="2025-26"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Min Confidence (%)</label>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Min Confidence (%)</label>
             <input
               type="number"
               value={scanParams.minConfidence}
               onChange={(e) => setScanParams({ ...scanParams, minConfidence: Number(e.target.value) })}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/20"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
               min="0"
               max="100"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Limit</label>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Limit</label>
             <input
               type="number"
               value={scanParams.limit}
               onChange={(e) => setScanParams({ ...scanParams, limit: Number(e.target.value) })}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600/20"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
               min="1"
               max="100"
             />
@@ -1393,14 +1393,14 @@ export default function AdminDashboard() {
             <button
               onClick={() => scanMutation.mutate(scanParams)}
               disabled={scanMutation.isPending}
-              className="flex-1 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-900 text-xs font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed border border-blue-300"
+              className="flex-1 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 text-xs font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed border border-blue-300 dark:border-blue-700 transition-colors duration-200"
             >
               {scanMutation.isPending ? 'Scanning...' : 'Start Scan'}
             </button>
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}
-              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-medium rounded-lg disabled:opacity-50 border border-gray-300"
+              className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
             >
               {syncMutation.isPending ? 'Syncing...' : 'Sync Players'}
             </button>
@@ -1408,15 +1408,15 @@ export default function AdminDashboard() {
         </div>
 
       {/* Team Management */}
-      <div className="mt-3 rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-4">
+      <div className="mt-3 rounded-2xl bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-4 transition-colors duration-200">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Team Management</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Sync and check team data from NBA API</p>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Team Management</h2>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Sync and check team data from NBA API</p>
           </div>
           <div className="flex items-center gap-2">
             {teamsStatusLoading && (
-              <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-4 w-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -1427,7 +1427,7 @@ export default function AdminDashboard() {
                 refetchTeamsStatus()
               }}
               disabled={teamsStatusLoading}
-              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors duration-200"
             >
               {teamsStatusLoading ? 'Refreshing...' : 'Refresh Status'}
             </button>
@@ -1436,53 +1436,53 @@ export default function AdminDashboard() {
 
         {teamsStatusLoading ? (
           <div className="flex items-center justify-center py-4">
-            <svg className="animate-spin h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span className="ml-2 text-sm text-gray-600">Loading teams status...</span>
+            <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">Loading teams status...</span>
           </div>
         ) : teamsStatusError ? (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-800 dark:text-red-300 transition-colors duration-200">
             Error loading teams status: {String(teamsStatusError)}
           </div>
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                <div className="text-xs font-medium text-gray-500 mb-1">Total Teams</div>
-                <div className="text-2xl font-semibold text-gray-900">{teamsStatus?.totalTeams || 0}</div>
-                <div className="mt-1 text-xs text-gray-500">
+              <div className="bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg p-3 transition-colors duration-200">
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Total Teams</div>
+                <div className="text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{teamsStatus?.totalTeams || 0}</div>
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
                   {teamsStatus?.cached ? (
-                    <span className="text-green-600">✓ Cached</span>
+                    <span className="text-green-600 dark:text-green-400">✓ Cached</span>
                   ) : (
-                    <span className="text-amber-600">Not cached</span>
+                    <span className="text-amber-600 dark:text-amber-400">Not cached</span>
                   )}
                 </div>
               </div>
-              <div className={`bg-gray-50 border rounded-lg p-3 ${
-                teamsStatus?.integrity?.status === 'good' ? 'border-green-200' :
-                teamsStatus?.integrity?.status === 'warning' ? 'border-amber-200' :
-                'border-red-200'
+              <div className={`bg-gray-50 dark:bg-slate-700/50 border rounded-lg p-3 transition-colors duration-200 ${
+                teamsStatus?.integrity?.status === 'good' ? 'border-green-200 dark:border-green-700/50' :
+                teamsStatus?.integrity?.status === 'warning' ? 'border-amber-200 dark:border-amber-700/50' :
+                'border-red-200 dark:border-red-700/50'
               }`}>
-                <div className="text-xs font-medium text-gray-500 mb-1">Data Integrity</div>
-                <div className={`text-lg font-semibold ${
-                  teamsStatus?.integrity?.status === 'good' ? 'text-green-700' :
-                  teamsStatus?.integrity?.status === 'warning' ? 'text-amber-700' :
-                  'text-red-700'
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Data Integrity</div>
+                <div className={`text-lg font-semibold transition-colors duration-200 ${
+                  teamsStatus?.integrity?.status === 'good' ? 'text-green-700 dark:text-green-400' :
+                  teamsStatus?.integrity?.status === 'warning' ? 'text-amber-700 dark:text-amber-400' :
+                  'text-red-700 dark:text-red-400'
                 }`}>
                   {teamsStatus?.integrity?.status === 'good' ? '✓ Good' :
                    teamsStatus?.integrity?.status === 'warning' ? '⚠ Warning' :
                    '✗ Error'}
                 </div>
-                <div className="mt-1 text-xs text-gray-500">
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
                   {teamsStatus?.integrity?.coverage?.teams || 0}% teams, {teamsStatus?.integrity?.coverage?.players || 0}% players
                 </div>
               </div>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                <div className="text-xs font-medium text-gray-500 mb-1">Total Players</div>
-                <div className="text-2xl font-semibold text-gray-900">{teamsStatus?.totalPlayers || 0}</div>
-                <div className="mt-1 text-xs text-gray-500">
+              <div className="bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg p-3 transition-colors duration-200">
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Total Players</div>
+                <div className="text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{teamsStatus?.totalPlayers || 0}</div>
+                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
                   {teamsStatus?.lastUpdated ? formatTimeAgo(teamsStatus.lastUpdated) : 'Never checked'}
                 </div>
               </div>
@@ -1491,34 +1491,34 @@ export default function AdminDashboard() {
             {/* Integrity Details */}
             {teamsStatus?.integrity && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <div className="text-xs font-medium text-green-700 mb-1">Teams w/ Players</div>
-                  <div className="text-xl font-semibold text-green-900">{teamsStatus.integrity.teamsWithPlayers}</div>
-                  <div className="text-xs text-green-600 mt-1">
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50 rounded-lg p-3 transition-colors duration-200">
+                  <div className="text-xs font-medium text-green-700 dark:text-green-300 mb-1 transition-colors duration-200">Teams w/ Players</div>
+                  <div className="text-xl font-semibold text-green-900 dark:text-green-100 transition-colors duration-200">{teamsStatus.integrity.teamsWithPlayers}</div>
+                  <div className="text-xs text-green-600 dark:text-green-400 mt-1 transition-colors duration-200">
                     {teamsStatus.integrity.coverage?.teams || 0}% coverage
                   </div>
                 </div>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <div className="text-xs font-medium text-amber-700 mb-1">Teams w/o Players</div>
-                  <div className="text-xl font-semibold text-amber-900">{teamsStatus.integrity.teamsWithoutPlayers}</div>
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg p-3 transition-colors duration-200">
+                  <div className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1 transition-colors duration-200">Teams w/o Players</div>
+                  <div className="text-xl font-semibold text-amber-900 dark:text-amber-100 transition-colors duration-200">{teamsStatus.integrity.teamsWithoutPlayers}</div>
                   {teamsStatus.integrity.teamsWithoutPlayers > 0 && (
-                    <div className="text-xs text-amber-600 mt-1">
+                    <div className="text-xs text-amber-600 dark:text-amber-400 mt-1 transition-colors duration-200">
                       {teamsStatus.teamsWithoutPlayers?.length || 0} shown
                     </div>
                   )}
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <div className="text-xs font-medium text-green-700 mb-1">Players w/ Teams</div>
-                  <div className="text-xl font-semibold text-green-900">{teamsStatus.integrity.playersWithTeams}</div>
-                  <div className="text-xs text-green-600 mt-1">
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50 rounded-lg p-3 transition-colors duration-200">
+                  <div className="text-xs font-medium text-green-700 dark:text-green-300 mb-1 transition-colors duration-200">Players w/ Teams</div>
+                  <div className="text-xl font-semibold text-green-900 dark:text-green-100 transition-colors duration-200">{teamsStatus.integrity.playersWithTeams}</div>
+                  <div className="text-xs text-green-600 dark:text-green-400 mt-1 transition-colors duration-200">
                     {teamsStatus.integrity.coverage?.players || 0}% coverage
                   </div>
                 </div>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <div className="text-xs font-medium text-amber-700 mb-1">Players w/o Teams</div>
-                  <div className="text-xl font-semibold text-amber-900">{teamsStatus.integrity.playersWithoutTeams}</div>
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg p-3 transition-colors duration-200">
+                  <div className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1 transition-colors duration-200">Players w/o Teams</div>
+                  <div className="text-xl font-semibold text-amber-900 dark:text-amber-100 transition-colors duration-200">{teamsStatus.integrity.playersWithoutTeams}</div>
                   {teamsStatus.integrity.playersWithoutTeams > 0 && (
-                    <div className="text-xs text-amber-600 mt-1">
+                    <div className="text-xs text-amber-600 dark:text-amber-400 mt-1 transition-colors duration-200">
                       {Math.round((teamsStatus.integrity.playersWithoutTeams / (teamsStatus.totalPlayers || 1)) * 100)}% of total
                     </div>
                   )}
@@ -1528,15 +1528,15 @@ export default function AdminDashboard() {
 
             {/* Teams Without Players Warning */}
             {teamsStatus?.teamsWithoutPlayers && teamsStatus.teamsWithoutPlayers.length > 0 && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <div className="text-xs font-semibold text-amber-900 mb-2">
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg transition-colors duration-200">
+                <div className="text-xs font-semibold text-amber-900 dark:text-amber-200 mb-2 transition-colors duration-200">
                   ⚠ Teams Without Players ({teamsStatus.teamsWithoutPlayers.length})
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                   {teamsStatus.teamsWithoutPlayers.map((team: any) => (
-                    <div key={team.id} className="text-xs p-1.5 bg-white rounded border border-amber-200">
-                      <div className="font-medium text-amber-900">{team.abbreviation}</div>
-                      <div className="text-amber-700 truncate">{team.name}</div>
+                    <div key={team.id} className="text-xs p-1.5 bg-white dark:bg-slate-700 rounded border border-amber-200 dark:border-amber-700/50 transition-colors duration-200">
+                      <div className="font-medium text-amber-900 dark:text-amber-200 transition-colors duration-200">{team.abbreviation}</div>
+                      <div className="text-amber-700 dark:text-amber-300 truncate transition-colors duration-200">{team.name}</div>
                     </div>
                   ))}
                 </div>
@@ -1547,7 +1547,7 @@ export default function AdminDashboard() {
               <button
                 onClick={() => syncTeamsMutation.mutate()}
                 disabled={syncTeamsMutation.isPending}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors duration-200"
               >
                 {syncTeamsMutation.isPending ? (
                   <>
@@ -1569,25 +1569,25 @@ export default function AdminDashboard() {
             </div>
 
             {syncTeamsMutation.isSuccess && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg text-sm text-emerald-800 dark:text-emerald-300 transition-colors duration-200">
                 Teams synced successfully! {syncTeamsMutation.data?.count || 0} teams loaded.
               </div>
             )}
 
             {syncTeamsMutation.isError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-800 dark:text-red-300 transition-colors duration-200">
                 Error: {syncTeamsMutation.error?.message || 'Failed to sync teams'}
               </div>
             )}
 
             {teamsStatus?.teams && teamsStatus.teams.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-gray-200">
-                <div className="text-xs font-semibold text-gray-700 mb-2">Team Preview (First 10)</div>
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 transition-colors duration-200">
+                <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">Team Preview (First 10)</div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                   {teamsStatus.teams.map((team: any) => (
-                    <div key={team.id} className="text-xs p-2 bg-gray-50 rounded border border-gray-200">
-                      <div className="font-medium text-gray-900 truncate">{team.abbreviation}</div>
-                      <div className="text-gray-600 truncate">{team.full_name}</div>
+                    <div key={team.id} className="text-xs p-2 bg-gray-50 dark:bg-slate-700/50 rounded border border-gray-200 dark:border-slate-600 transition-colors duration-200">
+                      <div className="font-medium text-gray-900 dark:text-slate-100 truncate transition-colors duration-200">{team.abbreviation}</div>
+                      <div className="text-gray-600 dark:text-gray-400 truncate transition-colors duration-200">{team.full_name}</div>
                     </div>
                   ))}
                 </div>
@@ -1598,13 +1598,13 @@ export default function AdminDashboard() {
       </div>
 
           {scanMutation.isError && (
-            <div className="p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+            <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
               Error: {String(scanMutation.error)}
             </div>
           )}
 
           {scanMutation.isSuccess && (
-            <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800">
+            <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs text-emerald-800 dark:text-emerald-300 transition-colors duration-200">
               Found {scanMutation.data?.count || 0} best bets
             </div>
           )}
@@ -1612,11 +1612,11 @@ export default function AdminDashboard() {
       </div>
 
       {/* Best Bets Results */}
-      <div className="mt-2 rounded-lg bg-white shadow-sm ring-1 ring-gray-100">
-        <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+      <div className="mt-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
+        <div className="px-3 py-2 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between transition-colors duration-200">
           <div>
-            <div className="text-sm font-semibold text-gray-900">Best Prop Bets</div>
-            <div className="text-xs text-gray-500">
+            <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Best Prop Bets</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
               Top suggestions from last scan
               {bestBetsData?.lastScanned && (
                 <span className="ml-2">• Scanned: {formatTimeAgo(bestBetsData.lastScanned)}</span>
@@ -1629,72 +1629,72 @@ export default function AdminDashboard() {
               refetchBestBets()
             }}
             disabled={bestBetsLoading}
-            className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-xs font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+            className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs font-medium text-gray-900 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors duration-200"
           >
             {bestBetsLoading ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
         {bestBetsLoading && (
           <div className="flex items-center justify-center py-4">
-            <svg className="animate-spin h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin h-4 w-4 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span className="ml-2 text-xs text-gray-600">Loading best bets...</span>
+            <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">Loading best bets...</span>
           </div>
         )}
         {bestBetsError && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg m-3 text-xs text-red-800">
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg m-3 text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
             Error loading best bets: {String(bestBetsError)}
           </div>
         )}
         {!bestBetsLoading && !bestBetsError && (
           <div className="overflow-x-auto">
             <table className="min-w-full text-xs">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-slate-700 transition-colors duration-200">
               <tr>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Player</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Prop</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Line</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Confidence</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Hit Rate</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Trend</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600">Recent Avg</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Player</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Prop</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Line</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Confidence</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Hit Rate</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Trend</th>
+                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Recent Avg</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 dark:divide-slate-700 transition-colors duration-200">
               {bestBets.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-4 text-center text-gray-500">
+                  <td colSpan={7} className="px-3 py-4 text-center text-gray-500 dark:text-gray-400 transition-colors duration-200">
                     No best bets found. Run a scan to generate suggestions.
                   </td>
                 </tr>
               ) : (
                 bestBets.slice(0, 30).map((bet: any, idx: number) => (
-                  <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <tr key={idx} className={`transition-colors duration-200 ${idx % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50 dark:bg-slate-700/50'}`}>
                     <td className="px-3 py-1.5">
-                      <a href={`/player/${bet.playerId}`} className="text-blue-600 hover:underline font-medium">
+                      <a href={`/player/${bet.playerId}`} className="text-blue-600 dark:text-blue-400 hover:underline font-medium transition-colors duration-200">
                         {bet.playerName}
                       </a>
                     </td>
-                    <td className="px-3 py-1.5 text-gray-900">{bet.type}</td>
-                    <td className="px-3 py-1.5 text-gray-900">
+                    <td className="px-3 py-1.5 text-gray-900 dark:text-slate-100 transition-colors duration-200">{bet.type}</td>
+                    <td className="px-3 py-1.5 text-gray-900 dark:text-slate-100 transition-colors duration-200">
                       {bet.suggestion === 'over' ? 'OVER' : 'UNDER'} {bet.marketLine}
                     </td>
                     <td className="px-3 py-1.5">
-                      <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
-                        bet.confidence >= 80 ? 'bg-emerald-50 text-emerald-700' :
-                        bet.confidence >= 70 ? 'bg-blue-50 text-blue-700' :
-                        'bg-amber-50 text-amber-700'
+                      <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium transition-colors duration-200 ${
+                        bet.confidence >= 80 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' :
+                        bet.confidence >= 70 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' :
+                        'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
                       }`}>
                         {bet.confidence}%
                       </span>
                     </td>
-                    <td className="px-3 py-1.5 text-gray-600">{bet.hitRate}%</td>
+                    <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400 transition-colors duration-200">{bet.hitRate}%</td>
                     <td className="px-3 py-1.5">
                       {bet.trend === 'up' ? '📈' : bet.trend === 'down' ? '📉' : '➡️'}
                     </td>
-                    <td className="px-3 py-1.5 text-gray-600">{bet.recentAvg}</td>
+                    <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400 transition-colors duration-200">{bet.recentAvg}</td>
                   </tr>
                 ))
               )}

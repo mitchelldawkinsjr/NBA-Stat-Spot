@@ -22,7 +22,7 @@ class ExternalAPIClient:
     def __init__(self):
         self.rate_limiter = get_rate_limiter()
         self.cache = get_cache_service()
-        self._client = httpx.Client(timeout=30.0, follow_redirects=True)
+        self._client = httpx.Client(timeout=15.0, follow_redirects=True)
     
     def get_with_rate_limit(
         self,

@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Query, Request, Path
 from typing import Optional, List, Dict
 from pydantic import BaseModel, Field
+from datetime import date
 from ..services.nba_api_service import NBADataService
 from ..services.stats_calculator import StatsCalculator
+from ..services.context_collector import ContextCollector
 from ..core.rate_limiter import limiter
 
 router = APIRouter(prefix="/api/v1/players", tags=["players_v1"])
@@ -261,4 +263,97 @@ def trends(
     avg10 = StatsCalculator.calculate_rolling_average(last, stat_type, 10)
     avg5 = StatsCalculator.calculate_rolling_average(last, stat_type, 5)
     return {"stat": stat_type, "avg5": avg5, "avg10": avg10, "items": last}
+
+@router.get(
+    "/{player_id}/context",
+    summary="Get player context for a specific game/opponent",
+    description="""
+    Get contextual information about a player for a specific game, including:
+    - Head-to-head (H2H) averages against the opponent
+    - Opponent defensive rankings
+    - Injury status
+    - Rest days
+    - Team performance metrics
+    
+    This endpoint is useful for analyzing player performance against specific opponents.
+    """,
+    response_description="Player context including H2H data and opponent analysis",
+    tags=["players_v1"]
+)
+@limiter.limit("30/minute")
+def get_player_context(
+    request: Request,
+    player_id: int = Path(..., description="NBA player ID", example=2544),
+    opponent_team_id: Optional[int] = Query(None, description="Opponent team ID", example=1610612747),
+    game_date: Optional[str] = Query(None, description="Game date in YYYY-MM-DD format. Defaults to today.", example="2025-01-15"),
+    is_home_game: bool = Query(True, description="Whether it's a home game"),
+    season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26")
+):
+    """Get player context including H2H data for a specific opponent"""
+    import structlog
+    
+    logger = structlog.get_logger()
+    
+    try:
+        # Parse game date
+        if game_date:
+            try:
+                game_date_obj = date.fromisoformat(game_date)
+            except ValueError:
+                game_date_obj = date.today()
+        else:
+            game_date_obj = date.today()
+        
+        # Collect player context
+        # The defensive ranks calculation now uses parallel processing with timeouts
+        # to prevent hanging. First request may take 1-2 minutes, subsequent requests
+        # will use cached data and be much faster.
+        context = ContextCollector.collect_player_context(
+            player_id=player_id,
+            game_date=game_date_obj,
+            opponent_team_id=opponent_team_id,
+            is_home_game=is_home_game,
+            season=season or "2025-26"
+        )
+        
+        # Return context data
+        return {
+            "player_id": player_id,
+            "game_date": game_date_obj.isoformat(),
+            "opponent_team_id": context.opponent_team_id,
+            "opponent_team_abbr": context.opponent_team_abbr,
+            "is_home_game": context.is_home_game,
+            "rest_days": context.rest_days,
+            "is_injured": context.is_injured,
+            "injury_status": context.injury_status,
+            "injury_description": context.injury_description,
+            "h2h": {
+                "avg_pts": context.h2h_avg_pts,
+                "avg_reb": context.h2h_avg_reb,
+                "avg_ast": context.h2h_avg_ast,
+                "games_played": context.h2h_games_played
+            },
+            "opponent_defense": {
+                "rank_pts": context.opponent_def_rank_pts,
+                "rank_reb": context.opponent_def_rank_reb,
+                "rank_ast": context.opponent_def_rank_ast
+            },
+            "team_performance": {
+                "win_rate": context.team_win_rate,
+                "conference_rank": context.team_conference_rank,
+                "recent_form": context.team_recent_form
+            },
+            "opponent_performance": {
+                "win_rate": context.opponent_win_rate,
+                "conference_rank": context.opponent_conference_rank
+            }
+        }
+    except Exception as e:
+        logger.error("Failed to fetch player context", player_id=player_id, error=str(e))
+        return {
+            "player_id": player_id,
+            "error": str(e),
+            "h2h": {"avg_pts": None, "avg_reb": None, "avg_ast": None, "games_played": 0},
+            "opponent_defense": {"rank_pts": None, "rank_reb": None, "rank_ast": None}
+        }
 

@@ -38,6 +38,15 @@ class TeamStatsService:
         cache_key = f"team_stats:{normalized_name}"
         cached_stats = self.cache.get(cache_key)
         if cached_stats:
+            # Convert dict back to TeamStats object
+            if isinstance(cached_stats, dict):
+                return TeamStats(
+                    team_name=cached_stats.get('team_name', normalized_name),
+                    ppg=cached_stats.get('ppg', 112.5),
+                    pace=cached_stats.get('pace', 100.0),
+                    home_ppg=cached_stats.get('home_ppg', 113.0),
+                    away_ppg=cached_stats.get('away_ppg', 112.0)
+                )
             return cached_stats
         
         # Check in-memory cache
@@ -58,8 +67,15 @@ class TeamStatsService:
             away_ppg=112.0
         )
         
-        # Cache for 24 hours
-        self.cache.set(cache_key, default_stats, ttl=86400)
+        # Cache for 24 hours (convert TeamStats to dict for JSON serialization)
+        stats_dict = {
+            'team_name': default_stats.team_name,
+            'ppg': default_stats.ppg,
+            'pace': default_stats.pace,
+            'home_ppg': default_stats.home_ppg,
+            'away_ppg': default_stats.away_ppg
+        }
+        self.cache.set(cache_key, stats_dict, ttl=86400)
         self._team_stats_cache[normalized_name] = default_stats
         
         logger.info("Using default team stats", team=normalized_name)

@@ -42,12 +42,12 @@ export function LoadingSpinner({ message = 'Loading...', size = 'md' }: { messag
       </div>
       
       {/* Loading text with elegant gradient */}
-      <p className="text-base font-semibold bg-gradient-to-r from-slate-700 via-blue-600 to-slate-700 bg-clip-text text-transparent mb-5 tracking-wide">
+      <p className="text-base font-semibold bg-gradient-to-r from-slate-700 dark:from-slate-300 via-blue-600 dark:via-blue-400 to-slate-700 dark:to-slate-300 bg-clip-text text-transparent mb-5 tracking-wide transition-colors duration-200">
         {message}
       </p>
       
       {/* Enhanced progress bar with gradient and shine */}
-      <div className="w-64 h-2.5 bg-gradient-to-r from-gray-100 to-gray-50 rounded-full overflow-hidden shadow-inner border border-gray-200/60 relative">
+      <div className="w-64 h-2.5 bg-gradient-to-r from-gray-100 dark:from-slate-700 to-gray-50 dark:to-slate-800 rounded-full overflow-hidden shadow-inner border border-gray-200/60 dark:border-slate-600/60 relative transition-colors duration-200">
         <div 
           className="h-full bg-gradient-to-r from-blue-500 via-purple-500 via-pink-500 to-blue-500 rounded-full animate-progress relative"
           style={{
@@ -73,8 +73,8 @@ export function LoadingSkeleton({ lines = 3 }: { lines?: number }) {
       {Array.from({ length: lines }).map((_, i) => (
         <div key={i} className="flex space-x-4">
           <div className="flex-1 space-y-2 py-1">
-            <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 rounded w-1/2"></div>
+            <div className="h-4 bg-gradient-to-r from-gray-200 dark:from-slate-700 via-gray-100 dark:via-slate-600 to-gray-200 dark:to-slate-700 rounded w-3/4 transition-colors duration-200"></div>
+            <div className="h-4 bg-gradient-to-r from-gray-200 dark:from-slate-700 via-gray-100 dark:via-slate-600 to-gray-200 dark:to-slate-700 rounded w-1/2 transition-colors duration-200"></div>
           </div>
         </div>
       ))}
@@ -90,11 +90,11 @@ export function PageLoader({ message = 'Loading player data...', progress }: { m
   const displayProgress = progress !== undefined ? progress : 0
   
   return (
-    <div className="min-h-[500px] flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50/30 rounded-xl shadow-lg ring-1 ring-gray-200/50 p-12 relative overflow-hidden">
+    <div className="min-h-[500px] flex items-center justify-center bg-gradient-to-br from-gray-50 dark:from-slate-900 via-white dark:via-slate-800 to-blue-50/30 dark:to-blue-900/20 rounded-xl shadow-lg ring-1 ring-gray-200/50 dark:ring-slate-700/50 p-12 relative overflow-hidden transition-colors duration-200">
       {/* Background decorative elements */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-10 left-10 w-32 h-32 bg-blue-500 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-10 right-10 w-40 h-40 bg-purple-500 rounded-full blur-3xl"></div>
+      <div className="absolute inset-0 opacity-5 dark:opacity-10">
+        <div className="absolute top-10 left-10 w-32 h-32 bg-blue-500 dark:bg-blue-400 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-10 right-10 w-40 h-40 bg-purple-500 dark:bg-purple-400 rounded-full blur-3xl"></div>
       </div>
       
       <div className="text-center relative z-10 w-full max-w-md">
@@ -103,20 +103,20 @@ export function PageLoader({ message = 'Loading player data...', progress }: { m
         {/* Progress percentage display */}
         {progress !== undefined && (
           <div className="mt-6">
-            <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-3">
+            <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 dark:from-blue-400 via-purple-600 dark:via-purple-400 to-pink-600 dark:to-pink-400 bg-clip-text text-transparent mb-3 transition-colors duration-200">
               {displayProgress}%
             </div>
             {/* Progress bar */}
-            <div className="w-full max-w-xs mx-auto h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+            <div className="w-full max-w-xs mx-auto h-3 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner transition-colors duration-200">
               <div 
                 className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-500 ease-out relative"
                 style={{ width: `${displayProgress}%` }}
               >
                 {/* Shine effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 dark:via-white/20 to-transparent animate-shimmer"></div>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">Fetching player data from backend...</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 transition-colors duration-200">Fetching player data from backend...</p>
           </div>
         )}
         

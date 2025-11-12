@@ -4,8 +4,10 @@ Provides endpoints for live game over/under analysis
 """
 
 from fastapi import APIRouter, Query, Request
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import structlog
+import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError, as_completed
 from ..services.over_under_service import OverUnderAnalyzer, LiveGame
 from ..services.live_game_service import LiveGameService
 from ..services.team_stats_service import TeamStatsService
@@ -125,6 +127,60 @@ def analyze_game(
         raise APIError(f"Failed to analyze game: {str(e)}", status_code=500)
 
 
+def _analyze_single_game(
+    game: LiveGame,
+    team_stats_service: TeamStatsService,
+    use_ai: bool
+) -> Optional[Dict[str, Any]]:
+    """
+    Helper function to analyze a single game.
+    Extracted for parallel processing.
+    
+    Args:
+        game: LiveGame object to analyze
+        team_stats_service: TeamStatsService instance
+        use_ai: Whether to use AI features
+        
+    Returns:
+        Analysis result dict or None if analysis fails
+    """
+    try:
+        # Build team stats lookup for this game
+        team_stats_lookup = {}
+        home_stats = team_stats_service.get_team_stats(game.home_team)
+        away_stats = team_stats_service.get_team_stats(game.away_team)
+        
+        team_stats_lookup[game.home_team] = home_stats
+        team_stats_lookup[game.away_team] = away_stats
+        
+        # Check admin AI setting - override use_ai if admin has disabled AI
+        ai_enabled = SettingsService.get_ai_enabled()
+        effective_use_ai = use_ai and ai_enabled
+        
+        # Create analyzer
+        analyzer = OverUnderAnalyzer(team_stats_lookup)
+        
+        # Analyze (with optional AI enhancement, gated by admin setting)
+        analysis = analyzer.analyze_game(game, live_line=None, use_ai=effective_use_ai)
+        
+        return {
+            "game_id": game.game_id,
+            "game": {
+                "home_team": game.home_team,
+                "away_team": game.away_team,
+                "home_score": game.home_score,
+                "away_score": game.away_score,
+                "quarter": game.quarter,
+                "time_remaining": game.time_remaining,
+                "is_final": game.is_final
+            },
+            "analysis": analysis.to_dict()
+        }
+    except Exception as e:
+        logger.warning("Error analyzing game", game_id=game.game_id, error=str(e))
+        return None
+
+
 @router.get("/analyze-all")
 @limiter.limit("10/minute")
 def analyze_all_games(
@@ -134,6 +190,9 @@ def analyze_all_games(
     """
     Analyze all live games for over/under opportunities
     
+    Uses parallel processing with 30s overall timeout and 8s per-game timeout.
+    Returns partial results if some games complete before timeout.
+    
     Args:
         use_ai: Enable AI features (ML predictions and LLM rationales).
                 Note: This is gated by the admin AI setting - if AI is disabled
@@ -142,63 +201,143 @@ def analyze_all_games(
     Returns:
         List of analysis results for all live games
     """
+    endpoint_start = time.time()
+    
     try:
-        # Get all live games
+        # Get all live games with timing
+        games_fetch_start = time.time()
         live_game_service = LiveGameService()
         games = live_game_service.get_todays_games()
+        games_fetch_duration = time.time() - games_fetch_start
+        logger.info("Fetched games", duration=round(games_fetch_duration, 2), count=len(games))
         
-        # Filter to only in-progress games (not final)
-        active_games = [g for g in games if not g.is_final and g.quarter > 0]
+        # Log details about fetched games for debugging
+        if games:
+            for g in games:
+                logger.debug(
+                    "Fetched game",
+                    game_id=g.game_id,
+                    home=g.home_team,
+                    away=g.away_team,
+                    quarter=g.quarter,
+                    is_final=g.is_final,
+                    home_score=g.home_score,
+                    away_score=g.away_score
+                )
+        
+        # Filter to only in-progress games
+        # Include games that have quarter > 0 (game has started)
+        # Exclude games that are explicitly marked as final AND have no recent activity
+        # This catches live games even if status hasn't updated yet
+        active_games = [
+            g for g in games 
+            if g.quarter > 0 and not (g.is_final and g.home_score == 0 and g.away_score == 0)
+        ]
+        
+        # Log why games were filtered out
+        filtered_out = [g for g in games if g not in active_games]
+        if filtered_out:
+            for g in filtered_out:
+                logger.debug(
+                    "Game filtered out",
+                    game_id=g.game_id,
+                    home=g.home_team,
+                    away=g.away_team,
+                    quarter=g.quarter,
+                    is_final=g.is_final,
+                    reason="is_final=True" if g.is_final else "quarter=0" if g.quarter == 0 else "unknown"
+                )
         
         if not active_games:
+            logger.info("No active games to analyze", total_games=len(games), filtered_out=len(filtered_out))
             return {"games": []}
+        
+        logger.info("Analyzing games", active_count=len(active_games))
         
         # Get team stats service
         team_stats_service = TeamStatsService()
         
+        # Process games in parallel with overall timeout
         results = []
+        failed_games = []
+        timed_out_games = []
         
-        for game in active_games:
-            try:
-                # Build team stats lookup for this game
-                team_stats_lookup = {}
-                home_stats = team_stats_service.get_team_stats(game.home_team)
-                away_stats = team_stats_service.get_team_stats(game.away_team)
+        # Use ThreadPoolExecutor with overall timeout wrapper
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            # Submit all game analysis tasks
+            future_to_game = {
+                executor.submit(_analyze_single_game, game, team_stats_service, use_ai): game
+                for game in active_games
+            }
+            
+            # Process results as they complete, with per-game timeout
+            for future in as_completed(future_to_game, timeout=30.0):
+                game = future_to_game[future]
+                game_start = time.time()
                 
-                team_stats_lookup[game.home_team] = home_stats
-                team_stats_lookup[game.away_team] = away_stats
-                
-                # Check admin AI setting - override use_ai if admin has disabled AI
-                ai_enabled = SettingsService.get_ai_enabled()
-                effective_use_ai = use_ai and ai_enabled
-                
-                # Create analyzer
-                analyzer = OverUnderAnalyzer(team_stats_lookup)
-                
-                # Analyze (with optional AI enhancement, gated by admin setting)
-                analysis = analyzer.analyze_game(game, live_line=None, use_ai=effective_use_ai)
-                
-                results.append({
-                    "game_id": game.game_id,
-                    "game": {
-                        "home_team": game.home_team,
-                        "away_team": game.away_team,
-                        "home_score": game.home_score,
-                        "away_score": game.away_score,
-                        "quarter": game.quarter,
-                        "time_remaining": game.time_remaining,
-                        "is_final": game.is_final
-                    },
-                    "analysis": analysis.to_dict()
-                })
-                
-            except Exception as e:
-                logger.warning("Error analyzing game", game_id=game.game_id, error=str(e))
-                continue
+                try:
+                    # Wait for result with per-game timeout of 8 seconds
+                    result = future.result(timeout=8.0)
+                    game_duration = time.time() - game_start
+                    
+                    if result:
+                        results.append(result)
+                        logger.info(
+                            "Game analysis completed",
+                            game_id=game.game_id,
+                            duration=round(game_duration, 2)
+                        )
+                    else:
+                        failed_games.append(game.game_id)
+                        logger.warning("Game analysis returned None", game_id=game.game_id)
+                        
+                except FutureTimeoutError:
+                    timed_out_games.append(game.game_id)
+                    logger.warning(
+                        "Game analysis timed out",
+                        game_id=game.game_id,
+                        duration=round(time.time() - game_start, 2)
+                    )
+                except Exception as e:
+                    failed_games.append(game.game_id)
+                    logger.warning(
+                        "Game analysis failed",
+                        game_id=game.game_id,
+                        error=str(e),
+                        duration=round(time.time() - game_start, 2)
+                    )
+        
+        total_duration = time.time() - endpoint_start
+        logger.info(
+            "Analysis complete",
+            total_duration=round(total_duration, 2),
+            successful=len(results),
+            failed=len(failed_games),
+            timed_out=len(timed_out_games),
+            total_games=len(active_games)
+        )
         
         return {"games": results}
         
+    except FutureTimeoutError:
+        total_duration = time.time() - endpoint_start
+        logger.error(
+            "Endpoint timed out",
+            duration=round(total_duration, 2),
+            completed_games=len(results) if 'results' in locals() else 0
+        )
+        # Return partial results if we have any
+        if 'results' in locals() and results:
+            logger.info("Returning partial results due to timeout", count=len(results))
+            return {"games": results, "partial": True, "timeout": True}
+        raise APIError("Analysis timed out after 30 seconds", status_code=504)
+        
     except Exception as e:
-        logger.error("Error analyzing all games", error=str(e))
+        total_duration = time.time() - endpoint_start
+        logger.error(
+            "Error analyzing all games",
+            error=str(e),
+            duration=round(total_duration, 2)
+        )
         raise APIError(f"Failed to analyze games: {str(e)}", status_code=500)
 

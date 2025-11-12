@@ -121,10 +121,48 @@ class HighHitRateService:
                 continue
             
             try:
-                # Get player game logs
+                # Get player game logs - ONLY use current season
+                # If player doesn't have stats from current season, exclude them
                 logs = NBADataService.fetch_player_game_log(player_id, season)
                 if not logs or len(logs) < 5:  # Need at least 5 games for meaningful hit rate
                     continue
+                
+                # Verify logs are from the requested season by checking game dates
+                # This ensures we're not using stale data from a different season
+                if season:
+                    # Extract year from season string (e.g., "2025-26" -> 2025)
+                    try:
+                        season_year = int(season.split("-")[0])
+                        # Check if any logs have game dates from the current season
+                        has_current_season_logs = False
+                        for log in logs:
+                            game_date = log.get("game_date", "")
+                            if game_date:
+                                # Parse date and check if it's from current season (Oct 2024 - Jun 2025 for 2024-25 season)
+                                try:
+                                    from datetime import datetime
+                                    date_obj = datetime.strptime(game_date.split("T")[0] if "T" in game_date else game_date, "%Y-%m-%d")
+                                    # Season starts in October, so for 2025-26 season, dates should be Oct 2025 onwards
+                                    if date_obj.year >= season_year:
+                                        has_current_season_logs = True
+                                        break
+                                except (ValueError, AttributeError):
+                                    pass
+                        
+                        # If no current season logs found, skip this player
+                        if not has_current_season_logs:
+                            continue
+                    except (ValueError, AttributeError):
+                        # If we can't parse season, still include player (backward compatibility)
+                        pass
+                
+                # Filter by minimum average minutes (22 minutes)
+                minutes_list = [float(game.get("minutes", 0) or 0) for game in logs if game.get("minutes")]
+                if minutes_list:
+                    avg_minutes = sum(minutes_list) / len(minutes_list)
+                    if avg_minutes < 22.0:
+                        # Player doesn't meet minimum minutes threshold
+                        continue
                 
                 # Use last_n games if specified, otherwise use all games
                 logs_for_hit_rate = logs[-last_n:] if last_n else logs
@@ -135,43 +173,85 @@ class HighHitRateService:
                         # Determine fair line based on recent performance
                         fair_line = PropBetEngine.determine_line_value(logs, stat_key)
                         
-                        # Calculate hit rate using all available games (or last_n)
-                        hit_rate = StatsCalculator.calculate_hit_rate(logs_for_hit_rate, fair_line, stat_key)
+                        # Check a range of lines: -2.5, -1.5, fair, +1.5, +2.5
+                        lines_to_check = [
+                            fair_line - 2.5,
+                            fair_line - 1.5,
+                            fair_line,
+                            fair_line + 1.5,
+                            fair_line + 2.5
+                        ]
                         
-                        # Only include if hit rate meets threshold
-                        if hit_rate < min_hit_rate:
-                            continue
+                        best_suggestion = None
+                        best_hit_rate = 0.0
+                        best_line = None
+                        best_direction = None
                         
-                        # Calculate confidence for display
-                        evaluation = PropBetEngine.evaluate_prop(logs, stat_key, fair_line)
+                        # Check each line and both directions (over/under)
+                        for line_value in lines_to_check:
+                            # Skip negative lines (not valid for stats)
+                            if line_value < 0:
+                                continue
+                            
+                            # Round to nearest 0.5 for consistency
+                            line_value = round(line_value * 2) / 2.0
+                            
+                            # Check both "over" and "under" directions
+                            for direction in ["over", "under"]:
+                                # Calculate hit rate for this line and direction
+                                hit_rate = StatsCalculator.calculate_hit_rate(
+                                    logs_for_hit_rate, 
+                                    line_value, 
+                                    stat_key, 
+                                    direction
+                                )
+                                
+                                # Only consider if it meets the minimum threshold
+                                if hit_rate >= min_hit_rate:
+                                    # If this is better than what we have, save it
+                                    if hit_rate > best_hit_rate:
+                                        best_hit_rate = hit_rate
+                                        best_line = line_value
+                                        best_direction = direction
                         
-                        # Map stat key to display format
-                        display_map = {
-                            "pts": "PTS",
-                            "reb": "REB",
-                            "ast": "AST",
-                            "tpm": "3PM"
-                        }
+                        # Only add if we found a suggestion that meets the threshold
+                        if best_suggestion is None and best_line is not None:
+                            # Calculate full evaluation for the best line/direction
+                            evaluation = PropBetEngine.evaluate_prop(
+                                logs, 
+                                stat_key, 
+                                best_line, 
+                                best_direction
+                            )
+                            
+                            # Map stat key to display format
+                            display_map = {
+                                "pts": "PTS",
+                                "reb": "REB",
+                                "ast": "AST",
+                                "tpm": "3PM"
+                            }
+                            
+                            # Calculate sample size
+                            sample_size = len(logs_for_hit_rate)
+                            
+                            best_suggestion = {
+                                "type": display_map.get(stat_key, stat_key.upper()),
+                                "playerId": player_id,
+                                "playerName": player_name,
+                                "marketLine": best_line,  # Use the best line found
+                                "fairLine": fair_line,  # Keep original fair line for reference
+                                "confidence": evaluation.get("confidence", 0),
+                                "suggestion": best_direction,  # Use the direction with best hit rate
+                                "hitRate": round(best_hit_rate * 100, 1),  # Convert to percentage
+                                "sampleSize": sample_size,
+                                "rationale": evaluation.get("rationale", {}).get("summary", ""),
+                                "stats": evaluation.get("stats", {}),
+                                "gameDate": target_date,
+                            }
                         
-                        # Calculate sample size (number of games used)
-                        sample_size = len(logs_for_hit_rate)
-                        
-                        suggestion = {
-                            "type": display_map.get(stat_key, stat_key.upper()),
-                            "playerId": player_id,
-                            "playerName": player_name,
-                            "marketLine": fair_line,
-                            "fairLine": fair_line,
-                            "confidence": evaluation.get("confidence", 0),
-                            "suggestion": evaluation.get("suggestion", "over"),
-                            "hitRate": round(hit_rate * 100, 1),  # Convert to percentage
-                            "sampleSize": sample_size,
-                            "rationale": evaluation.get("rationale", {}).get("summary", ""),
-                            "stats": evaluation.get("stats", {}),
-                            "gameDate": target_date,  # Add game date for today's games
-                        }
-                        
-                        all_props.append(suggestion)
+                        if best_suggestion:
+                            all_props.append(best_suggestion)
                         
                         # Early exit if we have enough high-quality props
                         if len(all_props) >= limit * 2:  # Collect extra for better sorting
@@ -184,7 +264,7 @@ class HighHitRateService:
                 if len(all_props) >= limit * 2:
                     break
                 
-                # Also compute PRA prop
+                # Also compute PRA prop with range checking
                 try:
                     # Enrich logs with PRA
                     enriched_logs = []
@@ -196,27 +276,70 @@ class HighHitRateService:
                     enriched_logs_for_hit_rate = enriched_logs[-last_n:] if last_n else enriched_logs
                     
                     fair_line_pra = PropBetEngine.determine_line_value(enriched_logs, "pra")
-                    hit_rate_pra = StatsCalculator.calculate_hit_rate(enriched_logs_for_hit_rate, fair_line_pra, "pra")
                     
-                    if hit_rate_pra >= min_hit_rate:
-                        evaluation_pra = PropBetEngine.evaluate_prop(enriched_logs, "pra", fair_line_pra)
+                    # Check a range of lines: -2.5, -1.5, fair, +1.5, +2.5
+                    pra_lines_to_check = [
+                        fair_line_pra - 2.5,
+                        fair_line_pra - 1.5,
+                        fair_line_pra,
+                        fair_line_pra + 1.5,
+                        fair_line_pra + 2.5
+                    ]
+                    
+                    best_pra_suggestion = None
+                    best_pra_hit_rate = 0.0
+                    best_pra_line = None
+                    best_pra_direction = None
+                    
+                    # Check each line and both directions
+                    for line_value in pra_lines_to_check:
+                        # Skip negative lines
+                        if line_value < 0:
+                            continue
+                        
+                        # Round to nearest 0.5 for consistency
+                        line_value = round(line_value * 2) / 2.0
+                        
+                        for direction in ["over", "under"]:
+                            hit_rate_pra = StatsCalculator.calculate_hit_rate(
+                                enriched_logs_for_hit_rate, 
+                                line_value, 
+                                "pra", 
+                                direction
+                            )
+                            
+                            if hit_rate_pra >= min_hit_rate and hit_rate_pra > best_pra_hit_rate:
+                                best_pra_hit_rate = hit_rate_pra
+                                best_pra_line = line_value
+                                best_pra_direction = direction
+                    
+                    # Only add if we found a suggestion that meets the threshold
+                    if best_pra_suggestion is None and best_pra_line is not None:
+                        evaluation_pra = PropBetEngine.evaluate_prop(
+                            enriched_logs, 
+                            "pra", 
+                            best_pra_line, 
+                            best_pra_direction
+                        )
                         sample_size_pra = len(enriched_logs_for_hit_rate)
                         
-                        suggestion_pra = {
+                        best_pra_suggestion = {
                             "type": "PRA",
                             "playerId": player_id,
                             "playerName": player_name,
-                            "marketLine": fair_line_pra,
-                            "fairLine": fair_line_pra,
+                            "marketLine": best_pra_line,  # Use the best line found
+                            "fairLine": fair_line_pra,  # Keep original fair line for reference
                             "confidence": evaluation_pra.get("confidence", 0),
-                            "suggestion": evaluation_pra.get("suggestion", "over"),
-                            "hitRate": round(hit_rate_pra * 100, 1),
+                            "suggestion": best_pra_direction,  # Use the direction with best hit rate
+                            "hitRate": round(best_pra_hit_rate * 100, 1),
                             "sampleSize": sample_size_pra,
                             "rationale": evaluation_pra.get("rationale", {}).get("summary", ""),
                             "stats": evaluation_pra.get("stats", {}),
-                            "gameDate": target_date,  # Add game date for today's games
+                            "gameDate": target_date,
                         }
-                        all_props.append(suggestion_pra)
+                    
+                    if best_pra_suggestion:
+                        all_props.append(best_pra_suggestion)
                 except Exception:
                     continue
                     

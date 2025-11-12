@@ -47,20 +47,18 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
   }
 
   return (
-    <div style={{ position: 'relative', maxWidth: 420 }}>
-      <div style={{ display: 'flex', gap: 8 }}>
+    <div className="relative max-w-[420px]">
+      <div className="flex gap-2">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search player…"
-          style={{ flex: 1, padding: '8px 10px', border: '1px solid #ddd', borderRadius: 6, color: '#111827', background: '#ffffff' }}
-          className="text-gray-900 bg-white"
+          className="flex-1 px-2.5 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-md text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
         />
         {q && (
           <button 
             onClick={clear} 
-            style={{ padding: '8px 12px', color: '#111827', background: '#ffffff', border: '1px solid #ddd', borderRadius: 6 }}
-            className="text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50"
+            className="px-3 py-2 text-sm text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors duration-200"
           >
             Clear
           </button>
@@ -70,7 +68,7 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
         <ul 
           onMouseDown={(e: any) => e.preventDefault()} 
           onClick={(e: any) => e.preventDefault()}
-          style={{ position: 'absolute', zIndex: 10, background: '#fff', color: '#111827', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', listStyle: 'none', padding: 8, margin: 4, width: '100%', borderRadius: 8, border: '1px solid #eee', maxHeight: 280, overflowY: 'auto' }}
+          className="absolute z-10 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 shadow-lg list-none p-2 m-1 w-full rounded-lg border border-gray-200 dark:border-slate-700 max-h-[280px] overflow-y-auto transition-colors duration-200"
         >
           {items.map((p) => (
             <li key={p.id}>
@@ -84,10 +82,8 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
                   e.preventDefault()
                   e.stopPropagation()
                 }}
-                onMouseEnter={(e: any) => (e.currentTarget.style.background = '#f3f4f6')}
-                onMouseLeave={(e: any) => (e.currentTarget.style.background = 'transparent')}
                 type="button" 
-                style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#111827', borderRadius: 6 }}
+                className="w-full text-left px-2.5 py-2 border-none bg-transparent hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer text-gray-900 dark:text-slate-100 rounded-md transition-colors duration-200"
               >
                 {p.name}
               </button>

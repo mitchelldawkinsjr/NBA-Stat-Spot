@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useSeason } from '../context/SeasonContext'
 import { apiFetch, apiPost } from '../utils/api'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { SuggestionCards } from '../components/SuggestionCards'
 import { PropCard } from '../components/PropCard'
 import { calculateConfidenceBasic } from '../utils/confidence'
@@ -16,6 +16,7 @@ import { DataTable } from '../components/ui/DataTable'
 import type { DataTableColumn } from '../components/ui/DataTable'
 import { pearsonCorrelation } from '../utils/correlation'
 import { PageLoader } from '../components/LoadingSpinner'
+import type { Team } from '../types/api'
 
 type GameLog = {
   game_id: string
@@ -135,6 +136,25 @@ export default function PlayerProfile() {
             // Skip null/undefined items
             if (!g || typeof g !== 'object') return null
             const game = g as Record<string, unknown>
+            // Parse minutes - try multiple field names and handle different formats
+            let minutes = 0
+            if (game.minutes !== undefined && game.minutes !== null) {
+              minutes = Number(game.minutes) || 0
+            } else if (game.MIN !== undefined && game.MIN !== null) {
+              const minVal = game.MIN
+              // Handle "MM:SS" format if it's a string
+              if (typeof minVal === 'string' && minVal.includes(':')) {
+                const parts = minVal.split(':')
+                if (parts.length >= 2) {
+                  minutes = Number(parts[0]) + (Number(parts[1]) / 60)
+                } else {
+                  minutes = Number(parts[0]) || 0
+                }
+              } else {
+                minutes = Number(minVal) || 0
+              }
+            }
+            
             return {
               game_id: String(game.game_id || game.gameId || game.Game_ID || ''),
               game_date: String(game.game_date || game.gameDate || game.GAME_DATE || ''),
@@ -143,7 +163,7 @@ export default function PlayerProfile() {
               reb: Number(game.reb ?? game.REB ?? 0),
               ast: Number(game.ast ?? game.AST ?? 0),
               tpm: Number(game.tpm ?? game.FG3M ?? 0),
-              minutes: Number(game.minutes ?? game.MIN ?? 0),
+              minutes: minutes,
             }
           })
           .filter((g: GameLog | null): g is GameLog => g !== null) // Filter out nulls
@@ -179,16 +199,35 @@ export default function PlayerProfile() {
               .map((g: unknown): GameLog | null => {
                 if (!g || typeof g !== 'object') return null
                 const game = g as Record<string, unknown>
-                return {
-                  game_id: String(game.game_id || game.gameId || game.Game_ID || ''),
-                  game_date: String(game.game_date || game.gameDate || game.GAME_DATE || ''),
-                  matchup: String(game.matchup || game.MATCHUP || ''),
-                  pts: Number(game.pts ?? game.PTS ?? 0),
-                  reb: Number(game.reb ?? game.REB ?? 0),
-                  ast: Number(game.ast ?? game.AST ?? 0),
-                  tpm: Number(game.tpm ?? game.FG3M ?? 0),
-                  minutes: Number(game.minutes ?? game.MIN ?? 0),
-                }
+                  // Parse minutes - try multiple field names and handle different formats
+                  let minutes = 0
+                  if (game.minutes !== undefined && game.minutes !== null) {
+                    minutes = Number(game.minutes) || 0
+                  } else if (game.MIN !== undefined && game.MIN !== null) {
+                    const minVal = game.MIN
+                    // Handle "MM:SS" format if it's a string
+                    if (typeof minVal === 'string' && minVal.includes(':')) {
+                      const parts = minVal.split(':')
+                      if (parts.length >= 2) {
+                        minutes = Number(parts[0]) + (Number(parts[1]) / 60)
+                      } else {
+                        minutes = Number(parts[0]) || 0
+                      }
+                    } else {
+                      minutes = Number(minVal) || 0
+                    }
+                  }
+                  
+                  return {
+                    game_id: String(game.game_id || game.gameId || game.Game_ID || ''),
+                    game_date: String(game.game_date || game.gameDate || game.GAME_DATE || ''),
+                    matchup: String(game.matchup || game.MATCHUP || ''),
+                    pts: Number(game.pts ?? game.PTS ?? 0),
+                    reb: Number(game.reb ?? game.REB ?? 0),
+                    ast: Number(game.ast ?? game.AST ?? 0),
+                    tpm: Number(game.tpm ?? game.FG3M ?? 0),
+                    minutes: minutes,
+                  }
               })
               .filter((g: GameLog | null): g is GameLog => g !== null) // Filter out nulls
             setLogs(base2)
@@ -345,6 +384,60 @@ export default function PlayerProfile() {
     return { ...match, chosenDirection: hrDir as 'over' | 'under' }
   }, [evalResult, hrStat, hrDir])
 
+  // Fetch teams to map abbreviations to IDs
+  const { data: teamsData } = useQuery<{ items: Team[] }>({
+    queryKey: ['teams'],
+    queryFn: async () => {
+      const res = await apiFetch('api/v1/teams')
+      if (!res.ok) throw new Error('Failed to fetch teams')
+      return res.json()
+    },
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+  })
+
+  // Extract opponent from most recent game
+  const opponentTeamId = useMemo(() => {
+    if (!enrichedLogs.length || !teamsData?.items) return null
+    
+    const mostRecentGame = enrichedLogs[enrichedLogs.length - 1]
+    const matchup = mostRecentGame.matchup || ''
+    
+    // Parse matchup string like "LAL vs. BOS" or "LAL @ BOS"
+    // Extract the opponent abbreviation
+    const parts = matchup.split(/\s+(?:vs\.?|@)\s+/i)
+    if (parts.length !== 2) return null
+    
+    // Get player's team abbreviation (first part)
+    const playerTeamAbbr = parts[0].trim().toUpperCase()
+    // Get opponent abbreviation (second part)
+    const opponentAbbr = parts[1].trim().toUpperCase()
+    
+    // Find opponent team by abbreviation
+    const opponentTeam = teamsData.items.find(t => 
+      t.abbreviation?.toUpperCase() === opponentAbbr
+    )
+    
+    return opponentTeam?.id || null
+  }, [enrichedLogs, teamsData])
+
+  // Fetch player context with H2H data
+  // Cached for 6 hours on backend, so use cache aggressively on frontend
+  const { data: playerContext, isLoading: contextLoading } = useQuery({
+    queryKey: ['player-context', id, opponentTeamId, season],
+    queryFn: async () => {
+      if (!id || !opponentTeamId) return null
+      const res = await apiFetch(`api/v1/players/${id}/context?opponent_team_id=${opponentTeamId}&season=${encodeURIComponent(season || '2025-26')}`)
+      if (!res.ok) return null
+      return res.json()
+    },
+    enabled: !!id && !!opponentTeamId,
+    staleTime: 6 * 60 * 60 * 1000, // 6 hours - matches backend cache
+    gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours
+    refetchOnMount: false, // Use cache first, don't refetch on mount
+    refetchOnWindowFocus: false, // Don't refetch when window gains focus
+    refetchOnReconnect: false, // Don't refetch on reconnect
+  })
+
   
 
   return (
@@ -353,37 +446,37 @@ export default function PlayerProfile() {
 
       {/* Breadcrumbs (TailGrids: Breadcrumbs) */}
       <nav className="relative z-10 mt-3" aria-label="Breadcrumb">
-        <ol className="min-w-0 flex items-center gap-1 text-xs text-gray-500 overflow-hidden">
+        <ol className="min-w-0 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 overflow-hidden transition-colors duration-200">
           <li>
-            <Link to="/" className="hover:text-gray-700">Home</Link>
+            <Link to="/" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200">Home</Link>
           </li>
           <li aria-hidden="true" className="px-1">/</li>
           <li>
-            <Link to="/explore" className="hover:text-gray-700">Players</Link>
+            <Link to="/explore" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200">Players</Link>
           </li>
           <li aria-hidden="true" className="px-1">/</li>
-          <li className="flex-1 min-w-0 text-gray-700 font-medium truncate">{playerName || 'Player'}</li>
+          <li className="flex-1 min-w-0 text-gray-700 dark:text-gray-300 font-medium truncate transition-colors duration-200">{playerName || 'Player'}</li>
         </ol>
       </nav>
 
       {/* Header / Profile */}
       {/* Header / Profile (styled light for readability) */}
-      <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-white shadow-xl ring-1 ring-gray-200 mt-2 sm:mt-3">
+      <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-white dark:bg-slate-800 shadow-xl ring-1 ring-gray-200 dark:ring-slate-700 mt-2 sm:mt-3 transition-colors duration-200">
         <div className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
-            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-slate-100 ring-1 ring-gray-200 flex items-center justify-center text-base sm:text-lg font-semibold text-slate-800 flex-shrink-0">
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-slate-100 dark:bg-slate-700 ring-1 ring-gray-200 dark:ring-slate-600 flex items-center justify-center text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-200 flex-shrink-0 transition-colors duration-200">
               {(playerName || 'P').slice(0,1)}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 id="player-profile-title" className="text-base sm:text-lg md:text-xl font-semibold tracking-tight text-slate-800 truncate">{playerName ? playerName : 'Player'} Profile</h2>
+              <h2 id="player-profile-title" className="text-base sm:text-lg md:text-xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 truncate transition-colors duration-200">{playerName ? playerName : 'Player'} Profile</h2>
               <div className="mt-0.5 flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-slate-700">Season: {fallbackUsed ? fallbackUsed : season}</span>
+                <span className="text-xs text-slate-700 dark:text-slate-300 transition-colors duration-200">Season: {fallbackUsed ? fallbackUsed : season}</span>
                 {teamName && teamId && (
                   <>
-                    <span className="text-xs text-slate-500">•</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 transition-colors duration-200">•</span>
                     <Link
                       to={`/team/${teamId}`}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                      className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors duration-200"
                     >
                       {teamName}
                     </Link>
@@ -392,31 +485,31 @@ export default function PlayerProfile() {
               </div>
               {/* Minimal season averages inline under name with form badges */}
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-800 dark:text-slate-200 transition-colors duration-200">
                   PTS {seasonAverages.pts.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.pts.color}`}>
                     {statFormBadges.pts.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-800 dark:text-slate-200 transition-colors duration-200">
                   REB {seasonAverages.reb.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.reb.color}`}>
                     {statFormBadges.reb.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-800 dark:text-slate-200 transition-colors duration-200">
                   AST {seasonAverages.ast.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.ast.color}`}>
                     {statFormBadges.ast.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-800 dark:text-slate-200 transition-colors duration-200">
                   3PM {seasonAverages.tpm.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.tpm.color}`}>
                     {statFormBadges.tpm.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-800 dark:text-slate-200 transition-colors duration-200">
                   MIN {seasonAverages.minutes.toFixed(1)}
                 </span>
               </div>
@@ -427,7 +520,7 @@ export default function PlayerProfile() {
               {headerTrend.tag} {headerTrend.delta >= 0 ? '+' : ''}{headerTrend.delta.toFixed(1)} pts vs season
             </span>
             {fallbackUsed && (
-              <span className="inline-flex items-center rounded-full bg-yellow-50 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium text-yellow-700 ring-1 ring-inset ring-yellow-200">Fallback to {fallbackUsed}</span>
+              <span className="inline-flex items-center rounded-full bg-yellow-50 dark:bg-yellow-900/30 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium text-yellow-700 dark:text-yellow-300 ring-1 ring-inset ring-yellow-200 dark:ring-yellow-700/50 transition-colors duration-200">Fallback to {fallbackUsed}</span>
             )}
           </div>
         </div>
@@ -439,23 +532,23 @@ export default function PlayerProfile() {
           <PageLoader message="Loading player stats..." progress={loadingProgress} />
         </div>
       ) : error ? (
-        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        <div className="mt-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-300 transition-colors duration-200">
           <div className="font-semibold mb-2">Error loading player data</div>
           <div>{error}</div>
           <div className="mt-3">
-            <Link to="/explore" className="text-blue-600 hover:underline text-sm">
+            <Link to="/explore" className="text-blue-600 dark:text-blue-400 hover:underline text-sm transition-colors duration-200">
               ← Return to Explore
             </Link>
           </div>
         </div>
       ) : logs.length === 0 && !loading ? (
-        <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50 p-6 text-center">
-          <div className="font-semibold text-yellow-800 mb-2">No Game Data Available</div>
-          <div className="text-sm text-yellow-700 mb-4">
+        <div className="mt-3 rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-6 text-center transition-colors duration-200">
+          <div className="font-semibold text-yellow-800 dark:text-yellow-300 mb-2 transition-colors duration-200">No Game Data Available</div>
+          <div className="text-sm text-yellow-700 dark:text-yellow-400 mb-4 transition-colors duration-200">
             {playerName || `Player ${id}`} doesn't have game statistics for the {season} season yet.
           </div>
           <div className="flex gap-3 justify-center">
-            <Link to="/explore" className="text-blue-600 hover:underline text-sm">
+            <Link to="/explore" className="text-blue-600 dark:text-blue-400 hover:underline text-sm transition-colors duration-200">
               ← Return to Explore
             </Link>
             {season !== '2024-25' && (
@@ -465,7 +558,7 @@ export default function PlayerProfile() {
                   setError(null)
                   setLoading(true)
                 }}
-                className="text-blue-600 hover:underline text-sm"
+                className="text-blue-600 dark:text-blue-400 hover:underline text-sm transition-colors duration-200"
               >
                 Try Previous Season
               </button>
@@ -475,19 +568,19 @@ export default function PlayerProfile() {
       ) : (
         <div id="player-profile-main" role="main" aria-labelledby="player-profile-title" className="space-y-4">
           {/* Controls (TailGrids: Toolbar) */}
-          <div className="mt-3 bg-white rounded-lg sm:rounded-xl shadow-md ring-1 ring-gray-100 p-2 sm:p-3 md:p-4 flex items-center gap-2 sm:gap-3 flex-wrap">
-            <div className="text-[10px] sm:text-xs font-semibold text-gray-600">Window</div>
-            <select aria-label="Select window" value={windowN} onChange={(e) => setWindowN(Number(e.target.value))} className="px-2 sm:px-3 pr-8 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20">
+          <div className="mt-3 bg-white dark:bg-slate-800 rounded-lg sm:rounded-xl shadow-md ring-1 ring-gray-100 dark:ring-slate-700 p-2 sm:p-3 md:p-4 flex items-center gap-2 sm:gap-3 flex-wrap transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs font-semibold text-gray-600 dark:text-gray-400 transition-colors duration-200">Window</div>
+            <select aria-label="Select window" value={windowN} onChange={(e) => setWindowN(Number(e.target.value))} className="px-2 sm:px-3 pr-8 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200">
               {[5,10,20].map(n => <option key={n} value={n}>{n} games</option>)}
             </select>
-            <div className="text-[10px] sm:text-xs font-semibold text-gray-600 ml-1">Hit Rate</div>
-            <select value={hrStat} onChange={(e) => setHrStat(e.target.value as 'PTS'|'REB'|'AST'|'3PM'|'PRA')} className="px-2 sm:px-3 pr-8 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20">
+            <div className="text-[10px] sm:text-xs font-semibold text-gray-600 dark:text-gray-400 ml-1 transition-colors duration-200">Hit Rate</div>
+            <select value={hrStat} onChange={(e) => setHrStat(e.target.value as 'PTS'|'REB'|'AST'|'3PM'|'PRA')} className="px-2 sm:px-3 pr-8 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200">
               {['PTS','REB','AST','3PM','PRA'].map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <input value={hrLine} onChange={(e) => setHrLine(e.target.value)} inputMode="decimal" placeholder="Line" className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 w-20 sm:w-auto" />
+            <input value={hrLine} onChange={(e) => setHrLine(e.target.value)} inputMode="decimal" placeholder="Line" className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 w-20 sm:w-auto transition-colors duration-200" />
             <div className="flex items-center gap-1 sm:gap-2">
-              <button onClick={() => setHrDir('over')} aria-pressed={hrDir==='over'} aria-label="Select Over" className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border text-xs sm:text-sm font-medium shadow-sm ${hrDir==='over' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-900 border-gray-300'}`}>Over</button>
-              <button onClick={() => setHrDir('under')} aria-pressed={hrDir==='under'} aria-label="Select Under" className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border text-xs sm:text-sm font-medium shadow-sm ${hrDir==='under' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-900 border-gray-300'}`}>Under</button>
+              <button onClick={() => setHrDir('over')} aria-pressed={hrDir==='over'} aria-label="Select Over" className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border text-xs sm:text-sm font-medium shadow-sm transition-colors duration-200 ${hrDir==='over' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 border-gray-300 dark:border-slate-600'}`}>Over</button>
+              <button onClick={() => setHrDir('under')} aria-pressed={hrDir==='under'} aria-label="Select Under" className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border text-xs sm:text-sm font-medium shadow-sm transition-colors duration-200 ${hrDir==='under' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 border-gray-300 dark:border-slate-600'}`}>Under</button>
             </div>
             <button 
               onClick={() => evalLine.mutate()} 
@@ -535,17 +628,17 @@ export default function PlayerProfile() {
               <div className="mt-3 overflow-x-auto px-1 py-2 -mx-2 sm:mx-0">
                 <div className="flex gap-2 sm:gap-3">
                   {recs.map((r, i) => (
-                  <div key={i} className="w-[240px] sm:w-[280px] flex-none rounded-xl sm:rounded-2xl bg-white shadow-sm ring-1 ring-gray-100 p-3 sm:p-4">
+                  <div key={i} className="w-[240px] sm:w-[280px] flex-none rounded-xl sm:rounded-2xl bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 sm:p-4 transition-colors duration-200">
                     <div className="flex items-start justify-between gap-3">
                       <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${r.color}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5"><path d="M12 3l4 7H8l4-7Zm0 18l-4-7h8l-4 7Z"/></svg>
                       </div>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${r.dir==='OVER' ? 'bg-green-50 text-green-700 ring-1 ring-green-600/20' : 'bg-red-50 text-red-700 ring-1 ring-red-600/20'}`}>{r.dir==='OVER' ? 'Trending up' : 'Trending down'}</span>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors duration-200 ${r.dir==='OVER' ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-1 ring-green-600/20 dark:ring-green-600/50' : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 ring-1 ring-red-600/20 dark:ring-red-600/50'}`}>{r.dir==='OVER' ? 'Trending up' : 'Trending down'}</span>
                     </div>
-                    <div className="mt-2 text-xs font-medium text-gray-500">{r.key} {r.dir} {r.line.toFixed(1)}</div>
-                    <div className="mt-0.5 text-2xl font-semibold text-gray-900">{r.confidence}%</div>
-                    <div className="mt-1 text-[11px] text-gray-500">{r.reason}</div>
-                    <div className="mt-2 h-2 rounded-full bg-gray-100" aria-label={`Confidence ${r.confidence}%`}>
+                    <div className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">{r.key} {r.dir} {r.line.toFixed(1)}</div>
+                    <div className="mt-0.5 text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{r.confidence}%</div>
+                    <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 transition-colors duration-200">{r.reason}</div>
+                    <div className="mt-2 h-2 rounded-full bg-gray-100 dark:bg-slate-700 transition-colors duration-200" aria-label={`Confidence ${r.confidence}%`}>
                       <div className={`h-2 rounded-full ${r.dir==='OVER' ? 'bg-green-600' : 'bg-red-600'}`} style={{ width: `${Math.max(0, Math.min(100, r.confidence))}%` }} />
                     </div>
                   </div>
@@ -570,16 +663,16 @@ export default function PlayerProfile() {
             const hitCount = lastNFlags.filter(Boolean).length
             const rate = vals.length ? Math.round((hitCount / vals.length) * 100) : 0
             return (
-              <div className="card p-4 mt-3">
+              <div className="card p-4 mt-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg transition-colors duration-200">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-semibold text-slate-800">Hit Rate vs Line</div>
-                  <div className="text-sm text-slate-600">{hrStat} {hrDir.toUpperCase()} {lineVal.toFixed(1)} • {rate}%</div>
+                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 transition-colors duration-200">Hit Rate vs Line</div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400 transition-colors duration-200">{hrStat} {hrDir.toUpperCase()} {lineVal.toFixed(1)} • {rate}%</div>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {vals.map((v, i) => {
                     const hit = compare(v)
                     return (
-                      <div key={i} className={`flex items-center justify-center w-6 h-6 rounded ${hit ? 'bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-600/20' : 'bg-red-500/10 text-red-600 ring-1 ring-red-600/20'}`} title={`${v} ${hit ? 'hit' : 'miss'}`}>
+                      <div key={i} className={`flex items-center justify-center w-6 h-6 rounded transition-colors duration-200 ${hit ? 'bg-emerald-500/15 dark:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-600/20 dark:ring-emerald-600/40' : 'bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 ring-1 ring-red-600/20 dark:ring-red-600/40'}`} title={`${v} ${hit ? 'hit' : 'miss'}`}>
                         {hit ? (
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
                         ) : (
@@ -593,8 +686,212 @@ export default function PlayerProfile() {
             )
           })()}
 
+          {/* Matchup Analysis */}
+          {(() => {
+            const homeGames = enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('vs'))
+            const awayGames = enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('@'))
+            const homePts = avg(homeGames.map(g=>g.pts))
+            const awayPts = avg(awayGames.map(g=>g.pts))
+            const ptsRecent = avg(recentN.map(g=>g.pts))
+            const ptsSeason = seasonAverages.pts
+            const trend = ptsRecent - ptsSeason
+            const trendTag = trend > 0.8 ? 'HOT' : trend < -0.8 ? 'COLD' : 'NEUTRAL'
+            return (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 transition-colors duration-200">Opponent Analysis</div>
+                  <button onClick={() => setShowOpponent(v => !v)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200" aria-label="Toggle opponent analysis">
+                    {showOpponent ? (
+                      <svg className="w-4 h-4 text-slate-600 dark:text-slate-400 transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/></svg>
+                    ) : (
+                      <svg className="w-4 h-4 text-slate-600 dark:text-slate-400 transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M2.1 3.5 1 4.6l3.3 3.3C2 9.7 1 12 1 12s4 7 11 7c2.3 0 4.3-.7 6-.1l3 3 1.1-1.1L2.1 3.5ZM12 17c-2.8 0-5-2.2-5-5 0-.6.1-1.1.3-1.6l1.5 1.5c-.1.3-.1.7-.1 1.1 0 1.9 1.5 3.5 3.5 3.5.4 0 .8-.1 1.1-.2l1.5 1.5c-.5.2-1.1.2-1.8.2Z"/></svg>
+                    )}
+                  </button>
+                </div>
+                {showOpponent && (
+                  <div className="overflow-x-auto">
+                    <div className="flex gap-3 p-1">
+                      {/* Head-to-Head Card */}
+                      <div className="w-[180px] flex-none">
+                        <MatchupCard
+                          title="Head-to-Head"
+                          stats={[
+                            { 
+                              label: 'H2H PTS Avg', 
+                              value: playerContext?.h2h?.avg_pts != null 
+                                ? playerContext.h2h.avg_pts.toFixed(1) 
+                                : '—' 
+                            },
+                            { 
+                              label: 'H2H REB Avg', 
+                              value: playerContext?.h2h?.avg_reb != null 
+                                ? playerContext.h2h.avg_reb.toFixed(1) 
+                                : '—' 
+                            },
+                            { 
+                              label: 'H2H AST Avg', 
+                              value: playerContext?.h2h?.avg_ast != null 
+                                ? playerContext.h2h.avg_ast.toFixed(1) 
+                                : '—' 
+                            },
+                            { 
+                              label: 'Games vs Opp', 
+                              value: playerContext?.h2h?.games_played != null 
+                                ? `${playerContext.h2h.games_played}` 
+                                : '—' 
+                            },
+                          ]}
+                        />
+                      </div>
+                      {/* Opponent Defense Rank Card */}
+                      <div className="w-[180px] flex-none">
+                        <MatchupCard
+                          title="Opponent Defense Rank"
+                          stats={[
+                            { 
+                              label: 'PTS Def Rank', 
+                              value: playerContext?.opponent_defense?.rank_pts != null 
+                                ? `#${playerContext.opponent_defense.rank_pts}` 
+                                : '—' 
+                            },
+                            { 
+                              label: 'REB Def Rank', 
+                              value: playerContext?.opponent_defense?.rank_reb != null 
+                                ? `#${playerContext.opponent_defense.rank_reb}` 
+                                : '—' 
+                            },
+                            { 
+                              label: 'AST Def Rank', 
+                              value: playerContext?.opponent_defense?.rank_ast != null 
+                                ? `#${playerContext.opponent_defense.rank_ast}` 
+                                : '—' 
+                            },
+                          ]}
+                        />
+                      </div>
+                      {/* Recent Form Card */}
+                      <div className="w-[180px] flex-none">
+                        <MatchupCard
+                          title="Recent Form"
+                          stats={[
+                            { label: `L${windowN} PTS Avg`, value: ptsRecent.toFixed(1), valueColor: trend >= 0 ? 'text-green-700' : 'text-red-700' },
+                            { label: 'Season PTS Avg', value: ptsSeason.toFixed(1) },
+                          ]}
+                          tags={[trendTag]}
+                        />
+                      </div>
+                      {/* Game Context Card */}
+                      <div className="w-[180px] flex-none">
+                        <MatchupCard
+                          title="Game Context"
+                          stats={[
+                            { label: 'Home PTS', value: homeGames.length ? homePts.toFixed(1) : '—' },
+                            { label: 'Away PTS', value: awayGames.length ? awayPts.toFixed(1) : '—' },
+                            { 
+                              label: 'Rest Days', 
+                              value: playerContext?.rest_days != null 
+                                ? `${playerContext.rest_days}` 
+                                : '—' 
+                            },
+                            { 
+                              label: 'Injury Status', 
+                              value: playerContext?.injury_status || 'Healthy',
+                              valueColor: playerContext?.is_injured ? 'text-red-600' : 'text-green-600'
+                            },
+                          ]}
+                        />
+                      </div>
+                      {/* Usage Trend Card */}
+                      {(() => {
+                        const usageRecent = avg(recentN.map(g=> (g.pts + g.ast + g.reb)))
+                        const usageSeason = seasonAverages.pra
+                        const usageDelta = usageRecent - usageSeason
+                        const usageTrend = usageDelta > 1 ? '↑' : usageDelta < -1 ? '↓' : '→'
+                        return (
+                          <div className="w-[180px] flex-none bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-lg p-3 transition-colors duration-200">
+                            <div className="font-semibold text-purple-900 dark:text-purple-100 mb-2 text-xs transition-colors duration-200">Usage Trend (Proxy)</div>
+                            <div className="text-[11px] text-purple-800 dark:text-purple-200 flex items-center justify-between transition-colors duration-200"><span>Season PRA</span><span className="font-bold">{usageSeason.toFixed(1)}</span></div>
+                            <div className="text-[11px] text-purple-800 dark:text-purple-200 flex items-center justify-between mt-1 transition-colors duration-200"><span>Recent (L{windowN})</span><span className="font-bold">{usageRecent.toFixed(1)}</span></div>
+                            <div className="mt-1.5 text-xs text-purple-900 dark:text-purple-100 font-semibold transition-colors duration-200">{usageTrend} {usageDelta >= 0 ? '+' : ''}{usageDelta.toFixed(1)}</div>
+                          </div>
+                        )
+                      })()}
+                      {/* Defensive Matchup Card */}
+                      {(() => {
+                        // Calculate defensive rating from available data
+                        const opponentRank = playerContext?.opponent_performance?.conference_rank
+                        const h2hGames = playerContext?.h2h?.games_played || 0
+                        const h2hPts = playerContext?.h2h?.avg_pts
+                        const seasonPts = seasonAverages.pts
+                        
+                        // Calculate defensive rating:
+                        let defensiveRating = '—'
+                        if (h2hPts != null && seasonPts > 0 && h2hGames > 0) {
+                          const ptsDiff = seasonPts - h2hPts
+                          if (ptsDiff > 2) {
+                            defensiveRating = 'Strong'
+                          } else if (ptsDiff > 0) {
+                            defensiveRating = 'Moderate'
+                          } else if (ptsDiff > -2) {
+                            defensiveRating = 'Weak'
+                          } else {
+                            defensiveRating = 'Very Weak'
+                          }
+                        } else if (opponentRank != null) {
+                          if (opponentRank <= 5) {
+                            defensiveRating = 'Strong'
+                          } else if (opponentRank <= 10) {
+                            defensiveRating = 'Moderate'
+                          } else {
+                            defensiveRating = 'Weak'
+                          }
+                        }
+                        
+                        const primary = playerContext?.opponent_team_abbr || '—'
+                        const historical = h2hGames > 0 ? `${h2hGames} games` : '—'
+                        
+                        return (
+                          <div className="w-[180px] flex-none bg-teal-50 dark:bg-teal-900/20 border-2 border-teal-200 dark:border-teal-700 rounded-lg p-3 transition-colors duration-200">
+                            <div className="font-semibold text-teal-900 dark:text-teal-100 mb-2 text-xs transition-colors duration-200">Defensive Matchup</div>
+                            <div className="text-[11px] text-teal-800 dark:text-teal-200 transition-colors duration-200">
+                              <span>Primary:</span> <span className="font-semibold">{primary}</span>
+                            </div>
+                            <div className="text-[11px] text-teal-800 dark:text-teal-200 mt-1 transition-colors duration-200">
+                              <span>Rating:</span> <span className="font-semibold">{defensiveRating}</span>
+                            </div>
+                            <div className="text-[11px] text-teal-800 dark:text-teal-200 mt-1 transition-colors duration-200">
+                              <span>Historical:</span> <span className="font-semibold">{historical}</span>
+                            </div>
+                          </div>
+                        )
+                      })()}
+                      {/* Prop Correlations Card */}
+                      {(() => {
+                        const recentPts = recentN.map(g=>g.pts)
+                        const recentAst = recentN.map(g=>g.ast)
+                        const recentReb = recentN.map(g=>g.reb)
+                        const corrPtsAst = pearsonCorrelation(recentPts, recentAst)
+                        const corrPtsReb = pearsonCorrelation(recentPts, recentReb)
+                        const corrAstReb = pearsonCorrelation(recentAst, recentReb)
+                        const fmt = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}`
+                        return (
+                          <div className="w-[180px] flex-none bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-700 rounded-lg p-3 transition-colors duration-200">
+                            <div className="font-semibold text-orange-900 dark:text-orange-100 mb-2 text-xs transition-colors duration-200">Prop Correlations (L{windowN})</div>
+                            <div className="text-[11px] text-orange-800 dark:text-orange-200 flex items-center justify-between transition-colors duration-200"><span>PTS ↔ AST</span><span className="font-bold">{fmt(corrPtsAst)}</span></div>
+                            <div className="text-[11px] text-orange-800 dark:text-orange-200 flex items-center justify-between mt-1 transition-colors duration-200"><span>PTS ↔ REB</span><span className="font-bold">{fmt(corrPtsReb)}</span></div>
+                            <div className="text-[11px] text-orange-800 dark:text-orange-200 flex items-center justify-between mt-1 transition-colors duration-200"><span>AST ↔ REB</span><span className="font-bold">{fmt(corrAstReb)}</span></div>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
           {/* Prop Highlights */}
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="mt-3 flex flex-col gap-3">
             {(() => {
               const lastPts = recentN.map(g => g.pts)
               const lastAst = recentN.map(g => g.ast)
@@ -640,7 +937,11 @@ export default function PlayerProfile() {
                   : [selectedCard, pointsCard, ...otherCards].filter((c): c is NonNullable<typeof c> => c !== undefined) // Selected is different from Points
                 : allCards
               
-              return cards.map((c, idx) => {
+              const mainCard = cards[0]
+              const otherCardsList = cards.slice(1)
+              
+              // Helper function to calculate card props
+              const getCardProps = (c: typeof allCards[0]) => {
                 if (!c) return null
                 const recentAvg = c.vals.length ? c.vals.reduce((a,b)=>a+b,0)/c.vals.length : 0
                 const delta = recentAvg - (Number(c.value) || 0)
@@ -676,16 +977,53 @@ export default function PlayerProfile() {
                     { label: 'L10 Over Hit', value: `${overHitPct}%` },
                   ]
                 )
-                // First card (selected stat) gets the highlight treatment
-                if (idx === 0) {
-                  return (
-                    <div key={idx} className="col-span-1 sm:col-span-2 md:col-span-4">
-                      <PropCard label={`${c.label} Prop Line`} value={c.value} trend={trend} trendText={`L${windowN} Avg: ${recentAvg.toFixed(1)} (${delta>=0?'+':''}${delta.toFixed(1)})`} confidence={conf} recommendation={rec} highlight details={details} />
+                return { recentAvg, delta, trend, conf, rec, details }
+              }
+              
+              const mainProps = mainCard ? getCardProps(mainCard) : null
+              
+              return (
+                <>
+                  {/* Main prop card - full width at top */}
+                  {mainCard && mainProps && (
+                    <div>
+                      <PropCard 
+                        label={`${mainCard.label} Prop Line`} 
+                        value={mainCard.value} 
+                        trend={mainProps.trend} 
+                        trendText={`L${windowN} Avg: ${mainProps.recentAvg.toFixed(1)} (${mainProps.delta>=0?'+':''}${mainProps.delta.toFixed(1)})`} 
+                        confidence={mainProps.conf} 
+                        recommendation={mainProps.rec} 
+                        highlight 
+                        details={mainProps.details} 
+                      />
                     </div>
-                  )
-                }
-                return <PropCard key={idx} label={`${c.label} Prop Line`} value={c.value} trend={trend} trendText={`L${windowN} Avg: ${recentAvg.toFixed(1)} (${delta>=0?'+':''}${delta.toFixed(1)})`} confidence={conf} recommendation={rec} details={details as Array<{ label: string; value: string }>} />
-              }).filter(Boolean)
+                  )}
+                  
+                  {/* Other prop cards - single row on larger screens */}
+                  {otherCardsList.length > 0 && (
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {otherCardsList.map((c, idx) => {
+                        if (!c) return null
+                        const props = getCardProps(c)
+                        if (!props) return null
+                        return (
+                          <PropCard 
+                            key={idx} 
+                            label={`${c.label} Prop Line`} 
+                            value={c.value} 
+                            trend={props.trend} 
+                            trendText={`L${windowN} Avg: ${props.recentAvg.toFixed(1)} (${props.delta>=0?'+':''}${props.delta.toFixed(1)})`} 
+                            confidence={props.conf} 
+                            recommendation={props.rec} 
+                            details={props.details as Array<{ label: string; value: string }>} 
+                          />
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
+              )
             })()}
           </div>
 
@@ -747,7 +1085,7 @@ export default function PlayerProfile() {
               return {
                 prop: (
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900">{r.label}</span>
+                    <span className="font-medium text-gray-900 dark:text-slate-100 transition-colors duration-200">{r.label}</span>
                     <select
                       value={currentDir}
                       onChange={(e) => {
@@ -758,7 +1096,7 @@ export default function PlayerProfile() {
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="text-xs px-1.5 pr-6 py-0.5 border border-gray-300 rounded bg-white text-gray-900"
+                      className="text-xs px-1.5 pr-6 py-0.5 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
                     >
                       <option value="over">Over</option>
                       <option value="under">Under</option>
@@ -778,7 +1116,7 @@ export default function PlayerProfile() {
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-20 px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="w-20 px-2 py-1 text-xs border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
                       placeholder="Line"
                     />
                   </div>
@@ -799,11 +1137,11 @@ export default function PlayerProfile() {
                 ),
                 margin: (r.margin >= 0 ? '+' : '') + r.margin.toFixed(1),
                 trend: (
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    r.trend==='Fire' ? 'bg-red-100 text-red-800 ring-2 ring-red-200' :
-                    r.trend==='Hot' ? 'bg-orange-100 text-orange-800 ring-2 ring-orange-200' :
-                    r.trend==='Neutral' ? 'bg-gray-100 text-gray-800 ring-2 ring-gray-200' :
-                    'bg-blue-100 text-blue-800 ring-2 ring-blue-200'
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors duration-200 ${
+                    r.trend==='Fire' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 ring-2 ring-red-200 dark:ring-red-700/50' :
+                    r.trend==='Hot' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 ring-2 ring-orange-200 dark:ring-orange-700/50' :
+                    r.trend==='Neutral' ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 ring-2 ring-gray-200 dark:ring-gray-700' :
+                    'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 ring-2 ring-blue-200 dark:ring-blue-700/50'
                   }`}>{r.trend}</span>
                 ),
               }
@@ -812,21 +1150,21 @@ export default function PlayerProfile() {
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
-                    <div className="text-sm font-semibold text-slate-800">Historical Prop Performance</div>
+                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 transition-colors duration-200">Historical Prop Performance</div>
                     <select
                       value={histLastN}
                       onChange={(e) => setHistLastN(Number(e.target.value) as 5 | 10)}
-                      className="text-xs px-2 pr-8 py-1 border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="text-xs px-2 pr-8 py-1 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
                     >
                       <option value={5}>Last 5</option>
                       <option value={10}>Last 10</option>
                     </select>
                   </div>
-                  <button onClick={() => setShowHistorical(v => !v)} className="p-1 rounded hover:bg-gray-100" aria-label="Toggle historical section">
+                  <button onClick={() => setShowHistorical(v => !v)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200" aria-label="Toggle historical section">
                     {showHistorical ? (
-                      <svg className="w-4 h-4 text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/></svg>
+                      <svg className="w-4 h-4 text-slate-600 dark:text-slate-400 transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/></svg>
                     ) : (
-                      <svg className="w-4 h-4 text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path d="M2.1 3.5 1 4.6l3.3 3.3C2 9.7 1 12 1 12s4 7 11 7c2.3 0 4.3-.7 6-.1l3 3 1.1-1.1L2.1 3.5ZM12 17c-2.8 0-5-2.2-5-5 0-.6.1-1.1.3-1.6l1.5 1.5c-.1.3-.1.7-.1 1.1 0 1.9 1.5 3.5 3.5 3.5.4 0 .8-.1 1.1-.2l1.5 1.5c-.5.2-1.1.2-1.8.2Z"/></svg>
+                      <svg className="w-4 h-4 text-slate-600 dark:text-slate-400 transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M2.1 3.5 1 4.6l3.3 3.3C2 9.7 1 12 1 12s4 7 11 7c2.3 0 4.3-.7 6-.1l3 3 1.1-1.1L2.1 3.5ZM12 17c-2.8 0-5-2.2-5-5 0-.6.1-1.1.3-1.6l1.5 1.5c-.1.3-.1.7-.1 1.1 0 1.9 1.5 3.5 3.5 3.5.4 0 .8-.1 1.1-.2l1.5 1.5c-.5.2-1.1.2-1.8.2Z"/></svg>
                     )}
                   </button>
                 </div>
@@ -865,76 +1203,6 @@ export default function PlayerProfile() {
             )
           })()}
 
-          {/* Matchup Analysis */}
-          {(() => {
-            const homeGames = enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('vs'))
-            const awayGames = enrichedLogs.filter(g => (g.matchup || '').toLowerCase().includes('@'))
-            const homePts = avg(homeGames.map(g=>g.pts))
-            const awayPts = avg(awayGames.map(g=>g.pts))
-            const ptsRecent = avg(recentN.map(g=>g.pts))
-            const ptsSeason = seasonAverages.pts
-            const trend = ptsRecent - ptsSeason
-            const trendTag = trend > 0.8 ? 'HOT' : trend < -0.8 ? 'COLD' : 'NEUTRAL'
-            return (
-              <div className="mt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-semibold text-slate-800">Opponent Analysis</div>
-                  <button onClick={() => setShowOpponent(v => !v)} className="p-1 rounded hover:bg-gray-100" aria-label="Toggle opponent analysis">
-                    {showOpponent ? (
-                      <svg className="w-4 h-4 text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/></svg>
-                    ) : (
-                      <svg className="w-4 h-4 text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path d="M2.1 3.5 1 4.6l3.3 3.3C2 9.7 1 12 1 12s4 7 11 7c2.3 0 4.3-.7 6-.1l3 3 1.1-1.1L2.1 3.5ZM12 17c-2.8 0-5-2.2-5-5 0-.6.1-1.1.3-1.6l1.5 1.5c-.1.3-.1.7-.1 1.1 0 1.9 1.5 3.5 3.5 3.5.4 0 .8-.1 1.1-.2l1.5 1.5c-.5.2-1.1.2-1.8.2Z"/></svg>
-                    )}
-                  </button>
-                </div>
-                {showOpponent && (
-                  <div className="overflow-x-auto">
-                    <div className="flex gap-3 p-1">
-                      <div className="w-[180px] flex-none">
-                        <MatchupCard
-                          title="Opponent Defense Rank"
-                          stats={[
-                            { label: 'Points Allowed to Pos', value: '—' },
-                            { label: 'Assists Allowed', value: '—' },
-                            { label: 'Rebounds Allowed', value: '—' },
-                          ]}
-                        />
-                      </div>
-                      <div className="w-[180px] flex-none">
-                        <MatchupCard
-                          title="Pace & Style"
-                          stats={[
-                            { label: 'Expected Pace', value: '—' },
-                            { label: 'Expected Possessions', value: '—' },
-                          ]}
-                        />
-                      </div>
-                      <div className="w-[180px] flex-none">
-                        <MatchupCard
-                          title="Recent Form"
-                          stats={[
-                            { label: `L${windowN} PTS Avg`, value: ptsRecent.toFixed(1), valueColor: trend >= 0 ? 'text-green-700' : 'text-red-700' },
-                            { label: 'Season PTS Avg', value: ptsSeason.toFixed(1) },
-                          ]}
-                          tags={[trendTag]}
-                        />
-                      </div>
-                      <div className="w-[180px] flex-none">
-                        <MatchupCard
-                          title="Game Context"
-                          stats={[
-                            { label: 'Home PTS', value: homeGames.length ? homePts.toFixed(1) : '—' },
-                            { label: 'Away PTS', value: awayGames.length ? awayPts.toFixed(1) : '—' },
-                          ]}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })()}
-
 
           {/* Live Odds Comparison hidden for now */}
           {(() => {
@@ -949,48 +1217,9 @@ export default function PlayerProfile() {
               { book: 'BetMGM', over: '-110', under: '-110' },
             ]
             return (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mt-4">
+              <div className="grid sm:grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mt-4">
                 <OddsCard title={`Points - Over/Under ${linePts}`} color="blue" odds={books} bestOver="-110" bestUnder="+100" />
                 <OddsCard title={`Assists - Over/Under ${lineAst}`} color="green" odds={books} bestOver="+100" bestUnder="-112" />
-              </div>
-            )
-          })()}
-
-          {/* Advanced Metrics & Correlations */}
-          {(() => {
-            const recentPts = recentN.map(g=>g.pts)
-            const recentAst = recentN.map(g=>g.ast)
-            const recentReb = recentN.map(g=>g.reb)
-            const usageRecent = avg(recentN.map(g=> (g.pts + g.ast + g.reb)))
-            const usageSeason = seasonAverages.pra
-            const usageDelta = usageRecent - usageSeason
-            const usageTrend = usageDelta > 1 ? '↑' : usageDelta < -1 ? '↓' : '→'
-            const corrPtsAst = pearsonCorrelation(recentPts, recentAst)
-            const corrPtsReb = pearsonCorrelation(recentPts, recentReb)
-            const corrAstReb = pearsonCorrelation(recentAst, recentReb)
-            const fmt = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}`
-            return (
-              <div className="overflow-x-auto mt-3">
-                <div className="flex gap-3 p-1">
-                  <div className="w-[180px] flex-none bg-purple-50 border-2 border-purple-200 rounded-lg p-3">
-                    <div className="font-semibold text-purple-900 mb-2 text-xs">Usage Trend (Proxy)</div>
-                    <div className="text-[11px] text-purple-800 flex items-center justify-between"><span>Season PRA</span><span className="font-bold">{usageSeason.toFixed(1)}</span></div>
-                    <div className="text-[11px] text-purple-800 flex items-center justify-between mt-1"><span>Recent (L{windowN})</span><span className="font-bold">{usageRecent.toFixed(1)}</span></div>
-                    <div className="mt-1.5 text-xs text-purple-900 font-semibold">{usageTrend} {usageDelta >= 0 ? '+' : ''}{usageDelta.toFixed(1)}</div>
-                  </div>
-                  <div className="w-[180px] flex-none bg-orange-50 border-2 border-orange-200 rounded-lg p-3">
-                    <div className="font-semibold text-orange-900 mb-2 text-xs">Prop Correlations (L{windowN})</div>
-                    <div className="text-[11px] text-orange-800 flex items-center justify-between"><span>PTS ↔ AST</span><span className="font-bold">{fmt(corrPtsAst)}</span></div>
-                    <div className="text-[11px] text-orange-800 flex items-center justify-between mt-1"><span>PTS ↔ REB</span><span className="font-bold">{fmt(corrPtsReb)}</span></div>
-                    <div className="text-[11px] text-orange-800 flex items-center justify-between mt-1"><span>AST ↔ REB</span><span className="font-bold">{fmt(corrAstReb)}</span></div>
-                  </div>
-                  <div className="w-[180px] flex-none bg-teal-50 border-2 border-teal-200 rounded-lg p-3">
-                    <div className="font-semibold text-teal-900 mb-2 text-xs">Defensive Matchup</div>
-                    <div className="text-[11px] text-teal-800">Primary: —</div>
-                    <div className="text-[11px] text-teal-800 mt-1">Rating: —</div>
-                    <div className="text-[11px] text-teal-800 mt-1">Historical: —</div>
-                  </div>
-                </div>
               </div>
             )
           })()}
@@ -1078,7 +1307,7 @@ export default function PlayerProfile() {
               <div className="mt-3">
                 <DataTable<GameRow> columns={columns} rows={rows} caption="Game Logs" defaultPageSize={10} pageSizeOptions={[10,20,50]} />
                 {logs.length === 0 && (
-                  <div className="px-4 py-3 text-sm text-gray-500">No recent game logs.</div>
+                  <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">No recent game logs.</div>
                 )}
               </div>
             )

@@ -264,18 +264,78 @@ def get_standings(request: Request):
 @limiter.limit("30/minute")
 def get_news(request: Request):
     """
-    Get NBA news feed.
+    Get NBA news feed aggregated from multiple sources (ESPN and Yahoo Sports).
     
     Returns:
-        List of news articles
+        List of news articles from all sources
     """
     try:
+        from ..services.news_context_service import get_news_context_service
+        
+        news_service = get_news_context_service()
+        articles = []
+        
+        # Fetch from ESPN
         espn_service = get_espn_service()
-        news = espn_service.get_news()
-        return {"articles": news}
+        espn_news = espn_service.get_news()
+        if espn_news:
+            articles.extend(espn_news)
+        
+        # Fetch from Yahoo Sports RSS
+        yahoo_articles = news_service._fetch_yahoo_rss_news()
+        articles.extend(yahoo_articles)
+        
+        # Sort by published date (newest first)
+        articles.sort(key=lambda x: x.get("published", ""), reverse=True)
+        
+        return {"articles": articles}
     except Exception as e:
         logger.error("Error fetching news", error=str(e))
         raise APIError(f"Failed to fetch news: {str(e)}", status_code=500)
+
+
+@router.post("/news/refresh")
+@limiter.limit("10/minute")
+def refresh_news_cache(request: Request):
+    """
+    Refresh the news cache by clearing cached news data.
+    This will force fresh news to be fetched on the next request.
+    
+    Returns:
+        Success message with number of cache entries cleared
+    """
+    try:
+        from ..services.cache_service import get_cache_service
+        
+        cache = get_cache_service()
+        count = 0
+        
+        # Clear ESPN news cache
+        espn_deleted = cache.delete("espn:news:15m")
+        if espn_deleted:
+            count += 1
+        
+        # Clear Yahoo RSS news cache
+        yahoo_deleted = cache.delete("yahoo_rss_news:15m")
+        if yahoo_deleted:
+            count += 1
+        
+        # Also clear any player/team news context caches (optional - more aggressive)
+        # Uncomment if you want to clear all news-related caches:
+        # player_news_count = cache.clear_pattern("player_news:*")
+        # team_news_count = cache.clear_pattern("team_news:*")
+        # count += player_news_count + team_news_count
+        
+        logger.info("News cache refreshed", entries_cleared=count)
+        
+        return {
+            "message": "News cache refreshed successfully",
+            "entries_cleared": count,
+            "caches_cleared": ["espn:news:15m", "yahoo_rss_news:15m"]
+        }
+    except Exception as e:
+        logger.error("Error refreshing news cache", error=str(e))
+        raise APIError(f"Failed to refresh news cache: {str(e)}", status_code=500)
 
 
 @router.get("/injuries")

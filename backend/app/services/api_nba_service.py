@@ -57,6 +57,8 @@ class APINBAService:
             return []
         
         endpoint = f"{self.BASE_URL}/games"
+        
+        # Try live games first
         params = {
             "live": "all",
             "league": "12"  # NBA league ID
@@ -72,11 +74,40 @@ class APINBAService:
             params=params
         )
         
+        # If no live games, try fetching today's games by date
+        if not data or not data.get("response"):
+            from datetime import datetime
+            today = datetime.now().strftime("%Y-%m-%d")
+            params = {
+                "date": today,
+                "league": "12"
+            }
+            cache_key = f"api_sports:games:{today}:30s"
+            
+            data = self.client.get_with_rate_limit(
+                provider=APIProvider.API_NBA,
+                endpoint=endpoint,
+                cache_key=cache_key,
+                ttl=30,
+            headers=self._get_headers(),
+            params=params
+        )
+        
         if not data:
+            logger.warning("API-NBA returned no data")
             return []
         
         # Parse API-Sports.io response format
         # Response structure: {"get": "games", "parameters": {}, "errors": [], "results": 0, "response": []}
+        
+        # Check for API errors
+        errors = data.get("errors", [])
+        if errors:
+            logger.warning("API-NBA returned errors", errors=errors)
+        
+        results_count = data.get("results", 0)
+        logger.info("API-NBA response", results=results_count, has_errors=len(errors) > 0)
+        
         games = []
         response_data = data.get("response", [])
         

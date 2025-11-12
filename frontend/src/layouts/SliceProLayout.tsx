@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useSeason } from '../context/SeasonContext'
+import { ThemeToggle } from '../components/ThemeToggle'
 
 export default function SliceProLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
@@ -16,9 +17,9 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-200">
       {/* Top bar styled like Sliced Pro */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
+      <header className="sticky top-0 z-40 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 transition-colors duration-200">
         <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-[60px] items-center justify-between gap-4">
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -29,7 +30,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
                   e.stopPropagation()
                   setSidebarOpen(!sidebarOpen)
                 }} 
-                className="inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100 cursor-pointer relative z-50" 
+                className="inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700 cursor-pointer relative z-50 transition-colors duration-200" 
                 aria-label="Toggle menu"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -37,8 +38,8 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
                 </svg>
               </button>
               <Link to="/" className="inline-flex items-center gap-2">
-                <span className="text-base sm:text-lg font-bold text-slate-800">NBA Stat Spot</span>
-                <span className="hidden sm:inline text-xs text-slate-500">Sliced Pro Layout</span>
+                <span className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 transition-colors duration-200">NBA Stat Spot</span>
+                <span className="hidden sm:inline text-xs text-slate-500 dark:text-slate-400 transition-colors duration-200">Sliced Pro Layout</span>
               </Link>
             </div>
             {/* Desktop Navigation - hidden on mobile, visible on md+ */}
@@ -49,8 +50,8 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
                   to={n.to} 
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
                     pathname.startsWith(n.to) 
-                      ? 'text-purple-700 bg-purple-50' 
-                      : 'text-slate-700 hover:text-purple-700 hover:bg-purple-50'
+                      ? 'text-purple-700 bg-purple-50 dark:text-purple-300 dark:bg-purple-900/30' 
+                      : 'text-slate-700 dark:text-slate-300 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20'
                   }`}
                 >
                   {n.label}
@@ -58,6 +59,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
               ))}
             </nav>
             <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+              <ThemeToggle />
               <SeasonControl />
             </div>
           </div>
@@ -73,9 +75,9 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
             onClick={() => setSidebarOpen(false)} 
           />
           {/* Sidebar panel - slides in from left */}
-          <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl ring-1 ring-black/5 p-4 transform transition-transform duration-300 ease-in-out">
+          <div className="absolute left-0 top-0 h-full w-72 bg-white dark:bg-slate-800 shadow-xl ring-1 ring-black/5 dark:ring-slate-700/50 p-4 transform transition-all duration-300 ease-in-out">
             <div className="flex items-center justify-between mb-4">
-              <div className="text-sm font-semibold text-gray-900">Menu</div>
+              <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Menu</div>
               <button 
                 type="button"
                 onClick={(e) => {
@@ -83,7 +85,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
                   e.stopPropagation()
                   setSidebarOpen(false)
                 }} 
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-md cursor-pointer" 
+                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors duration-200" 
                 aria-label="Close menu"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -99,18 +101,25 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
                   onClick={() => setSidebarOpen(false)} 
                   className={`block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     pathname.startsWith(n.to) 
-                      ? 'text-blue-700 bg-blue-50' 
-                      : 'text-gray-700 hover:text-blue-700 hover:bg-blue-50'
+                      ? 'text-blue-700 bg-blue-50 dark:text-blue-300 dark:bg-blue-900/30' 
+                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                   }`}
                 >
                   {n.label}
                 </Link>
               ))}
             </div>
+            {/* Theme Toggle in Mobile Sidebar */}
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
+              <div className="px-3 flex items-center justify-between">
+                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Theme</div>
+                <ThemeToggle />
+              </div>
+            </div>
             {/* Season Control in Mobile Sidebar */}
-            <div className="mt-6 pt-4 border-t border-gray-200">
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
               <div className="px-3">
-                <div className="text-xs font-semibold text-gray-500 mb-2">Season</div>
+                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Season</div>
                 <SeasonControl isMobile={true} />
               </div>
             </div>
@@ -119,7 +128,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
       )}
 
       {/* Content */}
-      <main className="mx-auto max-w-screen-2xl p-2 sm:p-4 space-y-4 detached-content">
+      <main className="mx-auto max-w-screen-2xl p-2 sm:p-4 space-y-4 detached-content bg-transparent dark:bg-transparent">
         {children}
       </main>
     </div>
@@ -134,14 +143,19 @@ function SeasonControl({ isMobile = false }: { isMobile?: boolean }) {
         value={season} 
         onChange={(e) => setSeason(e.target.value)} 
         placeholder="2025-26" 
-        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20" 
+        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200" 
       />
     )
   }
   return (
-    <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-200">
-      <span className="text-xs text-gray-500">Season</span>
-      <input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="2025-26" className="px-3 py-2 rounded-lg border border-gray-300 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-blue-600/20" />
+    <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-200 dark:border-slate-700">
+      <span className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">Season</span>
+      <input 
+        value={season} 
+        onChange={(e) => setSeason(e.target.value)} 
+        placeholder="2025-26" 
+        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200" 
+      />
     </div>
   )
 }

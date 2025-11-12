@@ -127,7 +127,7 @@ export function PlayerNewsSection() {
     <>
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="flex items-center gap-2 text-gray-600">
+          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 transition-colors duration-200">
             <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -136,11 +136,11 @@ export function PlayerNewsSection() {
           </div>
         </div>
       ) : error ? (
-        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-xs text-yellow-800">Unable to load news. News feed may be temporarily unavailable.</p>
+        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg transition-colors duration-200">
+          <p className="text-xs text-yellow-800 dark:text-yellow-300 transition-colors duration-200">Unable to load news. News feed may be temporarily unavailable.</p>
         </div>
       ) : displayedNews.length === 0 ? (
-        <p className="text-gray-600 text-center py-4 text-sm">No recent news available.</p>
+        <p className="text-gray-600 dark:text-gray-400 text-center py-4 text-sm transition-colors duration-200">No recent news available.</p>
       ) : (
         <div 
           ref={scrollContainerRef}
@@ -158,7 +158,7 @@ export function PlayerNewsSection() {
               return (
                 <div
                   key={idx}
-                  className="flex-none w-48 sm:w-56 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-200 overflow-hidden"
+                  className="flex-none w-48 sm:w-56 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 overflow-hidden"
                 >
                   {isExternal ? (
                     <a
@@ -168,7 +168,7 @@ export function PlayerNewsSection() {
                       className="block group h-full"
                     >
                       {imageUrl && (
-                        <div className="w-full aspect-[16/9] bg-gray-200 overflow-hidden rounded-t-lg">
+                        <div className="w-full aspect-[16/9] bg-gray-200 dark:bg-slate-700 overflow-hidden rounded-t-lg">
                           <img
                             src={imageUrl}
                             alt={article.images?.[0]?.alt || article.images?.[0]?.caption || headline}
@@ -181,17 +181,17 @@ export function PlayerNewsSection() {
                         </div>
                       )}
                       <div className="p-1.5 sm:p-2">
-                        <h4 className="text-[10px] sm:text-xs font-semibold text-gray-900 group-hover:text-blue-700 line-clamp-2 mb-1">
+                        <h4 className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-blue-400 line-clamp-2 mb-1 transition-colors duration-200">
                           {headline}
                         </h4>
                         {article.description && (
-                          <p className="text-[9px] sm:text-[10px] text-gray-600 line-clamp-2 mb-1">
+                          <p className="text-[9px] sm:text-[10px] text-gray-600 dark:text-gray-400 line-clamp-2 mb-1 transition-colors duration-200">
                             {article.description}
                           </p>
                         )}
-                        <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-gray-500">
+                        <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 transition-colors duration-200">
                           {published && <span>{formatDate(published)}</span>}
-                          <span className="text-blue-600 group-hover:text-blue-800 font-medium">
+                          <span className="text-blue-600 dark:text-blue-400 group-hover:text-blue-800 dark:group-hover:text-blue-300 font-medium transition-colors duration-200">
                             →
                           </span>
                         </div>
@@ -200,7 +200,7 @@ export function PlayerNewsSection() {
                   ) : (
                     <div className="h-full">
                       {imageUrl && (
-                        <div className="w-full aspect-[16/9] bg-gray-200 overflow-hidden rounded-t-lg">
+                        <div className="w-full aspect-[16/9] bg-gray-200 dark:bg-slate-700 overflow-hidden rounded-t-lg">
                           <img
                             src={imageUrl}
                             alt={article.images?.[0]?.alt || article.images?.[0]?.caption || headline}
@@ -213,16 +213,16 @@ export function PlayerNewsSection() {
                         </div>
                       )}
                       <div className="p-1.5 sm:p-2">
-                        <h4 className="text-[10px] sm:text-xs font-semibold text-gray-900 line-clamp-2 mb-1">
+                        <h4 className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-slate-100 line-clamp-2 mb-1 transition-colors duration-200">
                           {headline}
                         </h4>
                         {article.description && (
-                          <p className="text-[9px] sm:text-[10px] text-gray-600 line-clamp-2 mb-1">
+                          <p className="text-[9px] sm:text-[10px] text-gray-600 dark:text-gray-400 line-clamp-2 mb-1 transition-colors duration-200">
                             {article.description}
                           </p>
                         )}
                         {published && (
-                          <div className="text-[9px] sm:text-[10px] text-gray-500">
+                          <div className="text-[9px] sm:text-[10px] text-gray-500 dark:text-gray-400 transition-colors duration-200">
                             {formatDate(published)}
                           </div>
                         )}

@@ -79,7 +79,11 @@ export async function apiPost<T = any>(
     body: body ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
-    throw new Error(`API request failed: ${res.statusText}`)
+    // Create error with status code for better handling
+    const error: any = new Error(`API request failed: ${res.statusText}`)
+    error.response = { status: res.status, statusText: res.statusText }
+    error.message = error.message.includes('429') ? '429' : error.message
+    throw error
   }
   return res.json()
 }
