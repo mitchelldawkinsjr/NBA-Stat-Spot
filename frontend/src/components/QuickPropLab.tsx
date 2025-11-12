@@ -134,7 +134,7 @@ export function QuickPropLab() {
             disabled={!canRun || run.isPending} 
             className={`px-4 py-2 text-sm font-semibold rounded-md transition-all duration-200 ${
               canRun && !run.isPending
-                ? 'bg-purple-600 dark:bg-purple-700 text-white hover:bg-purple-700 dark:hover:bg-purple-600 cursor-pointer shadow-sm hover:shadow-md'
+                ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700 hover:bg-purple-200 dark:hover:bg-purple-900/60 cursor-pointer shadow-sm hover:shadow-md'
                 : 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60'
             }`}
           >
