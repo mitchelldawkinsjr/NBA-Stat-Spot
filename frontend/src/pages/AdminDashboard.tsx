@@ -1292,6 +1292,13 @@ export default function AdminDashboard() {
                   Clear Best Bets
                 </button>
                 <button
+                  onClick={() => clearTeamsCacheMutation.mutate()}
+                  disabled={clearTeamsCacheMutation.isPending}
+                  className="px-3 py-2 text-xs bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 rounded disabled:opacity-50 border border-blue-300 dark:border-blue-700 transition-colors duration-200"
+                >
+                  Clear Teams Cache
+                </button>
+                <button
                   onClick={() => {
                     if (confirm('Are you sure you want to clear ALL caches? This will force fresh data on next request.')) {
                       clearAllCacheMutation.mutate()
@@ -1304,7 +1311,7 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearHighHitRateCacheMutation.isSuccess || clearBestBetsCacheMutation.isSuccess) && (
+              {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearHighHitRateCacheMutation.isSuccess || clearBestBetsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess) && (
                 <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
                   Cache cleared successfully. Next request will fetch fresh data.
                 </div>
