@@ -6,11 +6,20 @@ Uses NBADataService and caches team stats for over/under analysis
 from typing import Dict, Optional
 from datetime import datetime
 import structlog
+from ..core.config import current_candidate_season
 from .nba_api_service import NBADataService
 from .over_under_service import TeamStats
 from .cache_service import get_cache_service
 
 logger = structlog.get_logger()
+
+# Try to import nba_api team dashboard endpoint
+try:
+    from nba_api.stats.endpoints import teamdashboardbygeneralsplits
+    NBA_API_AVAILABLE = True
+except ImportError:
+    NBA_API_AVAILABLE = False
+    logger.warning("nba_api teamdashboardbygeneralsplits not available")
 
 
 class TeamStatsService:
@@ -53,12 +62,30 @@ class TeamStatsService:
         if normalized_name in self._team_stats_cache:
             return self._team_stats_cache[normalized_name]
         
-        # Try to fetch from NBA API
-        # For now, we'll use default league averages
-        # In a full implementation, we'd fetch team stats from NBA API
-        # This is a placeholder that can be enhanced later
+        # Try to fetch actual team stats from NBA API
+        if NBA_API_AVAILABLE:
+            team_stats = self._fetch_team_stats_from_nba(normalized_name)
+            
+            if team_stats:
+                # Cache successful result
+                stats_dict = {
+                    'team_name': team_stats.team_name,
+                    'ppg': team_stats.ppg,
+                    'pace': team_stats.pace,
+                    'home_ppg': team_stats.home_ppg,
+                    'away_ppg': team_stats.away_ppg
+                }
+                self.cache.set(cache_key, stats_dict, ttl=86400)  # Cache for 24 hours
+                self._team_stats_cache[normalized_name] = team_stats
+                logger.info("Fetched team stats from NBA API", team=normalized_name, ppg=team_stats.ppg, pace=team_stats.pace)
+                return team_stats
+            else:
+                logger.debug("NBA API fetch returned None, using defaults", team=normalized_name)
+        else:
+            logger.debug("NBA API not available, using defaults", team=normalized_name)
         
-        # Default league averages (2024-25 season approximate)
+        # Fallback to default league averages if fetch fails
+        logger.warning("Failed to fetch team stats, using defaults", team=normalized_name)
         default_stats = TeamStats(
             team_name=normalized_name,
             ppg=112.5,  # League average PPG
@@ -67,7 +94,7 @@ class TeamStatsService:
             away_ppg=112.0
         )
         
-        # Cache for 24 hours (convert TeamStats to dict for JSON serialization)
+        # Cache defaults for shorter time (1 hour) since they're fallbacks
         stats_dict = {
             'team_name': default_stats.team_name,
             'ppg': default_stats.ppg,
@@ -75,10 +102,9 @@ class TeamStatsService:
             'home_ppg': default_stats.home_ppg,
             'away_ppg': default_stats.away_ppg
         }
-        self.cache.set(cache_key, stats_dict, ttl=86400)
+        self.cache.set(cache_key, stats_dict, ttl=3600)
         self._team_stats_cache[normalized_name] = default_stats
         
-        logger.info("Using default team stats", team=normalized_name)
         return default_stats
     
     def update_team_stats(self) -> Dict[str, TeamStats]:
@@ -184,4 +210,143 @@ class TeamStatsService:
         }
         
         return team_mapping.get(normalized, normalized)
+    
+    def _get_team_id_from_name(self, team_name: str) -> Optional[int]:
+        """Get NBA team ID from team name/abbreviation"""
+        try:
+            teams = NBADataService.fetch_all_teams()
+            if not teams:
+                return None
+            
+            # Try exact match first
+            for team in teams:
+                if (team.get("abbreviation", "").upper() == team_name.upper() or
+                    team.get("full_name", "").upper() == team_name.upper() or
+                    team.get("nickname", "").upper() == team_name.upper()):
+                    return team.get("id")
+            
+            return None
+        except Exception as e:
+            logger.warning("Error fetching teams for ID lookup", error=str(e))
+            return None
+    
+    def _fetch_team_stats_from_nba(self, team_name: str) -> Optional[TeamStats]:
+        """
+        Fetch actual team statistics from NBA API
+        
+        Args:
+            team_name: Normalized team abbreviation
+            
+        Returns:
+            TeamStats object or None if fetch fails
+        """
+        if not NBA_API_AVAILABLE:
+            return None
+        
+        try:
+            # Get team ID
+            team_id = self._get_team_id_from_name(team_name)
+            if not team_id:
+                logger.debug("Team ID not found", team=team_name)
+                return None
+            
+            # Fetch team dashboard stats
+            # Use current season from config
+            season = current_candidate_season()
+            
+            dashboard = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
+                team_id=team_id,
+                season=season,
+                season_type_all_star="Regular Season"
+            )
+            
+            data = dashboard.get_dict()
+            result_sets = data.get("resultSets", [])
+            
+            if not result_sets:
+                return None
+            
+            # Find the overall stats (first result set is usually overall)
+            overall_stats = None
+            for rs in result_sets:
+                if rs.get("name") == "Overall":
+                    overall_stats = rs
+                    break
+            
+            if not overall_stats:
+                # Try first result set if no "Overall" found
+                overall_stats = result_sets[0]
+            
+            headers = overall_stats.get("headers", [])
+            rows = overall_stats.get("rowSet", [])
+            
+            if not rows or not headers:
+                return None
+            
+            # Get stats from first row
+            row = rows[0]
+            
+            # Find column indices
+            try:
+                # Try to find PTS_PER_GAME first (more reliable)
+                if "PTS_PER_GAME" in headers or "PTS_PG" in headers:
+                    ppg_idx = headers.index("PTS_PER_GAME") if "PTS_PER_GAME" in headers else headers.index("PTS_PG")
+                    ppg = float(row[ppg_idx]) if ppg_idx < len(row) and row[ppg_idx] else 112.5
+                else:
+                    # Calculate from total points and games played
+                    pts_idx = headers.index("PTS")
+                    gp_idx = headers.index("GP") if "GP" in headers else None
+                    total_pts = float(row[pts_idx]) if pts_idx < len(row) else 0
+                    games_played = float(row[gp_idx]) if gp_idx and gp_idx < len(row) and row[gp_idx] and row[gp_idx] > 0 else 1
+                    ppg = total_pts / games_played if games_played > 0 else 112.5
+                
+                pace_idx = headers.index("PACE") if "PACE" in headers else None
+            except (ValueError, IndexError, ZeroDivisionError) as e:
+                logger.warning("Required columns not found in team dashboard", headers=headers, error=str(e))
+                return None
+            
+            # Extract pace if available
+            pace = float(row[pace_idx]) if pace_idx and pace_idx < len(row) and row[pace_idx] else 100.0
+            
+            # Try to get home/away splits
+            home_ppg = ppg
+            away_ppg = ppg
+            
+            # Look for home/away splits in other result sets
+            for rs in result_sets:
+                if rs.get("name") in ["Home", "Away"]:
+                    split_headers = rs.get("headers", [])
+                    split_rows = rs.get("rowSet", [])
+                    if split_rows and split_headers:
+                        try:
+                            split_row = split_rows[0]
+                            # Try PTS_PER_GAME first, then calculate from totals
+                            if "PTS_PER_GAME" in split_headers or "PTS_PG" in split_headers:
+                                split_ppg_idx = split_headers.index("PTS_PER_GAME") if "PTS_PER_GAME" in split_headers else split_headers.index("PTS_PG")
+                                split_ppg = float(split_row[split_ppg_idx]) if split_ppg_idx < len(split_row) and split_row[split_ppg_idx] else ppg
+                            else:
+                                split_pts_idx = split_headers.index("PTS")
+                                split_gp_idx = split_headers.index("GP") if "GP" in split_headers else None
+                                split_total_pts = float(split_row[split_pts_idx]) if split_pts_idx < len(split_row) else 0
+                                split_games = float(split_row[split_gp_idx]) if split_gp_idx and split_gp_idx < len(split_row) and split_row[split_gp_idx] and split_row[split_gp_idx] > 0 else 1
+                                split_ppg = split_total_pts / split_games if split_games > 0 else ppg
+                            
+                            if rs.get("name") == "Home":
+                                home_ppg = split_ppg
+                            elif rs.get("name") == "Away":
+                                away_ppg = split_ppg
+                        except (ValueError, IndexError, ZeroDivisionError):
+                            pass  # Use overall PPG if split fails
+            
+            return TeamStats(
+                team_name=team_name,
+                ppg=ppg,
+                pace=pace,
+                home_ppg=home_ppg,
+                away_ppg=away_ppg
+            )
+            
+        except Exception as e:
+            logger.warning("Error fetching team stats from NBA API", team=team_name, error=str(e))
+            return None
 
