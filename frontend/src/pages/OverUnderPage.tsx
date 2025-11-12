@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { analyzeAllGames, analyzeGame } from '../services/overUnderService'
+import { analyzeAllGames } from '../services/overUnderService'
 import type { GameAnalysisResult } from '../types/overUnder'
 import { apiFetch } from '../utils/api'
 
