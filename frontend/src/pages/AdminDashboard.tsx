@@ -67,6 +67,10 @@ async function clearBestBetsCache() {
   return apiPost('/api/v1/admin/cache/clear/best-bets')
 }
 
+async function clearTeamsCache() {
+  return apiPost('/api/v1/admin/cache/clear/teams')
+}
+
 async function fetchAIEnabled() {
   return apiGet('/api/v1/admin/settings/ai-enabled')
 }

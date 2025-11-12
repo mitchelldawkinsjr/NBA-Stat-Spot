@@ -497,6 +497,24 @@ def clear_best_bets_cache():
     finally:
         db.close()
 
+@router.post("/cache/clear/teams")
+def clear_teams_cache():
+    """Clear teams and players cache"""
+    db = next(get_db())
+    try:
+        # Clear teams cache (pattern: nba_api:teams:*)
+        teams_count = _cache.clear_pattern("nba_api:teams:*", db=db)
+        # Clear players cache (pattern: nba_api:players*:*)
+        players_count = _cache.clear_pattern("nba_api:players*:*", db=db)
+        return {
+            "status": "success",
+            "message": "Teams and players cache cleared",
+            "teams_cleared": teams_count,
+            "players_cleared": players_count
+        }
+    finally:
+        db.close()
+
 @router.post("/cache/cleanup")
 def cleanup_expired_cache(db: Session = Depends(get_db)):
     """Clean up expired cache entries"""
