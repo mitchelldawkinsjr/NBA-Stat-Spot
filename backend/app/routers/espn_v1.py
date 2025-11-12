@@ -286,7 +286,13 @@ def get_news(request: Request):
         articles.extend(yahoo_articles)
         
         # Sort by published date (newest first)
-        articles.sort(key=lambda x: x.get("published", ""), reverse=True)
+        # Handle both ESPN (publishDate) and Yahoo (published) formats
+        def get_publish_date(article):
+            # Try both field names and normalize to ISO format string
+            date_str = article.get("published") or article.get("publishDate") or ""
+            return date_str
+        
+        articles.sort(key=get_publish_date, reverse=True)
         
         return {"articles": articles}
     except Exception as e:
