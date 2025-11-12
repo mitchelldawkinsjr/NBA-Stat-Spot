@@ -10,7 +10,7 @@ primary_region = "iad"
 [env]
   ENV = "production"
   PORT = "8000"
-  CORS_ORIGINS = "https://mitchelldawkinsjr.github.io,https://mitchelldawkinsjr.github.io/NBA-Stat-Spot,http://localhost:5173"
+  # CORS_ORIGINS is set via fly secrets (run: fly secrets set CORS_ORIGINS="...")
   DATABASE_URL = "sqlite:///./nba_props.db"
   # API-Sports.io Basketball configuration (set via fly secrets)
   # API_NBA_KEY = "your-api-sports-key-here"  # Set via: fly secrets set API_NBA_KEY="your-key"

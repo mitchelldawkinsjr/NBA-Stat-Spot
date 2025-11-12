@@ -220,38 +220,35 @@ export default function PlayerProfile() {
             }
           })
           .filter((g: GameLog | null): g is GameLog => g !== null) // Filter out nulls
-        if (base.length === 0 && season !== '2024-25') {
-          // Fallback to prior season if current season has no logs
-          const controller2 = new AbortController()
-          const TIMEOUT_MS_2 = 120000 // 2 minute timeout for Fly.io backend
-          const timeoutId2 = setTimeout(() => controller2.abort(), TIMEOUT_MS_2)
+        // Try fallback seasons if current season has no logs
+        if (base.length === 0) {
+          const fallbackSeasons = season === '2025-26' ? ['2024-25', '2023-24'] : season === '2024-25' ? ['2023-24'] : []
+          let foundData = false
           
-          // Track progress for fallback request
-          const startTime2 = Date.now()
-          const progressInterval2 = setInterval(() => {
-            const elapsed = Date.now() - startTime2
-            const progress = Math.min(95, Math.round((elapsed / TIMEOUT_MS_2) * 100))
-            setLoadingProgress(progress)
-          }, 500)
-          let res2
-          try {
-            res2 = await apiFetch(`api/v1/players/${playerIdNum}/stats?games=20&season=${encodeURIComponent('2024-25')}`, {
-              signal: controller2.signal
-            })
-            clearTimeout(timeoutId2)
-            clearInterval(progressInterval2)
-            setLoadingProgress(100) // Complete
-          } catch {
-            clearTimeout(timeoutId2)
-            clearInterval(progressInterval2)
-            res2 = null
-          }
-          if (res2 && res2.ok) {
-            const d2 = await res2.json()
-            const base2: GameLog[] = (d2.items || [])
-              .map((g: unknown): GameLog | null => {
-                if (!g || typeof g !== 'object') return null
-                const game = g as Record<string, unknown>
+          for (const fallbackSeason of fallbackSeasons) {
+            if (foundData) break
+            
+            const controller2 = new AbortController()
+            const TIMEOUT_MS_2 = 30000 // 30 second timeout for fallback (reduced from 2 minutes)
+            const timeoutId2 = setTimeout(() => controller2.abort(), TIMEOUT_MS_2)
+            
+            let res2
+            try {
+              res2 = await apiFetch(`api/v1/players/${playerIdNum}/stats?games=20&season=${encodeURIComponent(fallbackSeason)}`, {
+                signal: controller2.signal
+              })
+              clearTimeout(timeoutId2)
+            } catch {
+              clearTimeout(timeoutId2)
+              res2 = null
+            }
+            
+            if (res2 && res2.ok) {
+              const d2 = await res2.json()
+              const base2: GameLog[] = (d2.items || [])
+                .map((g: unknown): GameLog | null => {
+                  if (!g || typeof g !== 'object') return null
+                  const game = g as Record<string, unknown>
                   // Parse minutes - try multiple field names and handle different formats
                   let minutes = 0
                   if (game.minutes !== undefined && game.minutes !== null) {
@@ -281,12 +278,20 @@ export default function PlayerProfile() {
                     tpm: Number(game.tpm ?? game.FG3M ?? 0),
                     minutes: minutes,
                   }
-              })
-              .filter((g: GameLog | null): g is GameLog => g !== null) // Filter out nulls
-            setLogs(base2)
-            if (base2.length > 0) setFallbackUsed('2024-25')
-            else setLogs(base)
-          } else {
+                })
+                .filter((g: GameLog | null): g is GameLog => g !== null) // Filter out nulls
+              
+              if (base2.length > 0) {
+                setFallbackUsed(fallbackSeason)
+                setLogs(base2)
+                foundData = true
+                break
+              }
+            }
+          }
+          
+          // If no data found in any season, set empty logs
+          if (!foundData) {
             setLogs(base)
           }
         } else {
