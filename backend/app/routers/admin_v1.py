@@ -451,6 +451,21 @@ def refresh_all(request: Request):
     except Exception as e:
         results["highHitRate"] = {"status": "error", "message": str(e)}
     
+    # Refresh best bets
+    try:
+        best_bets_result = PropScannerService.scan_best_bets_for_today(
+            season="2025-26",
+            min_confidence=65.0,
+            limit=50
+        )
+        _set_best_bets_cache(best_bets_result, ttl=3600)
+        results["bestBets"] = {
+            "status": "success",
+            "count": len(best_bets_result)
+        }
+    except Exception as e:
+        results["bestBets"] = {"status": "error", "message": str(e)}
+    
     return {
         "status": "success",
         "results": results,

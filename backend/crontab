@@ -1,12 +1,16 @@
 # NBA Stat Spot Scheduled Tasks
-# All times are in UTC
+# All times are in UTC (EST is UTC-5 during standard time, UTC-4 during daylight time)
+# 6:00 AM EST ≈ 11:00 AM UTC (using 11 AM UTC for consistency year-round)
 
-# Refresh daily props cache every day at 6:00 AM UTC (1-2 AM EST)
+# Refresh daily props cache every day at 6:00 AM EST (11:00 AM UTC)
 # This ensures fresh data is available for the day's games
-0 6 * * * curl -f -X POST "http://localhost:8000/api/v1/admin/refresh/daily-props?min_confidence=50&limit=50" || echo "Failed to refresh daily props"
+0 11 * * * curl -f -X POST "http://localhost:8000/api/v1/admin/refresh/daily-props?min_confidence=50&limit=50" || echo "Failed to refresh daily props"
 
-# Refresh high hit rate cache every day at 6:05 AM UTC
-5 6 * * * curl -f -X POST "http://localhost:8000/api/v1/admin/refresh/high-hit-rate?min_hit_rate=0.75&limit=10&last_n=10" || echo "Failed to refresh high hit rate"
+# Refresh high hit rate cache every day at 6:05 AM EST (11:05 AM UTC)
+5 11 * * * curl -f -X POST "http://localhost:8000/api/v1/admin/refresh/high-hit-rate?min_hit_rate=0.75&limit=10&last_n=10" || echo "Failed to refresh high hit rate"
+
+# Refresh best bets cache every day at 6:10 AM EST (11:10 AM UTC)
+10 11 * * * curl -f -X POST "http://localhost:8000/api/v1/admin/scan/best-bets?min_confidence=65&limit=50" || echo "Failed to refresh best bets"
 
 # Cleanup expired cache entries daily at 3:00 AM UTC (10-11 PM EST previous day)
 # This removes old cache entries to keep the database clean

@@ -371,10 +371,38 @@ def daily_props(
             "cached": False
         }
     except Exception as e:
-        # If there's an error, return empty result with error message
+        # If there's an error, try to return previous day's cache as fallback
         import structlog
         logger = structlog.get_logger()
         logger.error("Error fetching daily props", error=str(e))
+        
+        # Try to get yesterday's cache as fallback
+        try:
+            from datetime import timedelta
+            yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+            yesterday_cache = _get_daily_props_cache(yesterday)
+            if yesterday_cache:
+                logger.info("Returning previous day's cache as fallback", date=yesterday)
+                items = yesterday_cache.get("items", [])
+                # Apply filters
+                if min_confidence:
+                    items = [item for item in items if (item.get("confidence") or 0) >= min_confidence]
+                if limit and limit > 0:
+                    items = items[:limit]
+                return {
+                    "items": items,
+                    "total": len(items),
+                    "returned": len(items),
+                    "cached": True,
+                    "fallback": True,
+                    "date": yesterday,
+                    "season": season or "2025-26",
+                    "error": "Using previous day's data due to generation error"
+                }
+        except Exception:
+            pass  # Fallback also failed
+        
+        # Return empty result if all else fails
         return {
             "items": [],
             "total": 0,
@@ -639,16 +667,67 @@ def high_hit_rate_props(
         result["cachedAt"] = None  # Cache service handles TTL internally
         return result
     
-    # No valid cache for requested date, fetch fresh data
-    result = HighHitRateService.get_high_hit_rate_bets(
-        date=date,
-        season=season,
-        min_hit_rate=min_hit_rate,
-        limit=limit,
-        last_n=last_n
-    )
-    result["cached"] = False
-    return result
+    # No valid cache for requested date, fetch fresh data and cache it
+    # Use try/except for timeout protection
+    try:
+        result = HighHitRateService.get_high_hit_rate_bets(
+            date=date,
+            season=season,
+            min_hit_rate=min_hit_rate,
+            limit=limit,
+            last_n=last_n
+        )
+        result["cached"] = False
+        
+        # Auto-populate cache if this is for today and cache is empty/invalid
+        if not date or target_date_str == datetime.now().strftime("%Y-%m-%d"):
+            # Check if cache exists for today
+            today_cached = _get_high_hit_rate_cache(target_date_str)
+            if not today_cached:
+                # Update cache synchronously to ensure it's populated for next request
+                try:
+                    _set_high_hit_rate_cache(result, target_date=target_date_str, ttl=86400)
+                except Exception:
+                    pass  # Cache update failed, but don't fail the request
+        
+        return result
+    except Exception as e:
+        # If there's an error, try to return previous day's cache as fallback
+        import structlog
+        logger = structlog.get_logger()
+        logger.error("Error fetching high hit rate props", error=str(e))
+        
+        # Try to get yesterday's cache as fallback
+        try:
+            from datetime import timedelta
+            yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+            yesterday_cache = _get_high_hit_rate_cache(yesterday)
+            if yesterday_cache:
+                logger.info("Returning previous day's cache as fallback", date=yesterday)
+                items = yesterday_cache.get("items", [])
+                # Apply filters
+                if min_hit_rate > 0.75:
+                    items = [item for item in items if (item.get("hitRate", 0) / 100) >= min_hit_rate]
+                if limit:
+                    items = items[:limit]
+                return {
+                    "items": items,
+                    "total": len(items),
+                    "cached": True,
+                    "fallback": True,
+                    "date": yesterday,
+                    "error": "Using previous day's data due to generation error"
+                }
+        except Exception:
+            pass  # Fallback also failed
+        
+        # Return empty result if all else fails
+        return {
+            "items": [],
+            "total": 0,
+            "cached": False,
+            "error": "Request failed. Please try again."
+        }
 
 @router.get(
     "/types",
