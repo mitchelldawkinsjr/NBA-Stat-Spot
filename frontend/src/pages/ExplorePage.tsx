@@ -5,6 +5,7 @@ import { FiltersPanel } from '../components/FiltersPanel'
 import { EnhancedSuggest } from '../components/EnhancedSuggest'
 import { Link } from 'react-router-dom'
 import type { PropSuggestionsResponse } from '../types/api'
+import { apiGet } from '../utils/api'
 
 type Team = {
   id: number
@@ -40,11 +41,8 @@ export default function ExplorePage() {
     const fetchTeams = async () => {
       setLoadingTeams(true)
       try {
-        const res = await fetch('/api/v1/teams')
-        if (res.ok) {
-          const data = await res.json()
-          setTeams(data.items || [])
-        }
+        const data = await apiGet('api/v1/teams')
+        setTeams(data.items || [])
       } catch (error) {
         console.error('Failed to fetch teams:', error)
       } finally {
@@ -63,14 +61,7 @@ export default function ExplorePage() {
     const fetchTeamPlayers = async () => {
       setLoadingPlayers(true)
       try {
-        const res = await fetch(`/api/v1/teams/${selectedTeam.id}/players`)
-        if (!res.ok) {
-          const errorText = await res.text()
-          console.error(`Failed to fetch team players: ${res.status} ${res.statusText}`, errorText)
-          setTeamPlayers([])
-          return
-        }
-        const data = await res.json()
+        const data = await apiGet(`api/v1/teams/${selectedTeam.id}/players`)
         setTeamPlayers(data.items || [])
       } catch (error) {
         console.error('Failed to fetch team players:', error)

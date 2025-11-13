@@ -47,4 +47,4 @@ primary_region = "iad"
 [[vm]]
   cpu_kind = "shared"    # Shared CPUs are much cheaper than dedicated
   cpus = 2                # 2x CPUs for parallel processing (stat-leaders endpoint)
-  memory_mb = 512         # 2x memory for better caching (doubled from 256MB)
+  memory_mb = 1024        # Increased from 512MB to prevent OOM crashes

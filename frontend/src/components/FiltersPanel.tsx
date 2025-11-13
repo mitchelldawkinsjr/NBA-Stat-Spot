@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Filters, PropSuggestionsResponse, Player } from '../types/api'
+import { apiPost } from '../utils/api'
 
 export type { Filters }
 
@@ -39,35 +40,14 @@ export function FiltersPanel({
           .filter(([, v]) => v !== undefined && Number.isFinite(v as number))
       ) as Record<string, number>
       
-      const res = await fetch('/api/v1/props/player', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({
-          playerId: player.id,
-          season: local.season || undefined,
-          lastN: local.lastN || undefined,
-          home: local.home === 'any' ? undefined : local.home,
-          marketLines,
-          direction: local.direction || 'over',
-        }) 
+      const data = await apiPost('api/v1/props/player', {
+        playerId: player.id,
+        season: local.season || undefined,
+        lastN: local.lastN || undefined,
+        home: local.home === 'any' ? undefined : local.home,
+        marketLines,
+        direction: local.direction || 'over',
       })
-      
-      if (!res.ok) {
-        let errorMessage = `Failed to evaluate: ${res.status} ${res.statusText}`
-        try {
-          const errorData = await res.json()
-          errorMessage = errorData.detail || errorData.message || errorMessage
-        } catch {
-        const errorText = await res.text()
-          errorMessage = errorText || errorMessage
-        }
-        if (onEvaluate) {
-          onEvaluate({ suggestions: [], error: errorMessage, loading: false })
-        }
-        return
-      }
-      
-      const data = await res.json()
       // Ensure result has suggestions array and remove loading flag
       const result = {
         suggestions: data.suggestions || [],
@@ -79,8 +59,15 @@ export function FiltersPanel({
       }
     } catch (error) {
       console.error('Failed to evaluate prop:', error)
+      let errorMessage = 'Unknown error'
+      if (error instanceof Error) {
+        errorMessage = error.message
+      } else if (typeof error === 'object' && error !== null && 'response' in error) {
+        const apiError = error as any
+        errorMessage = apiError.response?.statusText || apiError.message || errorMessage
+      }
       if (onEvaluate) {
-        onEvaluate({ suggestions: [], error: error instanceof Error ? error.message : 'Unknown error', loading: false })
+        onEvaluate({ suggestions: [], error: errorMessage, loading: false })
       }
     } finally {
       setIsEvaluating(false)

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { apiPost } from '../utils/api'
 
 function StatPill({ label, value }: { label: string; value: string }) {
   return (
@@ -23,12 +24,7 @@ export function SuggestionsTable({ player }: { player: { id: number; name: strin
           ;(marketLines as any)[k] = Number(v)
         }
       }
-      const res = await fetch('/api/props/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId: player.id, lastN: 10, marketLines })
-      })
-      return res.json()
+      return apiPost('api/v1/props/player', { playerId: player.id, lastN: 10, marketLines })
     },
     onSuccess: (data) => setResult(data)
   })

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { PlayerSearch } from './PlayerSearch'
 import { SuggestionCards } from './SuggestionCards'
 import { useSeason } from '../context/SeasonContext'
+import { apiPost } from '../utils/api'
 
 const TYPES = ['PTS','REB','AST','3PM','PRA'] as const
 type Direction = 'over' | 'under'
@@ -156,8 +157,7 @@ export function ParlayBuilder() {
           marketLines: { [l.type]: Number(l.line) },
           direction: l.direction || 'over',
         }
-        const r = await fetch('/api/v1/props/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-        return r.json()
+        return apiPost('api/v1/props/player', body)
       }))
       return resps
     },
@@ -217,16 +217,7 @@ export function ParlayBuilder() {
         legs: parlayLegs,
       }
 
-      const res = await fetch('/api/v1/parlays', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parlayData)
-      })
-      if (!res.ok) {
-        const errorText = await res.text()
-        throw new Error(errorText || 'Failed to create parlay')
-      }
-      return res.json()
+      return apiPost('api/v1/parlays', parlayData)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parlays'] })

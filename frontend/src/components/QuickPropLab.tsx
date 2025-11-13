@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { PlayerSearch } from './PlayerSearch'
 import { SuggestionCards } from './SuggestionCards'
 import { useSeason } from '../context/SeasonContext'
+import { apiPost } from '../utils/api'
 
 const TYPES = ['PTS','REB','AST','3PM','PRA'] as const
 type PropType = typeof TYPES[number]
@@ -30,8 +31,7 @@ export function QuickPropLab() {
         home: home === 'any' ? undefined : home,
         marketLines: { [propType]: Number(line) },
       }
-      const res = await fetch('/api/v1/props/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      return res.json()
+      return apiPost('api/v1/props/player', body)
     },
     onSuccess: (data) => setResult(data)
   })
