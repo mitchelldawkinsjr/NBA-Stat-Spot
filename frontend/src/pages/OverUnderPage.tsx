@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { analyzeAllGames } from '../services/overUnderService'
 import type { GameAnalysisResult } from '../types/overUnder'
@@ -408,26 +408,142 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
   )
 }
 
+function LoadingProgressBar({
+  progress,
+  status,
+  subtle = false,
+}: {
+  progress: number
+  status: string
+  subtle?: boolean
+}) {
+  return (
+    <div
+      className={`rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/70 backdrop-blur-sm shadow-sm transition-colors duration-200 ${
+        subtle ? 'p-4' : 'p-6'
+      }`}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{status}</p>
+        </div>
+        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          {Math.min(progress, 100)}%
+        </span>
+      </div>
+      <div className="h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400 transition-[width] duration-300 ease-out"
+          style={{ width: `${Math.min(progress, 100)}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export default function OverUnderPage() {
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [progress, setProgress] = useState(0)
+  const [progressStatus, setProgressStatus] = useState('Connecting to live feeds…')
+  const [showProgress, setShowProgress] = useState(false)
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['over-under-analysis'],
     queryFn: analyzeAllGames,
     refetchInterval: autoRefresh ? REFRESH_INTERVAL : false,
   })
+
+  const updateStatusFor = useCallback((value: number) => {
+    if (value < 15) {
+      setProgressStatus('Connecting to live data feeds…')
+    } else if (value < 40) {
+      setProgressStatus('Pulling latest betting lines…')
+    } else if (value < 65) {
+      setProgressStatus('Crunching pace and scoring models…')
+    } else if (value < 90) {
+      setProgressStatus('Comparing projections vs live lines…')
+    } else if (value < 100) {
+      setProgressStatus('Finalizing edge calculations…')
+    } else {
+      setProgressStatus('Wrapping up live insights…')
+    }
+  }, [])
+
+  const startProgress = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
+    setShowProgress(true)
+    setProgress(5)
+    updateStatusFor(5)
+
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current)
+    }
+
+    progressTimerRef.current = setInterval(() => {
+      setProgress(prev => {
+        const increment = prev < 30 ? 8 : prev < 60 ? 5 : prev < 85 ? 2 : 1
+        const nextValue = Math.min(prev + increment, 95)
+        updateStatusFor(nextValue)
+        return nextValue
+      })
+    }, 400)
+  }, [updateStatusFor])
+
+  const stopProgress = useCallback(() => {
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current)
+      progressTimerRef.current = null
+    }
+    setProgress(100)
+    updateStatusFor(100)
+    hideTimerRef.current = setTimeout(() => {
+      setShowProgress(false)
+      setProgress(0)
+    }, 600)
+  }, [updateStatusFor])
+
+  useEffect(() => {
+    const active = isLoading || isFetching
+    if (active) {
+      startProgress()
+    } else if (showProgress) {
+      stopProgress()
+    }
+  }, [isLoading, isFetching, startProgress, stopProgress, showProgress])
+
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current)
+      }
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current)
+      }
+    }
+  }, [])
 
   // Manual refresh handler
   const handleRefresh = () => {
     refetch()
   }
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="p-6">
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading game analysis...</p>
+        <div className="max-w-2xl mx-auto space-y-6">
+          <LoadingProgressBar progress={progress} status={progressStatus} />
+          <div className="text-center py-8 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="mx-auto h-12 w-12 rounded-full border-4 border-blue-200 dark:border-slate-600 border-t-blue-500 dark:border-t-blue-400 animate-spin" />
+            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+              Live odds and scoring data take a bit longer—hang tight while we load everything.
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -453,9 +569,15 @@ export default function OverUnderPage() {
   }
 
   const games = data?.games ?? []
+  const showInlineProgress = showProgress && Boolean(data)
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
+      {showInlineProgress && (
+        <div className="mb-6">
+          <LoadingProgressBar progress={progress} status={progressStatus} subtle />
+        </div>
+      )}
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
