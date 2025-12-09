@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: nba-stat-spot-backend
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+    environment:
+      - DATABASE_URL=postgresql://nba_props_user:nba_props_password@postgres:5432/nba_props
+      - ENV=production
+      - PORT=8000
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - API_NBA_KEY=${API_NBA_KEY:-}
+      - API_NBA_USE_RAPIDAPI=${API_NBA_USE_RAPIDAPI:-false}
+      - API_NBA_RATE_LIMIT_PER_MINUTE=${API_NBA_RATE_LIMIT_PER_MINUTE:-10}
+      - API_NBA_RATE_LIMIT_PER_DAY=${API_NBA_RATE_LIMIT_PER_DAY:-100}
+      - ESPN_RATE_LIMIT_PER_MINUTE=${ESPN_RATE_LIMIT_PER_MINUTE:-100}
+      - ESPN_RATE_LIMIT_PER_HOUR=${ESPN_RATE_LIMIT_PER_HOUR:-1000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - 360ws-network
+    labels:
+      - "com.360ws.app=nba-stat-spot"
+      - "com.360ws.type=docker-app"
+      - "com.360ws.service=backend"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./backend:/app
+      - /data/nba-stat-spot/logs:/app/logs
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: nba-stat-spot-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=nba_props
+      - POSTGRES_USER=nba_props_user
+      - POSTGRES_PASSWORD=nba_props_password
+    volumes:
+      - /data/databases/nba-stat-spot:/var/lib/postgresql/data
+    networks:
+      - 360ws-network
+    labels:
+      - "com.360ws.app=nba-stat-spot"
+      - "com.360ws.type=docker-app"
+      - "com.360ws.service=postgres"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nba_props_user -d nba_props"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  360ws-network:
+    external: true

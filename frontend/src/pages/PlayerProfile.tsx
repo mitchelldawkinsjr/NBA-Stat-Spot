@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useSeason } from '../context/SeasonContext'
 import { apiFetch, apiPost } from '../utils/api'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSnackbar } from '../context/SnackbarContext'
 import { SuggestionCards } from '../components/SuggestionCards'
 import { PropCard } from '../components/PropCard'
 import { calculateConfidenceBasic } from '../utils/confidence'
@@ -32,6 +33,9 @@ type GameLog = {
 export default function PlayerProfile() {
   const { id } = useParams()
   const { season } = useSeason()
+  const navigate = useNavigate()
+  const { showSnackbar } = useSnackbar()
+  const queryClient = useQueryClient()
   const [logs, setLogs] = useState<GameLog[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [loadingProgress, setLoadingProgress] = useState<number>(0)
@@ -441,6 +445,66 @@ export default function PlayerProfile() {
     if (!match) return null
     return { ...match, chosenDirection: hrDir as 'over' | 'under' }
   }, [evalResult, hrStat, hrDir])
+
+  // Create bet mutation
+  const createBet = useMutation({
+    mutationFn: async () => {
+      if (!id || !playerName || !hrLine) {
+        throw new Error('Missing required bet information')
+      }
+      
+      // Map prop type to API format
+      const propTypeMap: Record<'PTS'|'REB'|'AST'|'3PM'|'PRA', string> = {
+        PTS: 'PTS',
+        REB: 'REB',
+        AST: 'AST',
+        '3PM': '3PM',
+        PRA: 'PRA'
+      }
+      
+      const betData = {
+        player_id: Number(id),
+        player_name: playerName,
+        prop_type: propTypeMap[hrStat],
+        line_value: Number(hrLine),
+        direction: hrDir,
+        game_date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
+        system_confidence: selectedSuggestion?.confidence as number | undefined,
+        system_fair_line: selectedSuggestion?.fairLine as number | undefined,
+        system_suggestion: (selectedSuggestion?.suggestion as string) || hrDir,
+        amount: null,
+        odds: '-110',
+        notes: null
+      }
+      
+      return await apiPost('api/v1/bets', betData)
+    },
+    onSuccess: () => {
+      // Invalidate bets queries so the bet tracker updates
+      queryClient.invalidateQueries({ queryKey: ['bets'] })
+      queryClient.invalidateQueries({ queryKey: ['bet-stats'] })
+      
+      const betDetails = `${playerName} - ${hrStat} ${hrDir.toUpperCase()} ${hrLine}`
+      showSnackbar(
+        `Bet logged: ${betDetails}`,
+        'success',
+        {
+          duration: 5000,
+          action: {
+            label: 'View Bet Tracker',
+            onClick: () => navigate('/bets')
+          }
+        }
+      )
+    },
+    onError: (error: Error) => {
+      showSnackbar(
+        `Failed to log bet: ${error.message}`,
+        'error',
+        { duration: 5000 }
+      )
+    }
+  })
 
   // Fetch teams to map abbreviations to IDs
   const { data: teamsData } = useQuery<{ items: Team[] }>({
@@ -1423,6 +1487,37 @@ export default function PlayerProfile() {
           {selectedSuggestion && (
             <div className="mt-3">
               <SuggestionCards suggestions={[selectedSuggestion]} />
+              {/* Add to Bet Tracker button */}
+              {id && playerName && hrLine && (
+                <div className="mt-3 flex justify-center">
+                  <button
+                    onClick={() => createBet.mutate()}
+                    disabled={createBet.isPending}
+                    className={`px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 ${
+                      createBet.isPending
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
+                  >
+                    {createBet.isPending ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Logging Bet...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>Add to Bet Tracker</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

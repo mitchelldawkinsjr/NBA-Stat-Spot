@@ -36,17 +36,12 @@ def get_cors_origins() -> list[str]:
     Get allowed CORS origins based on environment.
     Returns list of allowed origins.
     """
-    # Check if we're in development mode
-    is_fly_io = os.getenv("FLY_APP_NAME") is not None
+    # Check environment mode from ENV or ENVIRONMENT variable
     env_mode = os.getenv("ENV", os.getenv("ENVIRONMENT", "")).lower()
     
-    # If on Fly.io, always use production mode unless explicitly set to dev
-    # Otherwise, default to development for local dev
-    if is_fly_io:
-        is_development = env_mode in ["development", "dev", "local"]
-    else:
-        # Local dev - default to development unless explicitly set to production
-        is_development = env_mode not in ["production", "prod"]
+    # Determine if we're in development or production
+    # Default to development unless explicitly set to production
+    is_development = env_mode not in ["production", "prod"]
     
     if is_development:
         # In development, allow all origins for easy local testing

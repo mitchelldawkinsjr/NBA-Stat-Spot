@@ -1,5 +1,12 @@
 # fly.toml app configuration file
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+# DEPRECATED: This application has been migrated to mitch-cloud VPS.
+# This file is kept for reference only. Active deployment uses:
+# - docker-compose.prod.yml for production configuration
+# - .github/workflows/deploy-mitch-cloud.yml for deployment
+# See: docs/mitch-cloud-deployment.md
+#
 
 app = "nba-stat-spot-ai"
 primary_region = "iad"

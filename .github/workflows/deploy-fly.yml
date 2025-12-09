@@ -1,5 +1,9 @@
 name: Deploy to Fly.io
 
+# DEPRECATED: This workflow is disabled. The application has been migrated to mitch-cloud.
+# See: docs/mitch-cloud-deployment.md
+# To re-enable, remove the 'if: false' condition below.
+
 on:
   push:
     branches: [ main, master ]
@@ -18,6 +22,8 @@ jobs:
   deploy:
     name: Deploy app to Fly.io
     runs-on: ubuntu-latest
+    # DEPRECATED: Disabled - application migrated to mitch-cloud
+    if: false
     steps:
       - uses: actions/checkout@v4
       

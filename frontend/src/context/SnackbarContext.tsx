@@ -4,7 +4,7 @@ import { Snackbar } from '../components/Snackbar'
 import type { SnackbarMessage, SnackbarType } from '../components/Snackbar'
 
 interface SnackbarContextType {
-  showSnackbar: (message: string, type: SnackbarType, options?: { progress?: number; duration?: number }) => void
+  showSnackbar: (message: string, type: SnackbarType, options?: { progress?: number; duration?: number; action?: { label: string; onClick: () => void } }) => void
   updateProgress: (progress: number) => void
   hideSnackbar: () => void
 }
@@ -14,7 +14,7 @@ const SnackbarContext = createContext<SnackbarContextType | undefined>(undefined
 export function SnackbarProvider({ children }: { children: ReactNode }) {
   const [snackbar, setSnackbar] = useState<SnackbarMessage | null>(null)
 
-  const showSnackbar = useCallback((message: string, type: SnackbarType, options?: { progress?: number; duration?: number }) => {
+  const showSnackbar = useCallback((message: string, type: SnackbarType, options?: { progress?: number; duration?: number; action?: { label: string; onClick: () => void } }) => {
     const id = `snackbar-${Date.now()}-${Math.random()}`
     setSnackbar({
       id,
@@ -22,6 +22,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
       type,
       progress: options?.progress,
       duration: options?.duration ?? (type === 'error' ? 5000 : 3000),
+      action: options?.action,
     })
   }, [])
 

@@ -7,7 +7,7 @@
 const getApiBaseUrl = (): string => {
   // In production, use Fly.io backend
   if (import.meta.env.PROD) {
-    return 'https://nba-stat-spot-ai.fly.dev'
+    return 'https://nba-stat-spot.360web.cloud'
   }
   
   // In development, check for explicit API target

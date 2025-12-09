@@ -8,6 +8,7 @@ export interface SnackbarMessage {
   type: SnackbarType
   progress?: number // 0-100 for progress bar
   duration?: number // Auto-dismiss duration in ms
+  action?: { label: string; onClick: () => void } // Optional action button
 }
 
 interface SnackbarProps {
@@ -123,6 +124,20 @@ export function Snackbar({ snackbar, onClose }: SnackbarProps) {
                   />
                 </div>
                 <p className="text-xs mt-1 opacity-90">{Math.round(progress)}%</p>
+              </div>
+            )}
+            {/* Action button */}
+            {snackbar.action && (
+              <div className="mt-3">
+                <button
+                  onClick={() => {
+                    snackbar.action?.onClick()
+                    onClose()
+                  }}
+                  className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-lg transition-colors duration-200 text-sm border border-white/30 hover:border-white/50"
+                >
+                  {snackbar.action.label}
+                </button>
               </div>
             )}
           </div>

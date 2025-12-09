@@ -94,7 +94,18 @@ Configuration: `deploy/nginx.conf`
 
 ## Production Deployment
 
-### Option 1: Docker Compose (Single Server)
+### Option 1: mitch-cloud VPS (Recommended)
+
+**Best for**: Production deployments on mitch-cloud infrastructure
+
+See [mitch-cloud Deployment Guide](mitch-cloud-deployment.md) for complete instructions.
+
+Quick start:
+1. Run server setup script: `scripts/setup-mitch-cloud.sh`
+2. Configure `.env` file on VPS
+3. Deploy via GitHub Actions workflow (automatic on merge to `main`)
+
+### Option 2: Docker Compose (Single Server)
 
 **Best for**: Small to medium deployments, single server setup
 
