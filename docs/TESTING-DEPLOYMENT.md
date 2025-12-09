@@ -62,7 +62,7 @@ Required settings:
 DATABASE_URL=postgresql://nba_props_user:nba_props_password@postgres:5432/nba_props
 ENV=production
 PORT=8007
-CORS_ORIGINS=https://your-username.github.io,https://nba-stat-spot.360ws.cloud
+CORS_ORIGINS=https://your-username.github.io,https://nba-stat-spot.360web.cloud
 API_NBA_KEY=your-api-key-if-you-have-one
 ```
 

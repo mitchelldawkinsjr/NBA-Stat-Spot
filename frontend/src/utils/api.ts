@@ -5,7 +5,7 @@
 
 // Get API base URL from environment or use default
 const getApiBaseUrl = (): string => {
-  // In production, use Fly.io backend
+  // In production, use mitch-cloud backend
   if (import.meta.env.PROD) {
     return 'https://nba-stat-spot.360web.cloud'
   }

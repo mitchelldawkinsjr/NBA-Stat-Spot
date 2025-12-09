@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     # Only deploy on merge to main or manual dispatch
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
     
     steps:
       - name: Checkout code
@@ -106,15 +108,15 @@ jobs:
           EOF
       
       - name: Notify Slack on success
-        if: success() && secrets.SLACK_WEBHOOK != ''
+        if: success() && env.SLACK_WEBHOOK != ''
         run: |
           curl -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\"✅ NBA-Stat-Spot deployed successfully to mitch-cloud\"}" \
-            ${{ secrets.SLACK_WEBHOOK }}
+            "$SLACK_WEBHOOK"
       
       - name: Notify Slack on failure
-        if: failure() && secrets.SLACK_WEBHOOK != ''
+        if: failure() && env.SLACK_WEBHOOK != ''
         run: |
           curl -X POST -H 'Content-type: application/json' \
             --data "{\"text\":\"❌ NBA-Stat-Spot deployment to mitch-cloud failed\"}" \
-            ${{ secrets.SLACK_WEBHOOK }}
+            "$SLACK_WEBHOOK"

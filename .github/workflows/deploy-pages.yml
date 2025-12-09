@@ -36,7 +36,7 @@ jobs:
         env:
           # Backend API URL configuration:
           # - If BACKEND_API_URL secret is set, it will be used (overrides default)
-          # - Default: https://nba-stat-spot.360ws.cloud (mitch-cloud backend)
+          # - Default: https://nba-stat-spot.360web.cloud (mitch-cloud backend)
           # - Previous: https://nba-stat-spot-ai.fly.dev (Fly.io - deprecated)
           # To override: Go to Settings → Secrets and variables → Actions → New repository secret
           # Name: BACKEND_API_URL, Value: https://your-backend-url.com
