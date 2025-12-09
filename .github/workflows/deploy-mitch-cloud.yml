@@ -87,7 +87,7 @@ jobs:
             max_attempts=30
             attempt=0
             while [ $attempt -lt $max_attempts ]; do
-              if curl -f http://localhost:8000/healthz > /dev/null 2>&1; then
+              if curl -f http://localhost:8007/healthz > /dev/null 2>&1; then
                 echo "Health check passed!"
                 break
               fi

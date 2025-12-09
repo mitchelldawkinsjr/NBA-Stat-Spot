@@ -73,7 +73,7 @@ DATABASE_URL=postgresql://nba_props_user:nba_props_password@postgres:5432/nba_pr
 
 # Environment
 ENV=production
-PORT=8000
+PORT=8007
 
 # CORS Configuration (comma-separated origins)
 # Example: CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com

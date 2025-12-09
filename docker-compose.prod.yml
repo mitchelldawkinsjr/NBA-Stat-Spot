@@ -8,11 +8,11 @@ services:
     container_name: nba-stat-spot-backend
     restart: unless-stopped
     ports:
-      - '8000:8000'
+      - '8007:8007'
     environment:
       - DATABASE_URL=postgresql://nba_props_user:nba_props_password@postgres:5432/nba_props
       - ENV=production
-      - PORT=8000
+      - PORT=8007
       - CORS_ORIGINS=${CORS_ORIGINS:-}
       - API_NBA_KEY=${API_NBA_KEY:-}
       - API_NBA_USE_RAPIDAPI=${API_NBA_USE_RAPIDAPI:-false}
@@ -30,7 +30,7 @@ services:
       - "com.360ws.type=docker-app"
       - "com.360ws.service=backend"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      test: ["CMD", "curl", "-f", "http://localhost:8007/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3

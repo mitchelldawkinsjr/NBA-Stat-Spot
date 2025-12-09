@@ -147,7 +147,7 @@ docker-compose -f docker-compose.prod.yml up -d
 docker-compose -f docker-compose.prod.yml exec backend alembic upgrade head
 
 # Verify health
-curl http://localhost:8000/healthz
+curl http://localhost:8007/healthz
 ```
 
 ### Manual Workflow Dispatch
@@ -166,7 +166,7 @@ In Nginx Proxy Manager (from mitch-cloud infrastructure):
 1. Add Proxy Host
 2. **Domain Names**: `nba-stat-spot.360ws.cloud` (or your subdomain)
 3. **Forward Hostname/IP**: `nba-stat-spot-backend` (container name)
-4. **Forward Port**: `8000`
+4. **Forward Port**: `8007`
 5. **Forward Scheme**: `http`
 6. **SSL**: Enable Let's Encrypt certificate
 7. **Advanced**: Add to `360ws-network` if needed
@@ -217,7 +217,7 @@ The backend exposes a health endpoint:
 
 ```bash
 # From VPS
-curl http://localhost:8000/healthz
+curl http://localhost:8007/healthz
 
 # From external (via proxy)
 curl https://nba-stat-spot.360ws.cloud/healthz

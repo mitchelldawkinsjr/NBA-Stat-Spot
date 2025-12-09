@@ -61,7 +61,7 @@ Required settings:
 ```bash
 DATABASE_URL=postgresql://nba_props_user:nba_props_password@postgres:5432/nba_props
 ENV=production
-PORT=8000
+PORT=8007
 CORS_ORIGINS=https://your-username.github.io,https://nba-stat-spot.360ws.cloud
 API_NBA_KEY=your-api-key-if-you-have-one
 ```
@@ -97,7 +97,7 @@ docker-compose -f docker-compose.prod.yml logs -f postgres
 docker-compose -f docker-compose.prod.yml exec backend alembic upgrade head
 
 # Test health endpoint
-curl http://localhost:8000/healthz
+curl http://localhost:8007/healthz
 # Expected: {"status":"ok"}
 ```
 
@@ -138,7 +138,7 @@ docker-compose -f docker-compose.prod.yml exec backend ps aux | grep supercronic
 docker-compose -f docker-compose.prod.yml logs backend | grep -i cron
 
 # Manually trigger a cron job to test
-docker-compose -f docker-compose.prod.yml exec backend curl -f -X POST "http://localhost:8000/api/v1/admin/refresh/daily-props?min_confidence=50&limit=10"
+docker-compose -f docker-compose.prod.yml exec backend curl -f -X POST "http://localhost:8007/api/v1/admin/refresh/daily-props?min_confidence=50&limit=10"
 ```
 
 **Expected Results:**
