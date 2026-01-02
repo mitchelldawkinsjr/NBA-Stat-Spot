@@ -13,6 +13,8 @@ services:
       - DATABASE_URL=postgresql://nba_props_user:nba_props_password@postgres:5432/nba_props
       - ENV=production
       - PORT=8007
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://localhost:11434}
+      - REDIS_URL=redis://redis:6379/0
       - CORS_ORIGINS=${CORS_ORIGINS:-}
       - API_NBA_KEY=${API_NBA_KEY:-}
       - API_NBA_USE_RAPIDAPI=${API_NBA_USE_RAPIDAPI:-false}
@@ -22,6 +24,8 @@ services:
       - ESPN_RATE_LIMIT_PER_HOUR=${ESPN_RATE_LIMIT_PER_HOUR:-1000}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - 360ws-network
@@ -57,6 +61,26 @@ services:
       - "com.360ws.service=postgres"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U nba_props_user -d nba_props"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: nba-stat-spot-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - /data/nba-stat-spot/redis:/data
+    networks:
+      - 360ws-network
+    labels:
+      - "com.360ws.app=nba-stat-spot"
+      - "com.360ws.type=docker-app"
+      - "com.360ws.service=redis"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

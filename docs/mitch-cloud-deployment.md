@@ -84,7 +84,8 @@ DATABASE_URL=postgresql://nba_props_user:nba_props_password@postgres:5432/nba_pr
 
 # Environment
 ENV=production
-PORT=8000
+PORT=8007
+OLLAMA_HOST=http://localhost:11434  # Point to your Ollama server (update host as needed)
 
 # CORS - IMPORTANT: Set your frontend domain(s)
 CORS_ORIGINS=https://your-username.github.io,https://nba-stat-spot.360ws.cloud

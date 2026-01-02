@@ -74,6 +74,8 @@ DATABASE_URL=postgresql://nba_props_user:nba_props_password@postgres:5432/nba_pr
 # Environment
 ENV=production
 PORT=8007
+# Ollama host (if using remote/local Ollama for LLM)
+OLLAMA_HOST=http://localhost:11434
 
 # CORS Configuration (comma-separated origins)
 # Example: CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
