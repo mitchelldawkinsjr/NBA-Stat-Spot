@@ -123,8 +123,8 @@ app = FastAPI(
             "description": "Local development server",
         },
         {
-            "url": "https://nba-stat-spot-ai.fly.dev",
-            "description": "Production server (Fly.io)",
+            "url": "https://nba-stat-spot.360web.cloud",
+            "description": "Production server (mitch-cloud)",
         },
     ],
 )
