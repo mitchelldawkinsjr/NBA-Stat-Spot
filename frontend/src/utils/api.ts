@@ -5,13 +5,8 @@
 
 // Get API base URL from environment or use default
 const getApiBaseUrl = (): string => {
-  // In production, use mitch-cloud backend
-  if (import.meta.env.PROD) {
-    return 'https://nba-stat-spot.360web.cloud'
-  }
-  
-  // In development, check for explicit API target
-  // But ignore Docker hostnames (backend:8001) when running locally outside Docker
+  // Check for explicit API target (set via VITE_API_TARGET env var)
+  // This allows overriding the backend URL via GitHub Secrets or build-time env vars
   const apiTarget = import.meta.env.VITE_API_TARGET
   if (apiTarget) {
     // If running in browser (not in Docker), Docker hostnames won't resolve
@@ -20,9 +15,16 @@ const getApiBaseUrl = (): string => {
       // Docker hostname detected - only use it if we're actually in Docker
       // For local dev outside Docker, fall back to Vite proxy
       // (We can't reliably detect if we're in Docker from browser, so default to proxy)
-    return ''
+      if (!import.meta.env.PROD) {
+        return ''
+      }
     }
     return apiTarget
+  }
+  
+  // In production, use mitch-cloud backend as default
+  if (import.meta.env.PROD) {
+    return 'https://nba-stat-spot.360web.cloud'
   }
   
   // In development, use empty string to leverage Vite proxy to localhost:8001

@@ -134,9 +134,9 @@ export default function PlayerProfile() {
           // Failed to fetch player details - will continue with stats fetch
         }
         
-        // Add timeout to prevent hanging - increased for Fly.io backend
+        // Add timeout to prevent hanging - increased for mitch-cloud backend
         const controller = new AbortController()
-        const TIMEOUT_MS = 120000 // 2 minute timeout for Fly.io backend
+        const TIMEOUT_MS = 120000 // 2 minute timeout for mitch-cloud backend
         const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
         
         // Track progress for loading indicator
