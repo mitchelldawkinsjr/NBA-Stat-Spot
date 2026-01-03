@@ -27,29 +27,31 @@ fi
 
 echo "✓ Docker and Docker Compose are installed"
 
-# Create directory structure per playbook Section 4
+# Create directory structure
 echo "Creating directory structure..."
 
 # Main application directory
-mkdir -p /opt/360ws/clients/docker-app/nba-stat-spot
+mkdir -p /opt/nba-stat-spot
 
 # Data directories for persistence
 mkdir -p /data/databases/nba-stat-spot
 mkdir -p /data/nba-stat-spot/logs
+mkdir -p /data/nba-stat-spot/redis
 
 # Set proper ownership (adjust user as needed)
 DEPLOY_USER="${SUDO_USER:-$USER}"
 if [ -n "$DEPLOY_USER" ]; then
-    chown -R $DEPLOY_USER:$DEPLOY_USER /opt/360ws/clients/docker-app/nba-stat-spot
+    chown -R $DEPLOY_USER:$DEPLOY_USER /opt/nba-stat-spot
     chown -R $DEPLOY_USER:$DEPLOY_USER /data/databases/nba-stat-spot
     chown -R $DEPLOY_USER:$DEPLOY_USER /data/nba-stat-spot
     echo "✓ Set ownership to $DEPLOY_USER"
 fi
 
 # Set proper permissions
-chmod 755 /opt/360ws/clients/docker-app/nba-stat-spot
+chmod 755 /opt/nba-stat-spot
 chmod 755 /data/databases/nba-stat-spot
 chmod 755 /data/nba-stat-spot
+chmod 755 /data/nba-stat-spot/redis
 
 echo "✓ Directory structure created"
 
@@ -64,7 +66,7 @@ else
 fi
 
 # Create .env file template if it doesn't exist
-ENV_FILE="/opt/360ws/clients/docker-app/nba-stat-spot/.env"
+ENV_FILE="/opt/nba-stat-spot/.env"
 if [ ! -f "$ENV_FILE" ]; then
     echo "Creating .env template..."
     cat > "$ENV_FILE" << 'EOF'
@@ -106,9 +108,9 @@ echo "=== Setup Complete ==="
 echo ""
 echo "Next steps:"
 echo "1. Edit $ENV_FILE and configure your environment variables"
-echo "2. Clone or copy the NBA-Stat-Spot repository to /opt/360ws/clients/docker-app/nba-stat-spot"
+echo "2. Clone or copy the NBA-Stat-Spot repository to /opt/nba-stat-spot"
 echo "3. Run the deployment workflow or manually deploy with:"
-echo "   cd /opt/360ws/clients/docker-app/nba-stat-spot"
+echo "   cd /opt/nba-stat-spot"
 echo "   docker-compose -f docker-compose.prod.yml up -d"
 echo ""
 echo "For more information, see: docs/mitch-cloud-deployment.md"

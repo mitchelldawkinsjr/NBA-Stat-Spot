@@ -12,7 +12,7 @@ if [ -f /.dockerenv ]; then
     WORK_DIR="/app"
 else
     echo "Running on host - using docker-compose"
-    WORK_DIR="/opt/360ws/clients/docker-app/nba-stat-spot"
+    WORK_DIR="/opt/nba-stat-spot"
     
     if [ ! -d "$WORK_DIR" ]; then
         echo "ERROR: Application directory not found: $WORK_DIR"
