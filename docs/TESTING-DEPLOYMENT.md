@@ -45,7 +45,7 @@ sudo bash scripts/setup-mitch-cloud.sh
 ```
 
 This creates:
-- `/opt/360ws/clients/docker-app/nba-stat-spot/`
+- `/opt/nba-stat-spot/`
 - `/data/databases/nba-stat-spot/`
 - `/data/nba-stat-spot/logs/`
 - `.env` template file
@@ -54,7 +54,7 @@ This creates:
 
 ```bash
 # Edit the .env file on the server
-sudo nano /opt/360ws/clients/docker-app/nba-stat-spot/.env
+sudo nano /opt/nba-stat-spot/.env
 ```
 
 Required settings:
@@ -78,7 +78,7 @@ Test deployment manually before using GitHub Actions:
 ssh ${VPS_USER}@${VPS_HOST}
 
 # Navigate to app directory
-cd /opt/360ws/clients/docker-app/nba-stat-spot
+cd /opt/nba-stat-spot
 
 # Ensure 360ws-network exists
 docker network create 360ws-network 2>/dev/null || true
@@ -112,7 +112,7 @@ curl http://localhost:8007/healthz
 
 ```bash
 # On the server, in the app directory
-cd /opt/360ws/clients/docker-app/nba-stat-spot
+cd /opt/nba-stat-spot
 
 # Run migration script
 bash scripts/migrate-database.sh
@@ -322,7 +322,7 @@ If issues occur, rollback steps:
 
 ```bash
 # On the server
-cd /opt/360ws/clients/docker-app/nba-stat-spot
+cd /opt/nba-stat-spot
 git log --oneline -10  # Find previous commit
 git checkout <previous-commit-sha>
 docker-compose -f docker-compose.prod.yml up -d --build

@@ -20,7 +20,7 @@
 
 NBA-Stat-Spot is deployed to mitch-cloud as a Docker app client following these standards:
 
-- **Location**: `/opt/360ws/clients/docker-app/nba-stat-spot`
+- **Location**: `/opt/nba-stat-spot`
 - **Network**: Attached to `360ws-network` for proxy integration
 - **Database**: PostgreSQL in Docker Compose (persisted to `/data/databases/nba-stat-spot`)
 - **Deployment**: Automated via GitHub Actions on merge to `main`
@@ -63,7 +63,7 @@ sudo bash scripts/setup-mitch-cloud.sh
 
 This script will:
 - Verify Docker and Docker Compose are installed
-- Create directory structure at `/opt/360ws/clients/docker-app/nba-stat-spot`
+- Create directory structure at `/opt/nba-stat-spot`
 - Create data directories at `/data/databases/nba-stat-spot` and `/data/nba-stat-spot/logs`
 - Ensure `360ws-network` exists
 - Create `.env` file template
@@ -73,7 +73,7 @@ This script will:
 Edit the `.env` file on the VPS:
 
 ```bash
-nano /opt/360ws/clients/docker-app/nba-stat-spot/.env
+nano /opt/nba-stat-spot/.env
 ```
 
 Required variables (see `.env.example` for full template):
@@ -101,7 +101,7 @@ API_NBA_KEY=your-api-key-here
 If this is the first deployment, clone the repository:
 
 ```bash
-cd /opt/360ws/clients/docker-app
+cd /opt
 git clone https://github.com/your-username/NBA-Stat-Spot.git nba-stat-spot
 cd nba-stat-spot
 ```
@@ -119,7 +119,7 @@ Deployment happens automatically when:
 
 The GitHub Actions workflow will:
 1. SSH into the VPS
-2. Sync code to `/opt/360ws/clients/docker-app/nba-stat-spot`
+2. Sync code to `/opt/nba-stat-spot`
 3. Build Docker images
 4. Start services with `docker-compose -f docker-compose.prod.yml up -d`
 5. Run database migrations
@@ -135,7 +135,7 @@ To deploy manually:
 ssh user@your-vps-host
 
 # Navigate to app directory
-cd /opt/360ws/clients/docker-app/nba-stat-spot
+cd /opt/nba-stat-spot
 
 # Pull latest code
 git pull origin main
@@ -286,7 +286,7 @@ To update the application:
 To update without code changes (e.g., rebuild images):
 
 ```bash
-cd /opt/360ws/clients/docker-app/nba-stat-spot
+cd /opt/nba-stat-spot
 docker-compose -f docker-compose.prod.yml pull
 docker-compose -f docker-compose.prod.yml up -d --build
 ```
@@ -357,7 +357,7 @@ docker-compose -f docker-compose.prod.yml exec backend ping postgres
 ### Quick Rollback (Git)
 
 ```bash
-cd /opt/360ws/clients/docker-app/nba-stat-spot
+cd /opt/nba-stat-spot
 git checkout <previous-commit-sha>
 docker-compose -f docker-compose.prod.yml up -d --build
 ```
