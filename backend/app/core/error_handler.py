@@ -5,6 +5,7 @@ from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
+from fastapi.middleware.cors import CORSMiddleware
 import structlog
 
 logger = structlog.get_logger()
@@ -19,10 +20,26 @@ class APIError(Exception):
         super().__init__(self.message)
 
 
+def _add_cors_headers(response: JSONResponse, request: Request) -> JSONResponse:
+    """Add CORS headers to error responses"""
+    from ..core.config import get_cors_origins
+    
+    origins = get_cors_origins()
+    origin = request.headers.get("origin")
+    
+    # If allowing all origins or origin is in allowed list
+    if origins == ["*"] or (origin and origin in origins):
+        response.headers["Access-Control-Allow-Origin"] = origin if origin else "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Expose-Headers"] = "*"
+    
+    return response
+
+
 async def error_handler(request: Request, exc: Exception):
     """
     Global error handler for all exceptions.
-    Returns standardized error response format.
+    Returns standardized error response format with CORS headers.
     """
     # Log the error
     logger.error(
@@ -36,7 +53,7 @@ async def error_handler(request: Request, exc: Exception):
     
     # Handle specific exception types
     if isinstance(exc, APIError):
-        return JSONResponse(
+        response = JSONResponse(
             status_code=exc.status_code,
             content={
                 "error": exc.message,
@@ -44,9 +61,10 @@ async def error_handler(request: Request, exc: Exception):
                 "path": request.url.path
             }
         )
+        return _add_cors_headers(response, request)
     
     if isinstance(exc, RequestValidationError):
-        return JSONResponse(
+        response = JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={
                 "error": "Validation error",
@@ -54,10 +72,11 @@ async def error_handler(request: Request, exc: Exception):
                 "path": request.url.path
             }
         )
+        return _add_cors_headers(response, request)
     
     if isinstance(exc, SQLAlchemyError):
         logger.error("Database error", error=str(exc), exc_info=True)
-        return JSONResponse(
+        response = JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "error": "Database error",
@@ -65,9 +84,10 @@ async def error_handler(request: Request, exc: Exception):
                 "path": request.url.path
             }
         )
+        return _add_cors_headers(response, request)
     
     # Generic error handler
-    return JSONResponse(
+    response = JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": "Internal server error",
@@ -75,4 +95,5 @@ async def error_handler(request: Request, exc: Exception):
             "path": request.url.path
         }
     )
+    return _add_cors_headers(response, request)
 

@@ -233,6 +233,17 @@ def stats(
         logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
         if logs is None:
             logs = []
+        
+        # If no logs found, try previous season as fallback
+        if len(logs) == 0 and season_to_use == "2025-26":
+            import structlog
+            logger = structlog.get_logger()
+            logger.info("No logs found for current season, trying previous season", player_id=player_id, season=season_to_use)
+            # Try 2024-25 season
+            logs = NBADataService.fetch_player_game_log(player_id, "2024-25")
+            if logs is None:
+                logs = []
+        
         return {"items": logs[:games] if games else logs}
     except Exception as e:
         # Log the error but return empty list instead of crashing
