@@ -23,13 +23,20 @@ try:
                 original_post = requests.post
                 
                 def patched_get(*args, **kwargs):
+                    # Set timeout to 120 seconds (2 minutes) for NBA API calls
+                    # NBA API can be very slow, especially for player game logs
                     if 'timeout' not in kwargs:
-                        kwargs['timeout'] = 60.0  # 60 second timeout
+                        kwargs['timeout'] = 120.0  # 120 second timeout
+                    elif isinstance(kwargs['timeout'], (int, float)) and kwargs['timeout'] < 120:
+                        kwargs['timeout'] = 120.0  # Ensure minimum 120 seconds
                     return original_get(*args, **kwargs)
                 
                 def patched_post(*args, **kwargs):
+                    # Set timeout to 120 seconds (2 minutes) for NBA API calls
                     if 'timeout' not in kwargs:
-                        kwargs['timeout'] = 60.0  # 60 second timeout
+                        kwargs['timeout'] = 120.0  # 120 second timeout
+                    elif isinstance(kwargs['timeout'], (int, float)) and kwargs['timeout'] < 120:
+                        kwargs['timeout'] = 120.0  # Ensure minimum 120 seconds
                     return original_post(*args, **kwargs)
                 
                 # Patch requests methods used by nba_api
@@ -41,8 +48,11 @@ try:
                     original_session_request = requests.Session.request
                     
                     def patched_session_request(self, method, url, **kwargs):
+                        # Set timeout to 120 seconds (2 minutes) for NBA API calls
                         if 'timeout' not in kwargs:
-                            kwargs['timeout'] = 60.0  # 60 second timeout
+                            kwargs['timeout'] = 120.0  # 120 second timeout
+                        elif isinstance(kwargs['timeout'], (int, float)) and kwargs['timeout'] < 120:
+                            kwargs['timeout'] = 120.0  # Ensure minimum 120 seconds
                         return original_session_request(self, method, url, **kwargs)
                     
                     requests.Session.request = patched_session_request
@@ -228,8 +238,9 @@ class NBADataService:
         season_to_use = season or "2025-26"
         
         # Retry logic with exponential backoff
-        max_retries = 3
-        base_delay = 2.0  # Start with 2 seconds
+        # Increased retries and delays since NBA API is slow/unreliable
+        max_retries = 5  # More retries for slow API
+        base_delay = 3.0  # Start with 3 seconds
         
         for attempt in range(max_retries):
             try:
