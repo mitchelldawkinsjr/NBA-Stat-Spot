@@ -29,7 +29,7 @@ docker --version
 docker-compose --version
 
 # Check directory structure
-ls -la /opt/360ws/clients/docker-app/
+ls -la /opt/nba-stat-spot/
 ls -la /data/
 
 # Check 360ws-network

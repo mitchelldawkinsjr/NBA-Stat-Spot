@@ -42,9 +42,10 @@ jobs:
           # Create directory structure if it doesn't exist
           ssh ${VPS_USER}@${VPS_HOST} << 'EOF'
             set -e
-            mkdir -p /opt/360ws/clients/docker-app/nba-stat-spot
+            mkdir -p /opt/nba-stat-spot
             mkdir -p /data/databases/nba-stat-spot
             mkdir -p /data/nba-stat-spot/logs
+            mkdir -p /data/nba-stat-spot/redis
           EOF
           
           # Copy files to server
@@ -55,12 +56,12 @@ jobs:
             --exclude '*.pyc' \
             --exclude '.venv' \
             --exclude 'frontend/dist' \
-            ./ ${VPS_USER}@${VPS_HOST}:/opt/360ws/clients/docker-app/nba-stat-spot/
+            ./ ${VPS_USER}@${VPS_HOST}:/opt/nba-stat-spot/
           
           # SSH into the server and deploy
           ssh ${VPS_USER}@${VPS_HOST} << 'EOF'
             set -e
-            cd /opt/360ws/clients/docker-app/nba-stat-spot
+            cd /opt/nba-stat-spot
             
             # Ensure 360ws-network exists
             docker network create 360ws-network 2>/dev/null || true
