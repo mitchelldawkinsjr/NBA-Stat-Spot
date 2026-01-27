@@ -14,6 +14,27 @@
   </head>
   <body class="font-sans">
     <div id="root"></div>
+    <!-- Fix for share-modal.js error - prevent addEventListener on null -->
+    <script>
+      // Guard against share-modal.js errors
+      (function() {
+        // Override getElementById temporarily to handle missing share-modal
+        const originalGetElementById = document.getElementById;
+        document.getElementById = function(id) {
+          const element = originalGetElementById.call(document, id);
+          if (id === 'share-modal' && !element) {
+            // Return a dummy element with addEventListener that does nothing
+            return {
+              addEventListener: function() { /* no-op */ },
+              removeEventListener: function() { /* no-op */ },
+              style: {},
+              classList: { add: function() {}, remove: function() {} }
+            };
+          }
+          return element;
+        };
+      })();
+    </script>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
