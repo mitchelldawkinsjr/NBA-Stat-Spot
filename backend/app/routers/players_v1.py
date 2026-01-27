@@ -230,26 +230,31 @@ def stats(
 ):
     try:
         season_to_use = season or "2025-26"
-        logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
+        logs = NBADataService.fetch_player_game_log(player_id, season_to_use, force_refresh=True)
         if logs is None:
             logs = []
         
-        # If no logs found, try previous season as fallback
-        if len(logs) == 0 and season_to_use == "2025-26":
+        # If no logs found, try previous seasons as fallback
+        if len(logs) == 0:
             import structlog
             logger = structlog.get_logger()
-            logger.info("No logs found for current season, trying previous season", player_id=player_id, season=season_to_use)
+            logger.info("No logs found for season, trying fallback seasons", player_id=player_id, season=season_to_use)
             # Try 2024-25 season
-            logs = NBADataService.fetch_player_game_log(player_id, "2024-25")
+            logs = NBADataService.fetch_player_game_log(player_id, "2024-25", force_refresh=True)
             if logs is None:
                 logs = []
+            # If still empty, try 2023-24
+            if len(logs) == 0:
+                logs = NBADataService.fetch_player_game_log(player_id, "2023-24", force_refresh=True)
+                if logs is None:
+                    logs = []
         
         return {"items": logs[:games] if games else logs}
     except Exception as e:
         # Log the error but return empty list instead of crashing
         import structlog
         logger = structlog.get_logger()
-        logger.error("Failed to fetch player stats", player_id=player_id, season=season, error=str(e))
+        logger.error("Failed to fetch player stats", player_id=player_id, season=season, error=str(e), exc_info=True)
         return {"items": []}
 
 @router.get(

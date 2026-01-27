@@ -216,6 +216,9 @@ class NBADataService:
         """Internal implementation of fetch_player_game_log without caching.
         Includes retry logic with exponential backoff for handling timeouts."""
         if playergamelog is None:
+            import structlog
+            logger = structlog.get_logger()
+            logger.error("NBA API playergamelog module not available - check nba_api installation")
             return []
         
         import structlog
