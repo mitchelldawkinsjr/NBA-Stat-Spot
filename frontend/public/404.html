@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/nba-ss-icon.png" />
+    <link rel="apple-touch-icon" href="/nba-ss-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -57,6 +58,27 @@
   </head>
   <body class="font-sans">
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- Fix for share-modal.js error - prevent addEventListener on null -->
+    <script>
+      // Guard against share-modal.js errors
+      (function() {
+        // Override getElementById temporarily to handle missing share-modal
+        const originalGetElementById = document.getElementById;
+        document.getElementById = function(id) {
+          const element = originalGetElementById.call(document, id);
+          if (id === 'share-modal' && !element) {
+            // Return a dummy element with addEventListener that does nothing
+            return {
+              addEventListener: function() { /* no-op */ },
+              removeEventListener: function() { /* no-op */ },
+              style: {},
+              classList: { add: function() {}, remove: function() {} }
+            };
+          }
+          return element;
+        };
+      })();
+    </script>
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

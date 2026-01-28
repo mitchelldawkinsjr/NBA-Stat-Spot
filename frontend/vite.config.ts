@@ -20,6 +20,8 @@ export default defineConfig(({ mode }) => {
       react(),
       // Plugin to copy index.html to 404.html for GitHub Pages SPA routing
       // This allows direct navigation to routes like /explore to work
+      // IMPORTANT: This must run AFTER Vite processes index.html and copies files from public/
+      // The closeBundle hook ensures it runs at the very end of the build
       {
         name: 'copy-404-for-github-pages',
         closeBundle() {
@@ -29,6 +31,14 @@ export default defineConfig(({ mode }) => {
             try {
               const indexPath = join(distPath, 'index.html')
               const notFoundPath = join(distPath, '404.html')
+              
+              // Check if index.html exists
+              if (!require('fs').existsSync(indexPath)) {
+                console.warn('⚠️ index.html not found, cannot create 404.html')
+                return
+              }
+              
+              // Copy index.html to 404.html (this overwrites any 404.html from public/)
               copyFileSync(indexPath, notFoundPath)
               console.log('✅ Copied index.html to 404.html for GitHub Pages SPA routing')
             } catch (err) {
