@@ -53,7 +53,9 @@ def get_cors_origins() -> list[str]:
         origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
         if origins:
             return origins
-    
-    # Fallback: if no CORS_ORIGINS is set in production, return empty list
-    # This will require explicit configuration
-    return []
+
+    # Fallback: allow known frontend origins so GitHub Pages + 360web work without env config
+    return [
+        "https://mitchelldawkinsjr.github.io",
+        "https://nba-stat-spot.360web.cloud",
+    ]
