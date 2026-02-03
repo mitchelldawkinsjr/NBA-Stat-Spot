@@ -160,17 +160,44 @@ You can also trigger deployment manually from GitHub:
 
 ## Post-Deployment Configuration
 
-### 1. Configure Reverse Proxy
+### 1. Configure Reverse Proxy (Nginx Proxy Manager)
 
-In Nginx Proxy Manager (from mitch-cloud infrastructure):
+**Option A – Frontend on VPS (recommended: same origin, data loads reliably)**
 
-1. Add Proxy Host
-2. **Domain Names**: `nba-stat-spot.360ws.cloud` (or your subdomain)
-3. **Forward Hostname/IP**: `nba-stat-spot-backend` (container name)
-4. **Forward Port**: `8007`
+Serves the React app and proxies `/api/*` to the backend. No CORS; all requests same-origin.
+
+1. Add Proxy Host in Nginx Proxy Manager
+2. **Domain Names**: `nba-stat-spot.360web.cloud` (or your subdomain)
+3. **Forward Hostname/IP**: `nba-stat-spot-frontend` (frontend container name)
+4. **Forward Port**: `80`
 5. **Forward Scheme**: `http`
 6. **SSL**: Enable Let's Encrypt certificate
-7. **Advanced**: Add to `360ws-network` if needed
+7. Ensure the proxy host uses the `360ws-network` so it can reach `nba-stat-spot-frontend`
+
+The frontend container serves the SPA and proxies `/api/` to the backend (port 8007) internally.
+
+**Option B – Frontend on GitHub Pages only**
+
+If you are not running the frontend container and only use GitHub Pages:
+
+1. **Forward Hostname/IP**: `nba-stat-spot-backend`
+2. **Forward Port**: `8007`
+3. Set `CORS_ORIGINS=https://mitchelldawkinsjr.github.io,https://nba-stat-spot.360web.cloud` in backend `.env`
+
+**Same-origin frontend (no CORS)**
+
+To serve the frontend from the same host as the API and avoid CORS entirely:
+
+1. Build the frontend with the **same-origin** script (root base path, relative API):
+   ```bash
+   cd frontend
+   npm run build:app
+   ```
+   This sets `VITE_USE_RELATIVE_API=true` and does **not** set `VITE_GITHUB_PAGES`, so the app uses `base: '/'` and requests go to `/api/...` on the same origin.
+
+2. Deploy the built `frontend/dist` to the host that also proxies `/api/` to the backend (e.g. into the frontend container or static root used by Nginx). The existing Nginx config in `deploy/nginx.conf` already serves the SPA at `/` and proxies `/api/` to the backend.
+
+3. For CI/deploy pipeline: run `npm run build:app` in the frontend directory. Do **not** set `VITE_GITHUB_PAGES` or `VITE_REPO_NAME` for this build.
 
 ### 2. Set Up Monitoring
 

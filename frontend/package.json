@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:app": "tsc -b && VITE_USE_RELATIVE_API=true vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test",
