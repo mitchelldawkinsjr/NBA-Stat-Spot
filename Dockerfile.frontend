@@ -1,9 +1,18 @@
 # syntax=docker/dockerfile:1
+# Build for VPS (same-origin API): pass --build-arg VITE_USE_RELATIVE_API=true
+# Build for GitHub Pages: pass --build-arg VITE_GITHUB_PAGES=true (default in deploy-pages)
+ARG VITE_USE_RELATIVE_API=false
+ARG VITE_GITHUB_PAGES=false
+ARG VITE_REPO_NAME=NBA-Stat-Spot
+
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm ci || npm install
 COPY frontend ./
+ENV VITE_USE_RELATIVE_API=$VITE_USE_RELATIVE_API
+ENV VITE_GITHUB_PAGES=$VITE_GITHUB_PAGES
+ENV VITE_REPO_NAME=$VITE_REPO_NAME
 RUN npm run build
 
 FROM nginx:alpine
