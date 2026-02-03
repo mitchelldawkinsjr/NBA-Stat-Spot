@@ -18,6 +18,13 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
+      // Rewrite %BASE_URL% in index.html so assets work on GitHub Pages subpath
+      {
+        name: 'html-base-url',
+        transformIndexHtml(html: string) {
+          return html.replace(/%BASE_URL%/g, base)
+        },
+      },
       // Plugin to copy index.html to 404.html for GitHub Pages SPA routing
       // This allows direct navigation to routes like /explore to work
       // IMPORTANT: This must run AFTER Vite processes index.html and copies files from public/
