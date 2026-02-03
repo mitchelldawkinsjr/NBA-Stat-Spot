@@ -1,26 +1,73 @@
 from fastapi import APIRouter, Query, Path
-from typing import Optional
-from datetime import date, timedelta
-from ..services.nba_api_service import NBADataService
+from typing import Optional, List, Dict, Any
+from datetime import date, timedelta, datetime
+import structlog
 from ..services.live_game_service import LiveGameService
 from ..services.espn_api_service import get_espn_service
 
+logger = structlog.get_logger()
 router = APIRouter(prefix="/api/v1/games", tags=["games_v1"])
+
+
+def _games_from_espn_scoreboard(target_date: date) -> List[Dict[str, Any]]:
+    """Fetch games for a date from ESPN scoreboard and map to our game format (gameId, home, away, gameTimeUTC, gameEt, status)."""
+    try:
+        espn_service = get_espn_service()
+        # ESPN expects YYYYMMDD
+        date_str = target_date.strftime("%Y%m%d")
+        scoreboard_data = espn_service.get_scoreboard(date=date_str)
+        if not scoreboard_data or not isinstance(scoreboard_data.get("events"), list):
+            return []
+        games = []
+        for event in scoreboard_data["events"]:
+            try:
+                game_id = str(event.get("id", ""))
+                event_date = event.get("date") or ""
+                status_obj = event.get("status") or {}
+                status_id = str(status_obj.get("id", "1"))
+                status_desc = (status_obj.get("description") or "").upper()
+                if status_id == "3" or "FINAL" in status_desc or status_obj.get("completed"):
+                    status = "FINAL"
+                elif status_id == "2" or "IN PROGRESS" in status_desc or "LIVE" in status_desc:
+                    status = "LIVE"
+                else:
+                    status = "SCHEDULED"
+                home_abbr = None
+                away_abbr = None
+                comps = event.get("competitions") or []
+                if comps:
+                    for comp in comps:
+                        for c in comp.get("competitors") or []:
+                            abbr = (c.get("team") or {}).get("abbreviation", "")
+                            if (c.get("homeAway") or "").lower() == "home":
+                                home_abbr = abbr
+                            else:
+                                away_abbr = abbr
+                if home_abbr is None and away_abbr is None:
+                    continue
+                games.append({
+                    "gameId": game_id,
+                    "home": home_abbr or "",
+                    "away": away_abbr or "",
+                    "gameTimeUTC": event_date,
+                    "gameEt": event_date,
+                    "status": status,
+                })
+            except (KeyError, TypeError, IndexError) as e:
+                logger.warning("Skip ESPN event", event_id=event.get("id"), error=str(e))
+                continue
+        return games
+    except Exception as e:
+        logger.warning("ESPN scoreboard failed", date=str(target_date), error=str(e))
+        return []
+
 
 @router.get(
     "/today",
     summary="Get games for a specific date",
     description="""
     Get all NBA games scheduled for a specific date.
-    
-    If no date is provided, returns games for today (server time).
-    Date format: YYYY-MM-DD
-    
-    Returns game information including:
-    - Game ID
-    - Home and away teams
-    - Game time
-    - Status
+    Uses ESPN scoreboard (live, reliable). Date format: YYYY-MM-DD
     """,
     response_description="List of games for the specified date",
     tags=["games_v1"]
@@ -30,52 +77,42 @@ def today(
 ):
     """
     Get today's games. If date is provided (YYYY-MM-DD), use that date.
-    Otherwise, use server's current date.
+    Otherwise, use server's current date. Source: ESPN scoreboard only.
     """
+    target_date = date.today()
     if date:
-        # Parse the date and fetch games for that specific date
-        from datetime import datetime
         try:
             target_date = datetime.strptime(date, "%Y-%m-%d").date()
-            return {"games": NBADataService.fetch_games_for_date(target_date)}
         except ValueError:
-            # Invalid date format, fall back to today
-            return {"games": NBADataService.fetch_todays_games()}
-    return {"games": NBADataService.fetch_todays_games()}
+            target_date = date.today()
+    games = _games_from_espn_scoreboard(target_date)
+    return {"games": games}
 
 @router.get(
     "/upcoming",
     summary="Get upcoming games",
-    description="Get upcoming games within the specified number of days. Fetches games from today through the specified number of days ahead.",
+    description="Get upcoming games within the specified number of days. Uses ESPN scoreboard per day.",
     response_description="List of upcoming games",
     tags=["games_v1"]
 )
 def upcoming(
     days: int = Query(7, description="Number of days ahead to look for games", example=7, ge=1, le=30)
 ):
-    """Get upcoming games for the next N days"""
+    """Get upcoming games for the next N days (ESPN scoreboard per date)."""
     try:
         all_games = []
         today = date.today()
-        
-        # Fetch games for each day from today through the specified number of days
-        for day_offset in range(days + 1):  # Include today
+        for day_offset in range(days + 1):
             target_date = today + timedelta(days=day_offset)
-            games_for_date = NBADataService.fetch_games_for_date(target_date)
-            
-            # Filter to only scheduled/upcoming games (not completed)
+            games_for_date = _games_from_espn_scoreboard(target_date)
             for game in games_for_date:
-                status = game.get("status", "").upper()
-                # Only include scheduled or live games (not final)
-                if status in ["SCHEDULED", "LIVE", "IN_PROGRESS"] or status not in ["FINAL", "COMPLETED"]:
+                status = (game.get("status") or "").upper()
+                if status not in ("FINAL", "COMPLETED"):
                     all_games.append(game)
-        
         return {"games": all_games}
     except Exception as e:
-        import structlog
-        logger = structlog.get_logger()
         logger.error("Failed to fetch upcoming games", days=days, error=str(e))
-    return {"games": []}
+        return {"games": []}
 
 @router.get(
     "/{game_id}",
