@@ -16,7 +16,7 @@ venv/
 ENV/
 env/
 node_modules
-frontend/
+# frontend/ excluded only for backend build; frontend Dockerfile needs it (use docker compose build frontend)
 docs/
 *.md
 .DS_Store
