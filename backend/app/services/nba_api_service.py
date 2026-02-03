@@ -383,19 +383,39 @@ class NBADataService:
         """
         all_players = NBADataService.fetch_all_players_including_rookies()
         query_lower = query.lower()
-        # Get team mapping for abbreviation conversion
-        teams = NBADataService.fetch_all_teams()
-        team_map = {t.get("id"): t.get("abbreviation") for t in teams if t.get("id") and t.get("abbreviation")}
+        # Build team map with normalized int keys so lookup works (cache may store id as int or str)
+        teams = NBADataService.fetch_all_teams() or []
+        team_map: Dict[Any, str] = {}
+        for t in teams:
+            tid, abbr = t.get("id"), t.get("abbreviation")
+            if tid is not None and abbr:
+                try:
+                    team_map[int(tid)] = abbr
+                except (TypeError, ValueError):
+                    pass
+        
+        def _team_abbr_for_player(p: Dict[str, Any]) -> Optional[str]:
+            # Prefer explicit abbreviation on player (e.g. from static merge)
+            abbr = p.get("team_abbreviation") or p.get("team")
+            if abbr and isinstance(abbr, str):
+                return abbr
+            # Resolve team_id to abbreviation (normalize to int for lookup)
+            team_id = p.get("team_id")
+            if team_id is None:
+                return None
+            try:
+                return team_map.get(int(team_id))
+            except (TypeError, ValueError):
+                return None
         
         matches = []
         for p in all_players:
             if p.get("full_name") and query_lower in p.get("full_name", "").lower():
-                team_id = p.get("team_id")
-                team_abbr = team_map.get(team_id) if team_id else None
+                team_abbr = _team_abbr_for_player(p)
                 matches.append({
                     "id": int(p.get("id")),
                     "name": p.get("full_name"),
-                    "team": team_abbr  # Convert team_id to abbreviation string
+                    "team": team_abbr
                 })
         return matches[:20]
     
@@ -482,7 +502,7 @@ class NBADataService:
                     "Accept": "application/json"
                 }
                 
-                with httpx.Client(timeout=10.0) as client:
+                with httpx.Client(timeout=30.0) as client:
                     response = client.get(url, params=params, headers=headers)
                     if response.status_code == 200:
                         data = response.json()
@@ -670,7 +690,7 @@ class NBADataService:
                     "Accept": "application/json"
                 }
                 
-                with httpx.Client(timeout=10.0) as client:
+                with httpx.Client(timeout=30.0) as client:
                     response = client.get(url, params=params, headers=headers)
                     if response.status_code == 200:
                         data = response.json()
