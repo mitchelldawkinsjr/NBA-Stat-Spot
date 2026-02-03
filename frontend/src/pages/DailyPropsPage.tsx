@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { SuggestionCards } from '../components/SuggestionCards'
+import { apiFetch } from '../utils/api'
 
 async function fetchDaily(minConfidence?: number) {
-  const url = minConfidence ? `/api/v1/props/daily?min_confidence=${minConfidence}` : '/api/v1/props/daily'
-  const res = await fetch(url)
+  const endpoint = minConfidence ? `api/v1/props/daily?min_confidence=${minConfidence}` : 'api/v1/props/daily'
+  const res = await apiFetch(endpoint)
   if (!res.ok) throw new Error('Failed to load')
   return res.json()
 }

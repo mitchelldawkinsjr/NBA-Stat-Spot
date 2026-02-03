@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { apiFetch } from '../utils/api'
 
 type Team = {
   id: number
@@ -31,7 +32,7 @@ export default function TeamProfile() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch(`/api/v1/teams/${id}`)
+        const res = await apiFetch(`api/v1/teams/${id}`)
         if (!res.ok) {
           if (res.status === 404) {
             setError('Team not found')

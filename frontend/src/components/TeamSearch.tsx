@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { apiFetch } from '../utils/api'
 
 type Team = {
   id: number
@@ -19,7 +20,7 @@ export function TeamSearch({ onSelect }: { onSelect: (t: Team | null) => void })
     const c = setTimeout(async () => {
       if (!q) { setItems([]); setOpen(false); return }
       try {
-        const res = await fetch(`/api/v1/teams`)
+        const res = await apiFetch('api/v1/teams')
         if (!res.ok) return
         const data = await res.json()
         const allTeams = (data.items || []) as Team[]

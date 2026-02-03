@@ -174,9 +174,8 @@ export function BetTracker() {
         notes?: string | null
       }
     }) => {
-      const res = await fetch(`/api/v1/bets/${id}`, {
+      const res = await apiFetch(`api/v1/bets/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       })
       if (!res.ok) throw new Error('Failed to update bet')

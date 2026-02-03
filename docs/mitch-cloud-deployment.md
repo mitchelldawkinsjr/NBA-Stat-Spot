@@ -87,8 +87,8 @@ ENV=production
 PORT=8007
 OLLAMA_HOST=http://localhost:11434  # Point to your Ollama server (update host as needed)
 
-# CORS - IMPORTANT: Set your frontend domain(s)
-CORS_ORIGINS=https://your-username.github.io,https://nba-stat-spot.360ws.cloud
+# CORS - IMPORTANT: Set your frontend domain(s). Include GitHub Pages origin if using it.
+CORS_ORIGINS=https://mitchelldawkinsjr.github.io,https://nba-stat-spot.360web.cloud
 
 # Optional: NBA API key
 API_NBA_KEY=your-api-key-here

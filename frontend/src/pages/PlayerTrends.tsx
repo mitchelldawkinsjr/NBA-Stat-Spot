@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts'
 import { PlayerSearch } from '../components/PlayerSearch'
+import { apiFetch } from '../utils/api'
 
 function computeRolling(data: any[], key: string, n: number) {
   const out: any[] = []
@@ -22,7 +23,7 @@ export default function PlayerTrends() {
     (async () => {
       if (!player?.id) { setLogs([]); return }
       const qs = season ? `?season=${encodeURIComponent(season)}` : ''
-      const res = await fetch(`/api/v1/players/${player.id}/gamelogs${qs}`)
+      const res = await apiFetch(`api/v1/players/${player.id}/gamelogs${qs}`)
       const data = await res.json()
       const items = (data.items || []).slice().reverse()
       const withRoll = ['pts','reb','ast','tpm'].reduce((acc, k) => computeRolling(acc, k, 5), items)
