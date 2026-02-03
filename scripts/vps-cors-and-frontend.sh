@@ -22,7 +22,7 @@ cd "$APP_DIR"
 echo "Using app dir: $APP_DIR"
 
 # --- Option A: CORS and ENV in .env ---
-CORS_VALUE="https://mitchelldawkinsjr.github.io,https://nba-stat-spot.360web.cloud"
+CORS_VALUE="https://mitchelldawkinsjr.github.io,https://nba-stat-spot.360web.cloud,https://nba.360web.cloud,http://nba.360web.cloud"
 if [ ! -f .env ]; then
   echo "Creating .env with ENV=production and CORS_ORIGINS..."
   cat > .env << EOF

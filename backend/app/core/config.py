@@ -58,4 +58,6 @@ def get_cors_origins() -> list[str]:
     return [
         "https://mitchelldawkinsjr.github.io",
         "https://nba-stat-spot.360web.cloud",
+        "https://nba.360web.cloud",
+        "http://nba.360web.cloud",
     ]
