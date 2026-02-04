@@ -418,38 +418,97 @@ class NBADataService:
                     "team": team_abbr
                 })
         return matches[:20]
+
+    @staticmethod
+    def _is_good_game_log(result: Optional[List[Dict[str, Any]]], min_games: int = 1) -> bool:
+        """
+        Return True if result is a non-empty list of valid game log entries.
+        Valid entries must have: game_id, game_date, matchup, pts, reb, ast.
+        """
+        if result is None or len(result) < min_games:
+            return False
+        required = ("game_id", "game_date", "matchup", "pts", "reb", "ast")
+        for entry in result:
+            if not isinstance(entry, dict):
+                return False
+            for key in required:
+                if key not in entry:
+                    return False
+        return True
     
     @staticmethod
     def fetch_player_game_log(player_id: int, season: Optional[str] = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """
         Fetch player game log with 24-hour caching.
-        
-        Args:
-            player_id: NBA player ID
-            season: Season string (e.g., "2025-26"), defaults to current season
-            force_refresh: If True, bypass cache and fetch fresh data
-            
-        Returns:
-            List of game log entries
+        Cascade: try nba_api, then ESPN, then retry nba_api, then retry ESPN until good data or exhausted.
+        Good data = non-empty list with valid entries (game_id, game_date, matchup, pts, reb, ast).
         """
-        if force_refresh:
-            return NBADataService._fetch_player_game_log_impl(player_id, season)
-        
-        # Use cached version with date-based key for daily invalidation
-        cache = get_cache_service()
+        import structlog
+        log = structlog.get_logger()
         season_to_use = season or "2025-26"
         today_str = datetime.now().date().isoformat()
         cache_key = f"nba_api:player_game_log:{player_id}:{season_to_use}:{today_str}"
-        
-        # Check cache manually since we need conditional caching
-        cached_data = cache.get(cache_key)
-        if cached_data is not None:
-            return cached_data
-        
-        # Fetch and cache
-        result = NBADataService._fetch_player_game_log_impl(player_id, season)
-        cache.set(cache_key, result, ttl=86400)
-        return result
+        cache = get_cache_service()
+
+        if not force_refresh:
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return cached_data
+
+        def try_nba_api() -> List[Dict[str, Any]]:
+            return NBADataService._fetch_player_game_log_impl(player_id, season)
+
+        def try_espn() -> List[Dict[str, Any]]:
+            try:
+                from .espn_game_log import fetch_player_game_log_espn
+                return fetch_player_game_log_espn(player_id, season, limit=25)
+            except Exception as e:
+                log.warning("ESPN game log attempt failed", player_id=player_id, error=str(e))
+                return []
+
+        attempts: List[List[Dict[str, Any]]] = []
+
+        # Step 1: nba_api
+        r1 = try_nba_api()
+        attempts.append(r1 or [])
+        if NBADataService._is_good_game_log(r1):
+            log.info("Player game log from nba_api", player_id=player_id, count=len(r1))
+            cache.set(cache_key, r1, ttl=86400)
+            return r1
+
+        # Step 2: ESPN
+        r2 = try_espn()
+        attempts.append(r2 or [])
+        if NBADataService._is_good_game_log(r2):
+            log.info("Player game log from espn", player_id=player_id, count=len(r2))
+            cache.set(cache_key, r2, ttl=86400)
+            return r2
+
+        # Step 3: retry nba_api
+        r3 = try_nba_api()
+        attempts.append(r3 or [])
+        if NBADataService._is_good_game_log(r3):
+            log.info("Player game log from nba_api_retry", player_id=player_id, count=len(r3))
+            cache.set(cache_key, r3, ttl=86400)
+            return r3
+
+        # Step 4: retry ESPN
+        r4 = try_espn()
+        attempts.append(r4 or [])
+
+        if NBADataService._is_good_game_log(r4):
+            log.info("Player game log from espn_retry", player_id=player_id, count=len(r4))
+            cache.set(cache_key, r4, ttl=86400)
+            return r4
+
+        # Step 5: return best (longest non-empty) among the four attempts
+        best = max(attempts, key=len) if attempts else []
+        if not best:
+            log.warning("No good game log data after cascade", player_id=player_id)
+        else:
+            log.info("Player game log best of cascade", player_id=player_id, count=len(best))
+        cache.set(cache_key, best, ttl=86400)
+        return best
 
     @staticmethod
     def fetch_todays_games() -> List[Dict[str, Any]]:
