@@ -134,9 +134,9 @@ export default function PlayerProfile() {
           // Failed to fetch player details - will continue with stats fetch
         }
         
-        // Add timeout to prevent hanging - increased for mitch-cloud backend
+        // Timeout allows cold cache (first load) to complete; backend uses 24h cache so repeat loads are fast
         const controller = new AbortController()
-        const TIMEOUT_MS = 120000 // 2 minute timeout for mitch-cloud backend
+        const TIMEOUT_MS = 240000 // 4 min when cache is cold; nginx proxy is 5 min
         const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
         
         // Track progress for loading indicator
@@ -156,7 +156,7 @@ export default function PlayerProfile() {
           clearTimeout(timeoutId)
           clearInterval(progressInterval)
           if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-            throw new Error('Request timed out after 2 minutes. The backend may be slow. Please try again.')
+            throw new Error('Request timed out. First load can take a few minutes; try again or refresh later.')
           }
           // Re-throw other errors with more context
           if (fetchError instanceof Error) {
@@ -173,15 +173,19 @@ export default function PlayerProfile() {
           let errorMessage = 'Failed to load stats'
           try {
             const errorData = await res.json()
-            errorMessage = errorData.detail || errorData.message || errorMessage
+            const d = errorData?.detail
+            const msg = typeof d === 'string' ? d : Array.isArray(d) && d[0]?.msg ? d[0].msg : errorData?.message || (errorData?.error && String(errorData.error))
+            if (msg) errorMessage = msg
           } catch {
             // If response isn't JSON, use status-based message
             if (res.status === 404) {
-              errorMessage = 'Player not found'
+              errorMessage = 'Player not found or API endpoint unavailable. If you use a custom domain, ensure /api is proxied to the backend.'
             } else if (res.status >= 500) {
-              errorMessage = 'Server error. The player may not have game data available.'
+              errorMessage = 'Server error. The player may not have game data available. Try again in a moment.'
             } else if (res.status === 422) {
               errorMessage = 'Invalid player ID format'
+            } else if (res.status === 0 || res.status === 502 || res.status === 503) {
+              errorMessage = 'Cannot reach server. Check your connection and that the API is running.'
             }
           }
           throw new Error(errorMessage)

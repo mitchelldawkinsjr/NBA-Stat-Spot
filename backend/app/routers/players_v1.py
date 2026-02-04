@@ -184,15 +184,16 @@ def detail(
     try:
         players = NBADataService.fetch_all_players_including_rookies() or []
         for p in players:
-            if int(p.get("id")) == int(player_id):
+            pid = p.get("id")
+            if pid is not None and int(pid) == int(player_id):
                 name = p.get("full_name")
                 team_id = p.get("team_id")
                 break
         
         # If we have a team_id, get the team name
-        if team_id:
-            teams = NBADataService.fetch_all_teams()
-            team = next((t for t in teams if t.get("id") == team_id), None)
+        if team_id is not None:
+            teams = NBADataService.fetch_all_teams() or []
+            team = next((t for t in teams if t.get("id") is not None and t.get("id") == team_id), None)
             if team:
                 team_name = team.get("full_name")
     except Exception:
@@ -226,26 +227,26 @@ def detail(
 def stats(
     player_id: int = Path(..., description="NBA player ID", example=2544),
     games: int = Query(10, description="Number of recent games to return", example=10, ge=1, le=100),
-    season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26")
+    season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26"),
+    refresh: bool = Query(False, description="If true, bypass cache and fetch fresh data from NBA API (slower)")
 ):
     try:
         season_to_use = season or "2025-26"
-        logs = NBADataService.fetch_player_game_log(player_id, season_to_use, force_refresh=True)
+        # Use cache by default so page loads are fast; ?refresh=true for explicit refresh
+        logs = NBADataService.fetch_player_game_log(player_id, season_to_use, force_refresh=refresh)
         if logs is None:
             logs = []
         
-        # If no logs found, try previous seasons as fallback
+        # If no logs found, try previous seasons as fallback (use cache for fallbacks too)
         if len(logs) == 0:
             import structlog
             logger = structlog.get_logger()
             logger.info("No logs found for season, trying fallback seasons", player_id=player_id, season=season_to_use)
-            # Try 2024-25 season
-            logs = NBADataService.fetch_player_game_log(player_id, "2024-25", force_refresh=True)
+            logs = NBADataService.fetch_player_game_log(player_id, "2024-25", force_refresh=False)
             if logs is None:
                 logs = []
-            # If still empty, try 2023-24
             if len(logs) == 0:
-                logs = NBADataService.fetch_player_game_log(player_id, "2023-24", force_refresh=True)
+                logs = NBADataService.fetch_player_game_log(player_id, "2023-24", force_refresh=False)
                 if logs is None:
                     logs = []
         
