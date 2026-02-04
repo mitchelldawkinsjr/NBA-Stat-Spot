@@ -1,12 +1,14 @@
 """
 Teams API Router - Team information and rosters
 """
+import structlog
 from fastapi import APIRouter, HTTPException, Path
 from typing import List, Dict, Any
 from ..services.nba_api_service import NBADataService
 from ..services.team_player_service import TeamPlayerService
 
 router = APIRouter(prefix="/api/v1/teams", tags=["teams_v1"])
+logger = structlog.get_logger()
 
 
 @router.get(
@@ -18,7 +20,14 @@ router = APIRouter(prefix="/api/v1/teams", tags=["teams_v1"])
 )
 def list_teams():
     """List all NBA teams"""
-    teams = NBADataService.fetch_all_teams()
+    try:
+        teams = NBADataService.fetch_all_teams() or []
+    except Exception as e:
+        logger.error("teams list failed", error=str(e), exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Teams data temporarily unavailable. Try again shortly.",
+        )
     return {
         "items": [
             {
@@ -46,15 +55,18 @@ def get_team(
     team_id: int = Path(..., description="NBA team ID", example=1610612744)
 ):
     """Get team details with roster"""
-    teams = NBADataService.fetch_all_teams()
+    try:
+        teams = NBADataService.fetch_all_teams() or []
+        roster = TeamPlayerService.get_players_for_team(team_id)
+    except Exception as e:
+        logger.error("get_team failed", team_id=team_id, error=str(e), exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Team data temporarily unavailable. Try again shortly.",
+        )
     team = next((t for t in teams if t.get("id") == team_id), None)
-    
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
-    
-    # Use TeamPlayerService to get roster
-    roster = TeamPlayerService.get_players_for_team(team_id)
-    
     return {
         "team": {
             "id": team.get("id"),

@@ -5,6 +5,12 @@
 
 // Get API base URL from environment or use default
 const getApiBaseUrl = (): string => {
+  // When frontend is hosted on same domain as API (e.g. VPS behind NPM), use relative paths
+  // so /api/* is proxied by nginx to the backend. No CORS, same origin.
+  if (import.meta.env.VITE_USE_RELATIVE_API === 'true') {
+    return ''
+  }
+
   // Check for explicit API target (set via VITE_API_TARGET env var)
   // This allows overriding the backend URL via GitHub Secrets or build-time env vars
   const apiTarget = import.meta.env.VITE_API_TARGET
@@ -22,7 +28,7 @@ const getApiBaseUrl = (): string => {
     return apiTarget
   }
   
-  // In production, use mitch-cloud backend as default
+  // In production (e.g. GitHub Pages), use mitch-cloud backend as default
   if (import.meta.env.PROD) {
     return 'https://nba-stat-spot.360web.cloud'
   }
