@@ -73,16 +73,16 @@ def _games_from_espn_scoreboard(target_date: date) -> List[Dict[str, Any]]:
     tags=["games_v1"]
 )
 def today(
-    date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format. Defaults to today.", example="2025-01-15")
+    date_param: Optional[str] = Query(None, description="Date in YYYY-MM-DD format. Defaults to today.", example="2025-01-15", alias="date")
 ):
     """
     Get today's games. If date is provided (YYYY-MM-DD), use that date.
     Otherwise, use server's current date. Source: ESPN scoreboard only.
     """
     target_date = date.today()
-    if date:
+    if date_param:
         try:
-            target_date = datetime.strptime(date, "%Y-%m-%d").date()
+            target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
         except ValueError:
             target_date = date.today()
     games = _games_from_espn_scoreboard(target_date)
