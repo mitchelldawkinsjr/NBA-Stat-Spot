@@ -543,17 +543,33 @@ def cleanup_expired_cache(db: Session = Depends(get_db)):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+def _today_str_eastern() -> str:
+    """Today's date in Eastern (NBA primary timezone), for cache keys that use ET."""
+    try:
+        import pytz
+        et_tz = pytz.timezone("America/New_York")
+        return datetime.now(et_tz).date().isoformat()
+    except Exception:
+        return date.today().isoformat()
+
+
 @router.get("/cache/status")
 def cache_status():
     """Get cache status for all services including Redis status"""
     try:
         today_str = date.today().isoformat()
+        today_et_str = _today_str_eastern()
         daily_props_cached = _get_daily_props_cache(today_str)
         high_hit_rate_cached = _get_high_hit_rate_cache(today_str)
         best_bets_cached = _get_best_bets_cache()
         
         # Get cache service stats including Redis status
         cache_stats = _cache.get_stats()
+        
+        # NBA API cache keys use Eastern date for todays_games
+        nba_todays_games = _cache.get(f"nba_api:todays_games:{today_et_str}") is not None
+        if not nba_todays_games:
+            nba_todays_games = _cache.get(f"nba_api:todays_games:{today_str}") is not None
         
         return {
             "cacheBackend": {
@@ -585,7 +601,7 @@ def cache_status():
             "nbaApiCache": {
                 "teams": _cache.get(f"nba_api:teams:{today_str}") is not None,
                 "players": _cache.get(f"nba_api:players_all_including_rookies:{today_str}") is not None,
-                "todaysGames": _cache.get(f"nba_api:todays_games:{today_str}") is not None
+                "todaysGames": nba_todays_games
             }
         }
     except Exception as e:
