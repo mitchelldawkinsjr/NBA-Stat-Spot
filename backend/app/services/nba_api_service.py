@@ -16,27 +16,25 @@ try:
     try:
         import requests
         if not hasattr(requests, '_nba_api_patched'):
-            # Increase default timeout from 30s to 60s for NBA API calls
+            # Cap NBA API timeout at 60s so player game log cascade (ESPN first) can complete within proxy limits
             # This patches both direct requests and Session objects used by nba_api
             try:
                 original_get = requests.get
                 original_post = requests.post
                 
                 def patched_get(*args, **kwargs):
-                    # Set timeout to 120 seconds (2 minutes) for NBA API calls
-                    # NBA API can be very slow, especially for player game logs
+                    # 60s timeout so cascade (ESPN first, then NBA) can finish within proxy limits
                     if 'timeout' not in kwargs:
-                        kwargs['timeout'] = 120.0  # 120 second timeout
-                    elif isinstance(kwargs['timeout'], (int, float)) and kwargs['timeout'] < 120:
-                        kwargs['timeout'] = 120.0  # Ensure minimum 120 seconds
+                        kwargs['timeout'] = 60.0
+                    elif isinstance(kwargs['timeout'], (int, float)) and kwargs['timeout'] > 60:
+                        kwargs['timeout'] = 60.0
                     return original_get(*args, **kwargs)
                 
                 def patched_post(*args, **kwargs):
-                    # Set timeout to 120 seconds (2 minutes) for NBA API calls
                     if 'timeout' not in kwargs:
-                        kwargs['timeout'] = 120.0  # 120 second timeout
-                    elif isinstance(kwargs['timeout'], (int, float)) and kwargs['timeout'] < 120:
-                        kwargs['timeout'] = 120.0  # Ensure minimum 120 seconds
+                        kwargs['timeout'] = 60.0
+                    elif isinstance(kwargs['timeout'], (int, float)) and kwargs['timeout'] > 60:
+                        kwargs['timeout'] = 60.0
                     return original_post(*args, **kwargs)
                 
                 # Patch requests methods used by nba_api
@@ -48,11 +46,10 @@ try:
                     original_session_request = requests.Session.request
                     
                     def patched_session_request(self, method, url, **kwargs):
-                        # Set timeout to 120 seconds (2 minutes) for NBA API calls
                         if 'timeout' not in kwargs:
-                            kwargs['timeout'] = 120.0  # 120 second timeout
-                        elif isinstance(kwargs['timeout'], (int, float)) and kwargs['timeout'] < 120:
-                            kwargs['timeout'] = 120.0  # Ensure minimum 120 seconds
+                            kwargs['timeout'] = 60.0
+                        elif isinstance(kwargs['timeout'], (int, float)) and kwargs['timeout'] > 60:
+                            kwargs['timeout'] = 60.0
                         return original_session_request(self, method, url, **kwargs)
                     
                     requests.Session.request = patched_session_request
@@ -468,36 +465,37 @@ class NBADataService:
 
         attempts: List[List[Dict[str, Any]]] = []
 
-        # Step 1: nba_api
-        r1 = try_nba_api()
+        # Try ESPN first (usually faster); then NBA API. Avoids 2+ min wait when NBA API is slow.
+        # Step 1: ESPN
+        r1 = try_espn()
         attempts.append(r1 or [])
         if NBADataService._is_good_game_log(r1):
-            log.info("Player game log from nba_api", player_id=player_id, count=len(r1))
+            log.info("Player game log from espn", player_id=player_id, count=len(r1))
             cache.set(cache_key, r1, ttl=86400)
             return r1
 
-        # Step 2: ESPN
-        r2 = try_espn()
+        # Step 2: nba_api
+        r2 = try_nba_api()
         attempts.append(r2 or [])
         if NBADataService._is_good_game_log(r2):
-            log.info("Player game log from espn", player_id=player_id, count=len(r2))
+            log.info("Player game log from nba_api", player_id=player_id, count=len(r2))
             cache.set(cache_key, r2, ttl=86400)
             return r2
 
-        # Step 3: retry nba_api
-        r3 = try_nba_api()
+        # Step 3: retry ESPN
+        r3 = try_espn()
         attempts.append(r3 or [])
         if NBADataService._is_good_game_log(r3):
-            log.info("Player game log from nba_api_retry", player_id=player_id, count=len(r3))
+            log.info("Player game log from espn_retry", player_id=player_id, count=len(r3))
             cache.set(cache_key, r3, ttl=86400)
             return r3
 
-        # Step 4: retry ESPN
-        r4 = try_espn()
+        # Step 4: retry nba_api
+        r4 = try_nba_api()
         attempts.append(r4 or [])
 
         if NBADataService._is_good_game_log(r4):
-            log.info("Player game log from espn_retry", player_id=player_id, count=len(r4))
+            log.info("Player game log from nba_api_retry", player_id=player_id, count=len(r4))
             cache.set(cache_key, r4, ttl=86400)
             return r4
 
