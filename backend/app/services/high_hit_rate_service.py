@@ -140,7 +140,6 @@ class HighHitRateService:
                             if game_date:
                                 # Parse date and check if it's from current season (Oct 2024 - Jun 2025 for 2024-25 season)
                                 try:
-                                    from datetime import datetime
                                     date_obj = datetime.strptime(game_date.split("T")[0] if "T" in game_date else game_date, "%Y-%m-%d")
                                     # Season starts in October, so for 2025-26 season, dates should be Oct 2025 onwards
                                     if date_obj.year >= season_year:
