@@ -325,14 +325,12 @@ class NBADataService:
         # Default to current season if not provided
         season_to_use = season or "2025-26"
         
-        # Single retry only — when stats.nba.com is unreachable the cascade
-        # (ESPN first) handles it; burning 150 s on retries blocks everything.
-        max_retries = 2
-        base_delay = 2.0
+        max_retries = 1
+        base_delay = 1.0
         
         for attempt in range(max_retries):
             try:
-                gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use, timeout=10)
+                gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use, timeout=5)
                 df = gl.get_data_frames()[0]
                 
                 # Log available columns for debugging
