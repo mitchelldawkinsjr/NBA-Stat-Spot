@@ -48,28 +48,23 @@ async function fetchDaily(minConfidence?: number, date?: string) {
   return data
 }
 
-async function fetchHighHitRate(date?: string) {
+async function fetchTopPicks(date?: string) {
   const targetDate = date || getTodayDate()
-  const cacheKey = 'high-hit-rate-0.75-6-10'
+  const cacheKey = 'top-picks-20'
   
-  // Check cache first
   const cached = getCache(cacheKey, targetDate)
   if (cached) {
     return cached
   }
   
-  // Fetch from API
   const params = new URLSearchParams()
-  params.append('min_hit_rate', '0.75')
-  params.append('limit', '6')
-  params.append('last_n', '10')
+  params.append('limit', '20')
   if (date) params.append('date', date)
-  const endpoint = `api/v1/props/high-hit-rate?${params.toString()}`
+  const endpoint = `api/v1/props/top-picks?${params.toString()}`
   const res = await apiFetch(endpoint)
-  if (!res.ok) throw new Error('Failed to load high hit rate bets')
+  if (!res.ok) throw new Error('Failed to load top picks')
   const data = await res.json()
   
-  // Cache the result
   setCache(cacheKey, data, targetDate)
   
   return data
@@ -89,7 +84,7 @@ export function GoodBetsDashboard() {
   const { season } = useSeason()
   const queryClient = useQueryClient()
   const { showSnackbar, updateProgress, hideSnackbar } = useSnackbar()
-  const [shouldLoadHighHitRate, setShouldLoadHighHitRate] = useState(false)
+  const [shouldLoadTopPicks, setShouldLoadTopPicks] = useState(false)
   const [statLeadersFilterToday, setStatLeadersFilterToday] = useState(false) // Toggle for filtering by today - default to "All"
   const [isRefreshing, setIsRefreshing] = useState(false)
   
@@ -167,27 +162,25 @@ export function GoodBetsDashboard() {
     refetchOnReconnect: false, // Don't refetch on reconnect
   })
   
-  // Lazy load high hit rate after main dashboard loads
+  // Lazy load top picks after main dashboard loads
   useEffect(() => {
     if (!dailyLoading && !gamesLoading) {
-      // Wait for the main dashboard to render, then load high hit rate
-      // This prevents blocking the initial dashboard load
       const timer = setTimeout(() => {
-        setShouldLoadHighHitRate(true)
-      }, 1500) // 1.5 second delay to ensure smooth dashboard rendering
+        setShouldLoadTopPicks(true)
+      }, 500)
       return () => clearTimeout(timer)
     }
   }, [dailyLoading, gamesLoading])
-  
-  const { data: highHitRateData, isLoading: highHitRateLoading, refetch: refetchHighHitRate } = useQuery({ 
-    queryKey: ['high-hit-rate', today], 
-    queryFn: () => fetchHighHitRate(today),
-    enabled: shouldLoadHighHitRate, // Only load when enabled
-    staleTime: 30 * 60 * 1000, // 30 minutes - high hit rate only changes once per day
-    gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours (entire day)
-    refetchOnMount: false, // Use cache first
-    refetchOnWindowFocus: false, // Don't refetch when window gains focus
-    refetchOnReconnect: false, // Don't refetch on reconnect
+
+  const { data: topPicksData, isLoading: topPicksLoading, refetch: refetchTopPicks } = useQuery({
+    queryKey: ['top-picks', today],
+    queryFn: () => fetchTopPicks(today),
+    enabled: shouldLoadTopPicks,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: 1,
   })
   
@@ -245,20 +238,20 @@ export function GoodBetsDashboard() {
 
       // Step 2: Clear local storage cache for today
       clearCache('daily-props-50', today)
-      clearCache('high-hit-rate-0.75-6-10', today)
+      clearCache('top-picks-20', today)
       updateProgress(40)
-      
+
       // Step 3: Invalidate React Query cache
       queryClient.invalidateQueries({ queryKey: ['games-today', today] })
       queryClient.invalidateQueries({ queryKey: ['daily-50', today] })
-      queryClient.invalidateQueries({ queryKey: ['high-hit-rate', today] })
+      queryClient.invalidateQueries({ queryKey: ['top-picks', today] })
       updateProgress(50)
 
       // Step 4: Refetch all data sources
       const tasks = [
         { name: 'Games', fn: () => refetchGames() },
         { name: 'Daily Props', fn: () => refetchDaily() },
-        { name: 'High Hit Rate', fn: () => shouldLoadHighHitRate ? refetchHighHitRate() : Promise.resolve() },
+        { name: 'Top Picks', fn: () => shouldLoadTopPicks ? refetchTopPicks() : Promise.resolve() },
       ]
 
       // Execute tasks with progress tracking
@@ -303,20 +296,30 @@ export function GoodBetsDashboard() {
   
   // Removed debug logging - use browser dev tools if needed
 
+  // Unified Top Picks — uses the new /top-picks endpoint
+  const topPicks = useMemo(() => {
+    if (games.length === 0) return []
+    const items = (topPicksData?.items ?? []) as any[]
+    return items
+      .filter((item) => {
+        const d = item.gameDate || item.game_date
+        return d && (d === today || d.startsWith(today))
+      })
+      .slice(0, 12)
+  }, [topPicksData, today, games.length])
+
+  // Fallback: if top-picks hasn't loaded yet, use daily data as interim
   const bestBets = useMemo(() => {
-    // Only show bets if there are games today
-    if (games.length === 0) {
-      return []
-    }
+    if (topPicks.length > 0) return topPicks
+    if (games.length === 0) return []
     const items = (dailyData?.items ?? []) as any[]
-    // Strict filter: only show props with gameDate matching today
-    const todayItems = items.filter((item) => {
-      const itemDate = item.gameDate || item.game_date
-      // Must have a date and it must match today
-      return itemDate && (itemDate === today || itemDate.startsWith(today))
-    })
-    return todayItems.slice(0, 5)
-  }, [dailyData, today, games.length])
+    return items
+      .filter((item) => {
+        const d = item.gameDate || item.game_date
+        return d && (d === today || d.startsWith(today))
+      })
+      .slice(0, 8)
+  }, [topPicks, dailyData, today, games.length])
 
   const playersToWatch = useMemo(() => {
     // Only show players if there are games today
@@ -480,38 +483,48 @@ export function GoodBetsDashboard() {
         </div>
       )}
 
-      {/* Best Bets Hero */}
+      {/* Top Picks of the Day — unified section */}
       <div className="overflow-hidden rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm mb-3 transition-colors duration-200">
-        <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 border-b border-gray-200 dark:border-slate-700 transition-colors duration-200">
+        <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 border-b border-gray-200 dark:border-slate-700 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 transition-colors duration-200">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
             <div>
-              <h3 className="text-sm sm:text-base font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Best Bets of the Day</h3>
-              <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Top props for today's games</p>
+              <h3 className="text-sm sm:text-base font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Top Picks of the Day</h3>
+              <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">
+                High-probability props — scored by hit rate, consistency, trend &amp; volume
+              </p>
             </div>
             {bestBets.length > 0 && (
-              <span className="text-[10px] font-medium text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full">
-                {bestBets.length}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded-full">
+                  {bestBets.filter((b: any) => b.tier === 'lock').length} LOCKS
+                </span>
+                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300 px-1.5 py-0.5 rounded-full">
+                  {bestBets.filter((b: any) => b.tier === 'strong').length} STRONG
+                </span>
+                <span className="text-[10px] font-medium text-gray-600 bg-gray-100 dark:bg-slate-700 dark:text-gray-300 px-1.5 py-0.5 rounded-full">
+                  {bestBets.length} total
+                </span>
+              </div>
             )}
           </div>
         </div>
         <div className="p-2 sm:p-2.5">
-          {dailyLoading ? (
+          {(topPicksLoading || (dailyLoading && topPicks.length === 0)) ? (
             <div className="flex items-center justify-center py-8">
-              <div className="flex items-center gap-2 text-gray-600">
+              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span>Loading best bets…</span>
+                <span>Loading top picks…</span>
               </div>
             </div>
           ) : dailyError ? (
-            <p className="text-red-600 text-center py-4">Error loading bets. Click "Refresh Data" to retry.</p>
+            <p className="text-red-600 dark:text-red-400 text-center py-4">Error loading picks. Click "Refresh Data" to retry.</p>
           ) : games.length === 0 ? (
             <p className="text-gray-600 dark:text-gray-400 text-center py-4 transition-colors duration-200">No games scheduled for today.</p>
           ) : bestBets.length === 0 ? (
-            <p className="text-gray-600 dark:text-gray-400 text-center py-4 transition-colors duration-200">No best bets available for today's games.</p>
+            <p className="text-gray-600 dark:text-gray-400 text-center py-4 transition-colors duration-200">Picks are being generated — check back soon.</p>
           ) : (
             <SuggestionCards suggestions={bestBets} horizontal={true} />
           )}
@@ -533,45 +546,7 @@ export function GoodBetsDashboard() {
         </div>
       </div>
 
-      {/* High Hit Rate Bets - Lazy Loaded */}
-      {shouldLoadHighHitRate && (
-        <div className="overflow-hidden rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm mb-3 transition-colors duration-200">
-          <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 border-b border-gray-200 dark:border-slate-700 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 transition-colors duration-200">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
-              <div>
-                <h3 className="text-sm sm:text-base font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">High Hit Rate Bets</h3>
-                <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">75%+ historical hit rate</p>
-              </div>
-              {highHitRateData?.items && highHitRateData.items.length > 0 && (
-                <span className="text-[10px] font-medium text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">
-                  {highHitRateData.items.length}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="p-2 sm:p-2.5">
-            {highHitRateLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 transition-colors duration-200">
-                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Loading high hit rate bets…</span>
-                </div>
-              </div>
-            ) : !highHitRateData?.items || highHitRateData.items.length === 0 || games.length === 0 ? (
-              <p className="text-gray-600 text-center py-4">No high hit rate bets available for today's games.</p>
-            ) : (
-              <SuggestionCards suggestions={highHitRateData.items.filter((item: any) => {
-                const itemDate = item.gameDate || item.game_date
-                // Strict filter: must have a date and it must match today
-                return itemDate && (itemDate === today || itemDate.startsWith(today))
-              })} horizontal={true} />
-            )}
-          </div>
-        </div>
-      )}
+      {/* Old High Hit Rate section removed — merged into Top Picks above */}
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">

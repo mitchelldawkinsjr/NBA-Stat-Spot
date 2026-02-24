@@ -1,6 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
-import { apiFetch } from '../utils/api'
+import { apiFetch, API_BASE_URL } from '../utils/api'
+
+/** Use backend proxy for ESPN CDN images to avoid CORS. */
+function imageDisplayUrl(url: string | undefined): string | undefined {
+  if (!url) return url
+  if (/espncdn\.com/i.test(url)) {
+    const base = API_BASE_URL || ''
+    return `${base}/api/v1/espn/proxy-image?url=${encodeURIComponent(url)}`
+  }
+  return url
+}
 
 interface NewsArticle {
   headline?: string
@@ -172,7 +182,7 @@ export function PlayerNewsSection() {
                       {imageUrl && (
                         <div className="w-full aspect-[16/9] sm:aspect-[16/9] bg-gray-200 dark:bg-slate-700 overflow-hidden rounded-t-lg">
                           <img
-                            src={imageUrl}
+                            src={imageDisplayUrl(imageUrl)}
                             alt={article.images?.[0]?.alt || article.images?.[0]?.caption || headline}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                             style={{ objectPosition: 'center' }}
@@ -211,7 +221,7 @@ export function PlayerNewsSection() {
                       {imageUrl && (
                         <div className="w-full aspect-[16/9] sm:aspect-[16/9] bg-gray-200 dark:bg-slate-700 overflow-hidden rounded-t-lg">
                           <img
-                            src={imageUrl}
+                            src={imageDisplayUrl(imageUrl)}
                             alt={article.images?.[0]?.alt || article.images?.[0]?.caption || headline}
                             className="w-full h-full object-cover"
                             style={{ objectPosition: 'center' }}

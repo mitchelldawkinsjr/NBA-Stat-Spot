@@ -2,16 +2,60 @@
 ESPN API Router
 Provides endpoints for ESPN NBA data features
 """
+from urllib.parse import urlparse
+
+import httpx
 from fastapi import APIRouter, Query, Request
+from fastapi.responses import StreamingResponse
 from typing import Optional
 import structlog
+
 from ..services.espn_api_service import get_espn_service
 from ..core.rate_limiter import limiter
 from ..core.error_handler import APIError
 
 logger = structlog.get_logger()
 
+# Allowed hostnames for image proxy (ESPN CDN only; s.espncdn.com redirects to s.secure.espncdn.com)
+PROXY_IMAGE_ALLOWED_HOSTS = ("s.espncdn.com", "s.secure.espncdn.com", "a.espncdn.com", "espncdn.com")
+
 router = APIRouter(prefix="/api/v1/espn", tags=["espn_v1"])
+
+
+def _is_allowed_proxy_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+        return parsed.scheme in ("http", "https") and parsed.netloc in PROXY_IMAGE_ALLOWED_HOSTS
+    except Exception:
+        return False
+
+
+@router.get("/proxy-image")
+@limiter.limit("60/minute")
+def proxy_image(request: Request, url: str = Query(..., description="ESPN CDN image URL")):
+    """
+    Proxy ESPN CDN images to avoid CORS. Only s.espncdn.com / a.espncdn.com URLs are allowed.
+    """
+    if not _is_allowed_proxy_url(url):
+        raise APIError("URL not allowed for proxy", status_code=400)
+    try:
+        with httpx.Client(timeout=15.0, follow_redirects=True) as client:
+            r = client.get(url)
+            r.raise_for_status()
+            content_type = r.headers.get("content-type", "image/png")
+            return StreamingResponse(
+                iter([r.content]),
+                media_type=content_type,
+                headers={
+                    "Cache-Control": "public, max-age=86400",
+                    "Access-Control-Allow-Origin": "*",
+                },
+            )
+    except httpx.HTTPStatusError as e:
+        raise APIError(f"Upstream error: {e.response.status_code}", status_code=502)
+    except Exception as e:
+        logger.warning("proxy_image failed", url=url[:80], error=str(e))
+        raise APIError("Failed to fetch image", status_code=502)
 
 
 @router.get("/scoreboard")

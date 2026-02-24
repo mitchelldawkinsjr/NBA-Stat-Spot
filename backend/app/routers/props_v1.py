@@ -8,6 +8,7 @@ from ..services.prop_engine import PropBetEngine
 from ..services.prop_filter import PropFilter
 from ..services.daily_props_service import DailyPropsService
 from ..services.high_hit_rate_service import HighHitRateService
+from ..services.best_picks_service import BestPicksService
 from ..services.stats_calculator import StatsCalculator
 from ..services.settings_service import SettingsService
 from ..core.rate_limiter import limiter
@@ -728,6 +729,47 @@ def high_hit_rate_props(
             "cached": False,
             "error": "Request failed. Please try again."
         }
+
+@router.get(
+    "/top-picks",
+    summary="Get unified top picks of the day",
+    description="""
+    Returns the best prop picks for today's games using a multi-factor confidence
+    scoring system.  Merges the logic of daily-props and high-hit-rate into a
+    single ranked list with tier labels (lock / strong / lean).
+
+    Results are cached per date.
+    """,
+    tags=["props_v1"],
+)
+def top_picks(
+    date: Optional[str] = Query(None, description="Date YYYY-MM-DD, defaults to today"),
+    season: Optional[str] = Query(None, description="Season string e.g. 2025-26"),
+    limit: int = Query(20, description="Max results", ge=1),
+):
+    from datetime import datetime as _dt
+    from ..routers.admin_v1 import _cache
+
+    target = date or _dt.now().strftime("%Y-%m-%d")
+    cache_key = f"top_picks:{target}"
+    cached = _cache.get(cache_key)
+    if cached:
+        items = cached.get("items", [])
+        if limit:
+            items = items[:limit]
+        return {**cached, "items": items, "returned": len(items), "cached": True}
+
+    result = BestPicksService.get_top_picks(date=date, season=season, limit=limit)
+
+    if result.get("items"):
+        try:
+            _cache.set(cache_key, result, ttl=86400)
+        except Exception:
+            pass
+
+    result["cached"] = False
+    return result
+
 
 @router.get(
     "/types",

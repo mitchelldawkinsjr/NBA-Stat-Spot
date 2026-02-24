@@ -7,6 +7,7 @@ from .ml_models.model_server import get_model_server
 from .rationale_generator import get_rationale_generator
 from .nba_api_service import NBADataService
 
+
 class PropBetEngine:
     @staticmethod
     def determine_line_value(player_stats: List[Dict], stat_type: str) -> float:
@@ -14,48 +15,130 @@ class PropBetEngine:
         return round(avg * 2) / 2.0
 
     @staticmethod
-    def evaluate_prop(player_stats: List[Dict], stat_type: str, line_value: float, direction: str = "over") -> Dict:
+    def find_best_line(
+        player_stats: List[Dict],
+        stat_type: str,
+        direction: str = "over",
+        n_recent: int = 10,
+    ) -> tuple[float, float]:
         """
-        Evaluate a prop bet.
-        
-        Args:
-            player_stats: List of game stat dictionaries
-            stat_type: The stat type (pts, reb, ast, tpm, pra)
-            line_value: The line value to evaluate
-            direction: "over" or "under" (default: "over")
-        
-        Returns:
-            Dictionary with evaluation results including hit_rate for the specified direction
+        Search half-point lines around the rolling average and return the
+        (line_value, hit_rate) pair with the best hit rate for *direction*.
         """
-        # Calculate hit rate for the specified direction
-        hit_rate = StatsCalculator.calculate_hit_rate(player_stats, line_value, stat_type, direction)
-        # For suggestion, use "over" hit rate to determine default suggestion
-        hit_rate_over = StatsCalculator.calculate_hit_rate(player_stats, line_value, stat_type, "over")
-        hit_rate_under = StatsCalculator.calculate_hit_rate(player_stats, line_value, stat_type, "under")
-        recent = StatsCalculator.calculate_recent_form(player_stats, stat_type)
-        
-        # Calculate confidence based on direction
-        # For "over": trend up is good, trend down is bad
-        # For "under": trend down is good, trend up is bad
-        if direction.lower() == "under":
-            trend_score = 1.0 if recent["trend"] == "down" else (0.5 if recent["trend"] == "flat" else 0.0)
-        else:  # "over"
-            trend_score = 1.0 if recent["trend"] == "up" else (0.5 if recent["trend"] == "flat" else 0.0)
-        
-        confidence = 100.0 * (0.4 * hit_rate + 0.3 * trend_score)
+        base = PropBetEngine.determine_line_value(player_stats, stat_type)
+        recent = player_stats[-n_recent:] if n_recent else player_stats
+        best_line = base
+        best_hr = 0.0
+        for offset in [-3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]:
+            candidate = round((base + offset) * 2) / 2.0
+            if candidate < 0:
+                continue
+            hr = StatsCalculator.calculate_hit_rate(recent, candidate, stat_type, direction)
+            if hr > best_hr:
+                best_hr = hr
+                best_line = candidate
+        return best_line, best_hr
+
+    @staticmethod
+    def multi_factor_confidence(
+        player_stats: List[Dict],
+        stat_type: str,
+        line_value: float,
+        direction: str = "over",
+        is_home: Optional[bool] = None,
+        opp_def_score: float = 0.5,
+    ) -> float:
+        """
+        Multi-factor confidence score (0‒100).
+
+        Weights:
+          25 %  hit rate (last 10 games)
+          20 %  consistency (low variance)
+          20 %  weighted trend (exponential-decay recent form)
+          15 %  sample-size / volume
+          10 %  home/away split hit rate
+          10 %  opponent defensive context
+        """
+        recent = player_stats[-10:]
+        hit_rate = StatsCalculator.calculate_hit_rate(recent, line_value, stat_type, direction)
+        consistency = StatsCalculator.calculate_consistency(player_stats, stat_type, n_games=10)
+        trend = StatsCalculator.calculate_weighted_trend_score(player_stats, stat_type, direction, n_games=10)
+        volume = StatsCalculator.calculate_volume_score(player_stats, min_games=5, ideal_games=20)
+        ha_hit = StatsCalculator.calculate_home_away_split(player_stats, stat_type, line_value, direction, is_home)
+
+        raw = (
+            0.25 * hit_rate
+            + 0.20 * consistency
+            + 0.20 * trend
+            + 0.15 * volume
+            + 0.10 * ha_hit
+            + 0.10 * opp_def_score
+        )
+        return round(min(99, max(0, raw * 100)), 1)
+
+    @staticmethod
+    def build_rationale_text(
+        hit_rate: float,
+        direction: str,
+        line_value: float,
+        trend: str,
+        consistency: float,
+        streak: int,
+        sample_size: int,
+    ) -> str:
+        parts: list[str] = []
+        parts.append(f"{trend.capitalize()} form")
+        parts.append(f"{hit_rate:.0%} hit {direction} {line_value} (last {sample_size})")
+        if streak >= 3:
+            parts.append(f"{streak}-game streak")
+        if consistency >= 0.7:
+            parts.append("very consistent")
+        elif consistency >= 0.5:
+            parts.append("consistent")
+        return "; ".join(parts)
+
+    @staticmethod
+    def evaluate_prop(
+        player_stats: List[Dict],
+        stat_type: str,
+        line_value: float,
+        direction: str = "over",
+        is_home: Optional[bool] = None,
+        opp_def_score: float = 0.5,
+    ) -> Dict:
+        recent = player_stats[-10:]
+        hit_rate = StatsCalculator.calculate_hit_rate(recent, line_value, stat_type, direction)
+        hit_rate_over = StatsCalculator.calculate_hit_rate(recent, line_value, stat_type, "over")
+        hit_rate_under = StatsCalculator.calculate_hit_rate(recent, line_value, stat_type, "under")
+        form = StatsCalculator.calculate_recent_form(player_stats, stat_type)
+        consistency = StatsCalculator.calculate_consistency(player_stats, stat_type, n_games=10)
+        streak = StatsCalculator.calculate_streak(player_stats, stat_type, line_value, direction)
+
+        confidence = PropBetEngine.multi_factor_confidence(
+            player_stats, stat_type, line_value, direction, is_home, opp_def_score
+        )
         suggestion = "over" if hit_rate_over >= 0.5 else "under"
+
+        rationale_text = PropBetEngine.build_rationale_text(
+            hit_rate, direction, line_value, form["trend"], consistency, streak, len(recent)
+        )
+
         return {
             "type": stat_type.upper(),
             "line": line_value,
             "suggestion": suggestion,
-            "confidence": round(confidence, 1),
-            "stats": {"hit_rate": hit_rate, "hit_rate_over": hit_rate_over, "hit_rate_under": hit_rate_under, "recent": recent},
-            # Provide a human-readable rationale summary for display
-            "rationale": {
-                "summary": f"{recent['trend'].capitalize()} form; {hit_rate:.0%} hit {direction} {line_value} in season sample"
+            "confidence": confidence,
+            "stats": {
+                "hit_rate": hit_rate,
+                "hit_rate_over": hit_rate_over,
+                "hit_rate_under": hit_rate_under,
+                "recent": form,
+                "consistency": round(consistency, 2),
+                "streak": streak,
             },
+            "rationale": {"summary": rationale_text},
         }
-    
+
     @staticmethod
     def evaluate_prop_with_ml(
         player_stats: List[Dict],
@@ -66,38 +149,16 @@ class PropBetEngine:
         game_date: Optional[date] = None,
         opponent_team_id: Optional[int] = None,
         is_home_game: bool = True,
-        season: Optional[str] = None
+        season: Optional[str] = None,
     ) -> Dict:
-        """
-        Evaluate a prop bet using ML models with fallback to rule-based logic.
-        
-        Args:
-            player_stats: List of game stat dictionaries
-            stat_type: The stat type (pts, reb, ast, tpm, pra)
-            line_value: The line value to evaluate
-            direction: "over" or "under" (default: "over")
-            player_id: Player ID (for ML features)
-            game_date: Game date (for ML features)
-            opponent_team_id: Opponent team ID (for ML features)
-            is_home_game: Whether it's a home game (for ML features)
-            season: Season string (for ML features)
-            
-        Returns:
-            Dictionary with evaluation results including ML confidence if available
-        """
-        # Start with rule-based evaluation
         rule_based_result = PropBetEngine.evaluate_prop(player_stats, stat_type, line_value, direction)
-        
-        # Try to get ML predictions if we have the required context
         ml_confidence = None
         ml_predicted_line = None
         ml_available = False
-        
+
         if player_id and game_date:
             try:
                 model_server = get_model_server()
-                
-                # Build feature set
                 feature_set = FeatureEngineer.build_feature_set(
                     player_id=player_id,
                     prop_type=stat_type.upper(),
@@ -105,53 +166,35 @@ class PropBetEngine:
                     market_line=line_value,
                     opponent_team_id=opponent_team_id,
                     is_home_game=is_home_game,
-                    season=season
+                    season=season,
                 )
-                
-                # Normalize features
                 normalized_features = FeatureEngineer.normalize_features(feature_set)
-                
-                # Get ML predictions
                 if model_server.is_available():
                     ml_confidence = model_server.predict_confidence(normalized_features)
                     ml_predicted_line = model_server.predict_line(normalized_features)
                     ml_available = ml_confidence is not None or ml_predicted_line is not None
-            except Exception as e:
-                # ML prediction failed, fall back to rule-based
-                import structlog
-                logger = structlog.get_logger()
-                logger.warning("ML prediction failed, using rule-based", error=str(e))
+            except Exception:
                 ml_available = False
-        
-        # Combine results
+
         result = rule_based_result.copy()
-        
-        # Add ML predictions if available
         if ml_available:
             result["ml_confidence"] = ml_confidence
             result["ml_predicted_line"] = ml_predicted_line
             result["ml_available"] = True
-            
-            # Optionally blend ML and rule-based confidence
             if ml_confidence is not None:
-                # Weighted average: 70% ML, 30% rule-based
-                rule_confidence = result.get("confidence", 0)
-                blended_confidence = 0.7 * ml_confidence + 0.3 * rule_confidence
-                result["confidence"] = round(blended_confidence, 1)
+                blended = 0.7 * ml_confidence + 0.3 * result.get("confidence", 0)
+                result["confidence"] = round(blended, 1)
                 result["confidence_source"] = "ml_blended"
             else:
                 result["confidence_source"] = "rule_based"
         else:
             result["ml_available"] = False
             result["confidence_source"] = "rule_based"
-        
-        # Generate LLM rationale if player_id is available
+
         if player_id:
             try:
                 rationale_generator = get_rationale_generator()
-                
-                # Get player name from NBA API
-                player_name = f"Player {player_id}"  # Default fallback
+                player_name = f"Player {player_id}"
                 try:
                     all_players = NBADataService.fetch_all_players_including_rookies()
                     player = next((p for p in all_players if p.get("id") == player_id), None)
@@ -159,14 +202,12 @@ class PropBetEngine:
                         player_name = player.get("full_name", player_name)
                 except Exception:
                     pass
-                
-                # Build context for rationale
-                rationale_context = {}
+
+                rationale_context: Dict = {}
                 if opponent_team_id:
                     rationale_context["opponent_team_id"] = opponent_team_id
                 rationale_context["is_home_game"] = is_home_game
-                
-                # Get context features if available
+
                 player_context = None
                 try:
                     from .context_collector import ContextCollector
@@ -178,15 +219,13 @@ class PropBetEngine:
                     rationale_context["h2h_avg"] = player_context.h2h_avg_pts
                 except Exception:
                     pass
-                
-                # Build ESPN context for rationale
-                espn_context = {}
+
+                espn_context: Dict = {}
                 if player_context:
                     espn_context["injury_status"] = player_context.injury_status
                     espn_context["conference_rank"] = player_context.team_conference_rank
                     espn_context["news_sentiment"] = player_context.news_sentiment
-                
-                # Generate rationale
+
                 llm_rationale = rationale_generator.generate_rationale(
                     player_name=player_name,
                     prop_type=stat_type.upper(),
@@ -196,16 +235,11 @@ class PropBetEngine:
                     ml_confidence=ml_confidence,
                     stats=result.get("stats", {}),
                     context=rationale_context,
-                    espn_context=espn_context if espn_context else None
+                    espn_context=espn_context if espn_context else None,
                 )
-                
                 result["rationale"]["llm"] = llm_rationale
                 result["rationale"]["source"] = "llm" if rationale_generator.is_available() else "rule_based"
-            except Exception as e:
-                # LLM rationale generation failed, keep rule-based
-                import structlog
-                logger = structlog.get_logger()
-                logger.warning("LLM rationale generation failed", error=str(e))
+            except Exception:
                 result["rationale"]["source"] = "rule_based"
-        
+
         return result

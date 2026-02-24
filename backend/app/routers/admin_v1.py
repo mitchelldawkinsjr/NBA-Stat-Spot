@@ -8,6 +8,7 @@ from ..services.prop_scanner import PropScannerService
 from ..services.nba_api_service import NBADataService
 from ..services.daily_props_service import DailyPropsService
 from ..services.high_hit_rate_service import HighHitRateService
+from ..services.best_picks_service import BestPicksService
 from ..services.settings_service import SettingsService
 from ..services.data_integrity_service import DataIntegrityService
 from ..services.game_status_monitor import GameStatusMonitor
@@ -407,6 +408,23 @@ def refresh_high_hit_rate(
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@router.post("/refresh/top-picks")
+@limiter.limit("5/hour")
+def refresh_top_picks(request: Request, limit: int = Query(20)):
+    """Regenerate the unified top-picks cache."""
+    try:
+        result = BestPicksService.get_top_picks(limit=limit)
+        target = result.get("date", date.today().isoformat())
+        _cache.set(f"top_picks:{target}", result, ttl=86400)
+        return {
+            "status": "success",
+            "count": len(result.get("items", [])),
+            "cachedAt": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @router.post("/refresh/all")
 @limiter.limit("3/hour")  # Rate limit: 3 requests per hour per IP (very expensive operation - makes many API calls)
 def refresh_all(request: Request):
@@ -465,7 +483,19 @@ def refresh_all(request: Request):
         }
     except Exception as e:
         results["bestBets"] = {"status": "error", "message": str(e)}
-    
+
+    # Refresh unified top picks
+    try:
+        top_picks_result = BestPicksService.get_top_picks(limit=20)
+        target = top_picks_result.get("date", date.today().isoformat())
+        _cache.set(f"top_picks:{target}", top_picks_result, ttl=86400)
+        results["topPicks"] = {
+            "status": "success",
+            "count": len(top_picks_result.get("items", []))
+        }
+    except Exception as e:
+        results["topPicks"] = {"status": "error", "message": str(e)}
+
     return {
         "status": "success",
         "results": results,
