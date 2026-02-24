@@ -152,10 +152,19 @@ def fetch_player_game_log_espn(
             if abbr:
                 home_away[ha] = abbr
 
-        for team_block in teams:
-            stats_blocks = team_block.get("statistics") or []
-            team_info = team_block.get("team") or {}
+        # Player-level box scores are in boxscore.players[], not boxscore.teams[]
+        player_blocks = box.get("players") or []
+        for player_block in player_blocks:
+            stats_blocks = player_block.get("statistics") or []
+            team_info = player_block.get("team") or {}
             team_abbr = team_info.get("abbreviation") or ""
+            ha = (player_block.get("displayOrder") or 0)
+            # Determine home/away from the teams list
+            team_ha = ""
+            for tb in teams:
+                if (tb.get("team") or {}).get("abbreviation") == team_abbr:
+                    team_ha = (tb.get("homeAway") or "").lower()
+                    break
             for stat_block in stats_blocks:
                 athletes = stat_block.get("athletes") or []
                 keys = stat_block.get("keys") or ESPN_STAT_KEYS
@@ -194,8 +203,8 @@ def fetch_player_game_log_espn(
                         tpm = _parse_three_from_fg_string(str(stat_map[three_key]))
                     minutes = _parse_minutes(stat_map.get("minutes"))
 
-                    opp_abbr = home_away.get("away") if (team_block.get("homeAway") or "").lower() == "home" else home_away.get("home")
-                    matchup = f"{team_abbr} vs. {opp_abbr}" if (team_block.get("homeAway") or "").lower() == "home" else f"{team_abbr} @ {opp_abbr}"
+                    opp_abbr = home_away.get("away") if team_ha == "home" else home_away.get("home")
+                    matchup = f"{team_abbr} vs. {opp_abbr}" if team_ha == "home" else f"{team_abbr} @ {opp_abbr}"
                     if not opp_abbr:
                         matchup = team_abbr
 
