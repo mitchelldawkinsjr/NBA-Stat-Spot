@@ -124,13 +124,14 @@ def fetch_player_game_log_espn(
         event_id = event.get("id")
         if not event_id or event_id in seen_game_ids:
             continue
-        status = (event.get("status", {}) or {})
+        # Status lives either at event level or inside competitions[0]
+        comp = (event.get("competitions") or [{}])[0] if event.get("competitions") else {}
+        status = comp.get("status") or event.get("status") or {}
         if isinstance(status, dict):
             status_type = status.get("type", {}) or {}
             state = status_type.get("state", "") if isinstance(status_type, dict) else str(status_type)
         else:
             state = str(status)
-        # Skip if not completed (no box score yet)
         if state != "post" and "post" not in state.lower():
             continue
 
