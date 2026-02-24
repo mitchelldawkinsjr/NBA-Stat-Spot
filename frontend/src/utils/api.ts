@@ -5,6 +5,10 @@
 
 // Get API base URL from environment or use default
 const getApiBaseUrl = (): string => {
+  // Same-origin: when app is loaded from nba.360web.cloud, use relative /api/* (no cross-origin).
+  if (typeof window !== 'undefined' && window.location.hostname === 'nba.360web.cloud') {
+    return ''
+  }
   // When frontend is hosted on same domain as API (e.g. VPS behind NPM), use relative paths
   // so /api/* is proxied by nginx to the backend. No CORS, same origin.
   if (import.meta.env.VITE_USE_RELATIVE_API === 'true') {
@@ -40,8 +44,11 @@ const getApiBaseUrl = (): string => {
 
 export const API_BASE_URL = getApiBaseUrl()
 
+const FALLBACK_API_BASE = 'https://nba-stat-spot.360web.cloud'
+
 /**
- * Make an API request with the correct base URL
+ * Make an API request with the correct base URL.
+ * If same-origin request fails (e.g. /api not proxied), retries with backend URL once.
  */
 export async function apiFetch(
   endpoint: string,
@@ -49,19 +56,45 @@ export async function apiFetch(
 ): Promise<Response> {
   // Remove leading slash if present to avoid double slashes
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
-  
-  // If API_BASE_URL is empty (dev mode with proxy), use relative path
-  const url = API_BASE_URL 
+
+  const url = API_BASE_URL
     ? `${API_BASE_URL}/${cleanEndpoint}`
     : `/${cleanEndpoint}`
-  
-  return fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-  })
+
+  const doFetch = (targetUrl: string) =>
+    fetch(targetUrl, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+    })
+
+  try {
+    let res = await doFetch(url)
+    // If same-origin failed (404 = /api not proxied, 502/503), retry with backend URL when on app domain
+    if (
+      !res.ok &&
+      typeof window !== 'undefined' &&
+      window.location.hostname === 'nba.360web.cloud' &&
+      url.startsWith('/')
+    ) {
+      const fallbackUrl = `${FALLBACK_API_BASE}/${cleanEndpoint}`
+      res = await doFetch(fallbackUrl)
+    }
+    return res
+  } catch (err) {
+    // Network/CORS error on same-origin; retry with backend URL when on app domain
+    if (
+      typeof window !== 'undefined' &&
+      window.location.hostname === 'nba.360web.cloud' &&
+      url.startsWith('/')
+    ) {
+      const fallbackUrl = `${FALLBACK_API_BASE}/${cleanEndpoint}`
+      return doFetch(fallbackUrl)
+    }
+    throw err
+  }
 }
 
 /**
