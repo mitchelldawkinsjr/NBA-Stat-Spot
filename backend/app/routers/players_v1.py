@@ -139,7 +139,7 @@ def stat_leaders(
         # Collect results as they complete
         for future in as_completed(future_to_player):
             try:
-                result = future.result(timeout=2.0)  # 2 second timeout per player (reduced)
+                result = future.result(timeout=20.0)
                 if result:
                     with leaders_lock:
                         leaders["PTS"].append({"playerId": result["playerId"], "playerName": result["playerName"], "value": result["PTS"]})

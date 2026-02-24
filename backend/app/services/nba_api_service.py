@@ -244,17 +244,24 @@ class NBADataService:
         ESPN is fast and reliable even when stats.nba.com is down."""
         import requests as _req
 
-        ESPN_SLUG_TO_NBA_ID: Dict[str, int] = {
-            "atl": 1610612737, "bos": 1610612738, "bkn": 1610612751,
-            "cha": 1610612766, "chi": 1610612741, "cle": 1610612739,
-            "dal": 1610612742, "den": 1610612743, "det": 1610612765,
-            "gs":  1610612744, "hou": 1610612745, "ind": 1610612754,
-            "lac": 1610612746, "lal": 1610612747, "mem": 1610612763,
-            "mia": 1610612748, "mil": 1610612749, "min": 1610612750,
-            "no":  1610612740, "ny":  1610612752, "okc": 1610612760,
-            "orl": 1610612753, "phi": 1610612755, "phx": 1610612756,
-            "por": 1610612757, "sac": 1610612758, "sa":  1610612759,
-            "tor": 1610612761, "uta": 1610612762, "wsh": 1610612764,
+        # Map ESPN team abbreviation (upper) → NBA team_id
+        ESPN_ABBR_TO_NBA_ID: Dict[str, int] = {
+            "ATL": 1610612737, "BOS": 1610612738, "BKN": 1610612751,
+            "CHA": 1610612766, "CHI": 1610612741, "CLE": 1610612739,
+            "DAL": 1610612742, "DEN": 1610612743, "DET": 1610612765,
+            "GS":  1610612744, "GSW": 1610612744,
+            "HOU": 1610612745, "IND": 1610612754,
+            "LAC": 1610612746, "LAL": 1610612747, "MEM": 1610612763,
+            "MIA": 1610612748, "MIL": 1610612749, "MIN": 1610612750,
+            "NO":  1610612740, "NOP": 1610612740,
+            "NY":  1610612752, "NYK": 1610612752,
+            "OKC": 1610612760, "ORL": 1610612753,
+            "PHI": 1610612755, "PHX": 1610612756,
+            "POR": 1610612757, "SAC": 1610612758,
+            "SA":  1610612759, "SAS": 1610612759,
+            "TOR": 1610612761,
+            "UTAH": 1610612762, "UTA": 1610612762,
+            "WSH": 1610612764, "WAS": 1610612764,
         }
 
         name_to_team: Dict[str, int] = {}
@@ -268,27 +275,15 @@ class NBADataService:
             teams_data = teams_resp.json()
             espn_teams = teams_data.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
 
-            espn_id_to_slug: Dict[str, str] = {}
-            for t in espn_teams:
-                td = t.get("team", {})
-                espn_id_to_slug[td.get("id", "")] = td.get("slug", "")
-
             for t in espn_teams:
                 td = t.get("team", {})
                 espn_team_id = td.get("id", "")
-                slug = td.get("slug", "")
-                abbr = (td.get("abbreviation") or "").lower()
+                espn_abbr = (td.get("abbreviation") or "").upper()
 
-                # Resolve NBA team_id from slug or abbreviation
-                nba_team_id = None
-                for s, nid in ESPN_SLUG_TO_NBA_ID.items():
-                    if s == slug or s == abbr:
-                        nba_team_id = nid
-                        break
+                nba_team_id = ESPN_ABBR_TO_NBA_ID.get(espn_abbr)
                 if not nba_team_id:
                     continue
 
-                # Fetch roster for this team
                 try:
                     roster_resp = _req.get(
                         f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{espn_team_id}/roster",
@@ -330,14 +325,14 @@ class NBADataService:
         # Default to current season if not provided
         season_to_use = season or "2025-26"
         
-        # Retry logic with exponential backoff
-        # Increased retries and delays since NBA API is slow/unreliable
-        max_retries = 5  # More retries for slow API
-        base_delay = 3.0  # Start with 3 seconds
+        # Single retry only — when stats.nba.com is unreachable the cascade
+        # (ESPN first) handles it; burning 150 s on retries blocks everything.
+        max_retries = 2
+        base_delay = 2.0
         
         for attempt in range(max_retries):
             try:
-                gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use)
+                gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use, timeout=15)
                 df = gl.get_data_frames()[0]
                 
                 # Log available columns for debugging
@@ -570,7 +565,7 @@ class NBADataService:
             cache.set(cache_key, r1, ttl=86400)
             return r1
 
-        # Step 2: nba_api
+        # Step 2: nba_api (single attempt — skip if stats.nba.com is unreachable)
         r2 = try_nba_api()
         attempts.append(r2 or [])
         if NBADataService._is_good_game_log(r2):
@@ -578,7 +573,7 @@ class NBADataService:
             cache.set(cache_key, r2, ttl=86400)
             return r2
 
-        # Step 3: retry ESPN
+        # Step 3: retry ESPN (no more NBA API retries — they just burn time)
         r3 = try_espn()
         attempts.append(r3 or [])
         if NBADataService._is_good_game_log(r3):
@@ -586,16 +581,6 @@ class NBADataService:
             cache.set(cache_key, r3, ttl=86400)
             return r3
 
-        # Step 4: retry nba_api
-        r4 = try_nba_api()
-        attempts.append(r4 or [])
-
-        if NBADataService._is_good_game_log(r4):
-            log.info("Player game log from nba_api_retry", player_id=player_id, count=len(r4))
-            cache.set(cache_key, r4, ttl=86400)
-            return r4
-
-        # Step 5: return best (longest non-empty) among the four attempts
         best = max(attempts, key=len) if attempts else []
         if not best:
             log.warning("No good game log data after cascade", player_id=player_id)
