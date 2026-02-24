@@ -48,7 +48,7 @@ class ESPNMappingService:
         1610612758: "sac",  # Sacramento Kings
         1610612759: "sa",   # San Antonio Spurs
         1610612761: "tor",  # Toronto Raptors
-        1610612762: "uta",  # Utah Jazz
+        1610612762: "utah",  # Utah Jazz
         1610612764: "wsh",  # Washington Wizards
     }
     
@@ -202,7 +202,8 @@ class ESPNMappingService:
             # Try exact match first
             player_name_lower = player_name.lower().strip()
             for athlete in roster:
-                athlete_data = athlete.get("athlete", {})
+                # Handle both flat format (from roster API) and nested "athlete" format
+                athlete_data = athlete.get("athlete", athlete) if isinstance(athlete, dict) else {}
                 espn_name = athlete_data.get("displayName", "") or athlete_data.get("fullName", "")
                 if espn_name.lower().strip() == player_name_lower:
                     espn_id = athlete_data.get("id")
@@ -212,10 +213,10 @@ class ESPNMappingService:
             
             # Try fuzzy matching
             best_match = None
-            best_ratio = 0.7  # Minimum threshold
+            best_ratio = 0.7
             
             for athlete in roster:
-                athlete_data = athlete.get("athlete", {})
+                athlete_data = athlete.get("athlete", athlete) if isinstance(athlete, dict) else {}
                 espn_name = athlete_data.get("displayName", "") or athlete_data.get("fullName", "")
                 if not espn_name:
                     continue
