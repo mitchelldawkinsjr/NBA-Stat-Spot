@@ -75,86 +75,85 @@ def stat_leaders(
     """
     Get league-wide stat leaders for points, assists, rebounds, and 3PM.
     Returns top N players by season average for each stat category.
+    Returns cached results instantly; data is pre-warmed by the admin/refresh cron.
     """
+    from ..services.cache_service import get_cache_service
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from datetime import datetime
+    import threading
+
+    cache = get_cache_service()
+    today_str = datetime.now().date().isoformat()
+    cache_key = f"stat_leaders:{today_str}"
+
+    cached = cache.get(cache_key)
+    if cached:
+        # Re-slice to requested limit
+        for cat in cached.get("items", {}):
+            cached["items"][cat] = cached["items"][cat][:limit]
+        return cached
+
+    # Cold-start: only use players whose game logs are already cached.
+    # Never block the request on slow external API calls.
     season_to_use = season or "2025-26"
     players = NBADataService.fetch_all_players_including_rookies()
-    
-    # We'll compute season averages for a sample of active players
-    # For performance, limit to players with team_id (active roster players)
-    active_players = [p for p in players if p.get("team_id") is not None][:30]  # Reduced to 30 for faster response
-    
-    leaders = {
-        "PTS": [],
-        "AST": [],
-        "REB": [],
-        "3PM": []
-    }
-    
-    # Process players in parallel for better performance
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    import threading
-    
-    # Use locks to safely append to leaders
+    active_players = [p for p in players if p.get("team_id") and p.get("team_id") != 0]
+
+    leaders: Dict[str, list] = {"PTS": [], "AST": [], "REB": [], "3PM": []}
     leaders_lock = threading.Lock()
-    
-    def process_player_for_leaders(player):
-        """Process a single player and return leader data"""
+
+    def process_player(player):
         try:
             player_id = player.get("id")
             if not player_id:
                 return None
-                
-            logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
-            if not logs or len(logs) < 5:  # Need at least 5 games
+            log_key = f"nba_api:player_game_log:{player_id}:{season_to_use}:{today_str}"
+            logs = cache.get(log_key)
+            if not logs or len(logs) < 5:
                 return None
-                
-            # Calculate season averages
             pts_avg = sum(float(g.get("pts", 0) or 0) for g in logs) / len(logs)
             ast_avg = sum(float(g.get("ast", 0) or 0) for g in logs) / len(logs)
             reb_avg = sum(float(g.get("reb", 0) or 0) for g in logs) / len(logs)
             tpm_avg = sum(float(g.get("tpm", 0) or 0) for g in logs) / len(logs)
-            
-            player_name = player.get("full_name") or player.get("first_name", "") + " " + player.get("last_name", "")
-            if not player_name or player_name.strip() == "":
-                player_name = f"Player {player_id}"
-            
+            name = player.get("full_name") or (player.get("first_name", "") + " " + player.get("last_name", "")).strip()
             return {
                 "playerId": player_id,
-                "playerName": player_name.strip(),
+                "playerName": name or f"Player {player_id}",
                 "PTS": round(pts_avg, 1),
                 "AST": round(ast_avg, 1),
                 "REB": round(reb_avg, 1),
-                "3PM": round(tpm_avg, 1)
+                "3PM": round(tpm_avg, 1),
             }
         except Exception:
             return None
-    
-    # Process players in parallel (max 6 concurrent workers for faster response)
-    with ThreadPoolExecutor(max_workers=6) as executor:
-        future_to_player = {
-            executor.submit(process_player_for_leaders, player): player 
-            for player in active_players
-        }
-        
-        # Collect results as they complete
-        for future in as_completed(future_to_player):
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {executor.submit(process_player, p): p for p in active_players}
+        for future in as_completed(futures):
             try:
-                result = future.result(timeout=20.0)
+                result = future.result(timeout=5.0)
                 if result:
                     with leaders_lock:
-                        leaders["PTS"].append({"playerId": result["playerId"], "playerName": result["playerName"], "value": result["PTS"]})
-                        leaders["AST"].append({"playerId": result["playerId"], "playerName": result["playerName"], "value": result["AST"]})
-                        leaders["REB"].append({"playerId": result["playerId"], "playerName": result["playerName"], "value": result["REB"]})
-                        leaders["3PM"].append({"playerId": result["playerId"], "playerName": result["playerName"], "value": result["3PM"]})
+                        for cat in leaders:
+                            leaders[cat].append({
+                                "playerId": result["playerId"],
+                                "playerName": result["playerName"],
+                                "value": result[cat],
+                            })
             except Exception:
                 continue
-    
-    # Sort and take top N for each category
+
     for cat in leaders:
         leaders[cat].sort(key=lambda x: x["value"], reverse=True)
-        leaders[cat] = leaders[cat][:limit]
-    
-    return {"items": leaders}
+        leaders[cat] = leaders[cat][:20]
+
+    result = {"items": leaders}
+    if any(leaders[cat] for cat in leaders):
+        cache.set(cache_key, result, ttl=86400)
+    # Re-slice to requested limit
+    for cat in result.get("items", {}):
+        result["items"][cat] = result["items"][cat][:limit]
+    return result
 
 @router.get(
     "/featured",

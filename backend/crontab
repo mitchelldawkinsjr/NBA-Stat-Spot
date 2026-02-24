@@ -20,6 +20,9 @@
 # Refresh unified top picks every day at 6:20 AM EST (11:20 AM UTC)
 20 11 * * * curl -f -X POST "http://localhost:8007/api/v1/admin/refresh/top-picks?limit=20" || echo "Failed to refresh top picks"
 
+# Refresh stat leaders every day at 6:25 AM EST (11:25 AM UTC)
+25 11 * * * curl -f --max-time 300 -X POST "http://localhost:8007/api/v1/admin/refresh/stat-leaders" || echo "Failed to refresh stat leaders"
+
 # Cleanup expired cache entries daily at 3:00 AM UTC (10-11 PM EST previous day)
 # This removes old cache entries to keep the database clean
 0 3 * * * curl -f -X POST "http://localhost:8007/api/v1/admin/cache/cleanup" || echo "Failed to cleanup expired cache"

@@ -425,6 +425,67 @@ def refresh_top_picks(request: Request, limit: int = Query(20)):
         return {"status": "error", "message": str(e)}
 
 
+def _compute_and_cache_stat_leaders(season: str = "2025-26") -> dict:
+    """Compute stat leaders from already-cached game logs and cache the result."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    today_str = datetime.now().date().isoformat()
+    players = NBADataService.fetch_all_players_including_rookies()
+    active = [p for p in players if p.get("team_id") and p.get("team_id") != 0]
+
+    leaders: dict = {"PTS": [], "AST": [], "REB": [], "3PM": []}
+
+    def _process(player):
+        pid = player.get("id")
+        if not pid:
+            return None
+        logs = NBADataService.fetch_player_game_log(pid, season)
+        if not logs or len(logs) < 5:
+            return None
+        n = len(logs)
+        pts = sum(float(g.get("pts", 0) or 0) for g in logs) / n
+        ast = sum(float(g.get("ast", 0) or 0) for g in logs) / n
+        reb = sum(float(g.get("reb", 0) or 0) for g in logs) / n
+        tpm = sum(float(g.get("tpm", 0) or 0) for g in logs) / n
+        name = player.get("full_name") or (player.get("first_name", "") + " " + player.get("last_name", "")).strip()
+        return {"playerId": pid, "playerName": name or f"Player {pid}",
+                "PTS": round(pts, 1), "AST": round(ast, 1),
+                "REB": round(reb, 1), "3PM": round(tpm, 1)}
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        futs = {ex.submit(_process, p): p for p in active}
+        for f in as_completed(futs):
+            try:
+                r = f.result(timeout=60)
+                if r:
+                    for cat in leaders:
+                        leaders[cat].append({"playerId": r["playerId"],
+                                             "playerName": r["playerName"],
+                                             "value": r[cat]})
+            except Exception:
+                continue
+
+    for cat in leaders:
+        leaders[cat].sort(key=lambda x: x["value"], reverse=True)
+        leaders[cat] = leaders[cat][:20]
+
+    result = {"items": leaders}
+    if any(leaders[cat] for cat in leaders):
+        _cache.set(f"stat_leaders:{today_str}", result, ttl=86400)
+    total = sum(len(leaders[c]) for c in leaders)
+    return {"status": "success", "total_entries": total}
+
+
+@router.post("/refresh/stat-leaders")
+@limiter.limit("5/hour")
+def refresh_stat_leaders(request: Request):
+    """Pre-compute stat leaders from game logs and cache the result."""
+    try:
+        return _compute_and_cache_stat_leaders()
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @router.post("/refresh/all")
 @limiter.limit("3/hour")  # Rate limit: 3 requests per hour per IP (very expensive operation - makes many API calls)
 def refresh_all(request: Request):
@@ -495,6 +556,12 @@ def refresh_all(request: Request):
         }
     except Exception as e:
         results["topPicks"] = {"status": "error", "message": str(e)}
+
+    # Refresh stat leaders (uses game logs cached above)
+    try:
+        results["statLeaders"] = _compute_and_cache_stat_leaders()
+    except Exception as e:
+        results["statLeaders"] = {"status": "error", "message": str(e)}
 
     return {
         "status": "success",
