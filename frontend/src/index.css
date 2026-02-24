@@ -1,6 +1,13 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Load legacy v3 config for custom colors, fonts, safelist */
+@config "../tailwind.config.cjs";
+
+/* Plugins */
+@plugin "@tailwindcss/forms";
+
+/* Class-based dark mode (Tailwind v4 default is prefers-color-scheme) */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Loading animations */
 @keyframes spin {
@@ -16,17 +23,14 @@
   0% {
     transform: translateX(-100%);
     width: 30%;
-    backgroundPosition: '0% 0%';
   }
   50% {
     transform: translateX(0%);
     width: 100%;
-    backgroundPosition: '100% 0%';
   }
   100% {
     transform: translateX(100%);
     width: 30%;
-    backgroundPosition: '0% 0%';
   }
 }
 
@@ -48,29 +52,26 @@
 }
 
 :root {
-  color: #111827; /* text-gray-900 */
+  color: #111827;
   background-color: #ffffff;
-  /* Theme tokens for charts */
-  --chart-primary: #2D68F8; /* Sliced Pro blue */
-  --chart-accent-1: #F59E0B; /* amber */
-  --chart-accent-2: #10B981; /* emerald */
-  --chart-danger: #EF4444; /* red */
+  --chart-primary: #2D68F8;
+  --chart-accent-1: #F59E0B;
+  --chart-accent-2: #10B981;
+  --chart-danger: #EF4444;
   --panel-bg: #ffffff;
-  --panel-border: #e5e7eb; /* gray-200 */
+  --panel-border: #e5e7eb;
 }
 
-/* Dark mode CSS variables */
 :root.dark,
 [data-mode="dark"] {
-  color: #f1f5f9; /* text-slate-100 */
-  background-color: #0f172a; /* slate-900 */
-  /* Theme tokens for charts - adjusted for dark mode */
-  --chart-primary: #60a5fa; /* lighter blue for dark mode */
-  --chart-accent-1: #fbbf24; /* lighter amber */
-  --chart-accent-2: #34d399; /* lighter emerald */
-  --chart-danger: #f87171; /* lighter red */
-  --panel-bg: #1e293b; /* slate-800 */
-  --panel-border: #334155; /* slate-700 */
+  color: #f1f5f9;
+  background-color: #0f172a;
+  --chart-primary: #60a5fa;
+  --chart-accent-1: #fbbf24;
+  --chart-accent-2: #34d399;
+  --chart-danger: #f87171;
+  --panel-bg: #1e293b;
+  --panel-border: #334155;
 }
 
 html {
@@ -80,12 +81,12 @@ html {
 
 html.dark,
 html[data-mode="dark"] {
-  background-color: #0f172a; /* slate-900 */
+  background-color: #0f172a;
 }
 
-body { 
-  margin: 0; 
-  min-width: 320px; 
+body {
+  margin: 0;
+  min-width: 320px;
   min-height: 100vh;
   background-color: #ffffff !important;
   color: #111827;
@@ -94,8 +95,8 @@ body {
 
 html.dark body,
 html[data-mode="dark"] body {
-  background-color: #0f172a !important; /* slate-900 */
-  color: #f1f5f9; /* slate-100 */
+  background-color: #0f172a !important;
+  color: #f1f5f9;
 }
 
 #root {

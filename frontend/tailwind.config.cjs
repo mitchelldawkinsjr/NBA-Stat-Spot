@@ -6,7 +6,7 @@ module.exports = {
     colors: { 'nba-blue': '#17408B', 'over-green': '#10B981', 'under-red': '#EF4444' },
     fontFamily: { sans: ['Outfit', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
   } },
-  plugins: [require('@tailwindcss/forms')],
+  plugins: [],
   safelist: [
     // Ensure progress bar colors are always included
     'bg-emerald-600',
