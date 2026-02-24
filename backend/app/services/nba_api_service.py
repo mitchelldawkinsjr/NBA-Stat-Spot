@@ -148,7 +148,7 @@ class NBADataService:
             try:
                 cap = commonallplayers.CommonAllPlayers(
                     is_only_current_season=1,
-                    timeout=120,
+                    timeout=10,
                 )
                 data = cap.get_dict()
                 result_sets = data.get("resultSets", [])
@@ -332,7 +332,7 @@ class NBADataService:
         
         for attempt in range(max_retries):
             try:
-                gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use, timeout=15)
+                gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use, timeout=10)
                 df = gl.get_data_frames()[0]
                 
                 # Log available columns for debugging
