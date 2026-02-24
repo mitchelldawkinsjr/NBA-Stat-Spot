@@ -113,28 +113,26 @@ def fetch_player_game_log_espn(
         d = e.get("date") or (e.get("competitions") or [{}])[0].get("date") if e.get("competitions") else ""
         return (d[:10] if d else "") or "0000-00-00"
 
-    events_sorted = sorted(events, key=_event_date, reverse=True)
+    # Pre-filter to completed games only, then sort most recent first
+    completed_events = []
+    for ev in events:
+        comp = (ev.get("competitions") or [{}])[0] if ev.get("competitions") else {}
+        st_obj = comp.get("status") or ev.get("status") or {}
+        st_type = st_obj.get("type", {}) if isinstance(st_obj, dict) else {}
+        st_state = st_type.get("state", "") if isinstance(st_type, dict) else ""
+        if st_state == "post" or "post" in st_state.lower():
+            completed_events.append(ev)
+    events_sorted = sorted(completed_events, key=_event_date, reverse=True)
 
     log_entries: List[Dict[str, Any]] = []
     seen_game_ids: set = set()
 
-    for event in events_sorted[: limit + 10]:  # fetch a few extra in case some lack box score
+    for event in events_sorted[: limit + 10]:
         if len(log_entries) >= limit:
             break
         event_id = event.get("id")
         if not event_id or event_id in seen_game_ids:
             continue
-        # Status lives either at event level or inside competitions[0]
-        comp = (event.get("competitions") or [{}])[0] if event.get("competitions") else {}
-        status = comp.get("status") or event.get("status") or {}
-        if isinstance(status, dict):
-            status_type = status.get("type", {}) or {}
-            state = status_type.get("state", "") if isinstance(status_type, dict) else str(status_type)
-        else:
-            state = str(status)
-        if state != "post" and "post" not in state.lower():
-            continue
-
         summary = espn.get_game_summary(str(event_id))
         if not summary:
             continue
