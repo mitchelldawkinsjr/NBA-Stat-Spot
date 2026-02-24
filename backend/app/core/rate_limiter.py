@@ -20,17 +20,18 @@ def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     from fastapi.responses import JSONResponse
     from .config import get_cors_origins
 
+    retry_after = getattr(exc, "retry_after", None) or 60
     response = JSONResponse(
         status_code=429,
         content={
             "error": "Rate limit exceeded",
             "details": {
                 "message": f"Too many requests. Limit: {exc.detail}",
-                "retry_after": exc.retry_after
+                "retry_after": retry_after,
             },
-            "path": request.url.path
+            "path": request.url.path,
         },
-        headers={"Retry-After": str(exc.retry_after) if exc.retry_after else "60"},
+        headers={"Retry-After": str(retry_after)},
     )
     # CORS: echo Origin when allowed (required when credentials=true)
     origins = get_cors_origins()

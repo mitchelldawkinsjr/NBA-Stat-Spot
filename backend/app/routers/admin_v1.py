@@ -477,7 +477,7 @@ def _compute_and_cache_stat_leaders(season: str = "2025-26") -> dict:
 
 
 @router.post("/refresh/stat-leaders")
-@limiter.limit("5/hour")
+@limiter.limit("20/hour")
 def refresh_stat_leaders(request: Request):
     """Pre-compute stat leaders from game logs and cache the result."""
     try:
@@ -487,7 +487,7 @@ def refresh_stat_leaders(request: Request):
 
 
 @router.post("/refresh/all")
-@limiter.limit("3/hour")  # Rate limit: 3 requests per hour per IP (very expensive operation - makes many API calls)
+@limiter.limit("10/hour")
 def refresh_all(request: Request):
     """Refresh all cached data
     
