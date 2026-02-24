@@ -13,12 +13,12 @@ const THEME_STORAGE_KEY = 'nba-stat-spot-theme'
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
-    // Initialize from localStorage or default to 'light'
+    // Initialize from localStorage or default to 'dark'
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null
-      return stored || 'light'
+      return stored || 'dark'
     }
-    return 'light'
+    return 'dark'
   })
 
   useEffect(() => {
