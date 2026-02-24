@@ -125,48 +125,47 @@ class NBADataService:
         """Fetch all players including rookies who may not be marked as active yet.
         Uses CommonAllPlayers endpoint to get current season players with team_id,
         then falls back to static players for historical players.
+        When CommonAllPlayers is unreachable, enriches static players with team_id
+        by fetching rosters from ESPN (which is faster and more reliable).
         Cached for 24 hours with date-based key for daily invalidation.
         Uses CacheService (Redis/SQLite) for persistence across container restarts."""
         cache = get_cache_service()
         today_str = datetime.now().date().isoformat()
         cache_key = f"nba_api:players_all_including_rookies:{today_str}"
-        
-        # Try cache first
+
         cached_data = cache.get(cache_key)
         if cached_data is not None:
-            return cached_data
-        
-        # Fetch if not cached
+            # Quick sanity check: if cached data has zero players with team_id,
+            # the cache is stale/broken — refetch.
+            has_teams = any(p.get("team_id") and p.get("team_id") != 0 for p in cached_data[:200])
+            if has_teams:
+                return cached_data
+
         all_players: List[Dict[str, Any]] = []
-        
-        # First, get current season players with team_id from CommonAllPlayers
+
+        # Strategy 1: CommonAllPlayers (NBA API) — has team_id but unreliable
         if commonallplayers is not None:
             try:
-                cap = commonallplayers.CommonAllPlayers(is_only_current_season=1)
+                cap = commonallplayers.CommonAllPlayers(
+                    is_only_current_season=1,
+                    timeout=120,
+                )
                 data = cap.get_dict()
                 result_sets = data.get("resultSets", [])
                 if result_sets:
                     headers = result_sets[0].get("headers", [])
                     rows = result_sets[0].get("rowSet", [])
-                    
-                    # Find column indices
                     try:
                         person_id_idx = headers.index("PERSON_ID")
                         display_first_last_idx = headers.index("DISPLAY_FIRST_LAST")
                         team_id_idx = headers.index("TEAM_ID")
                         roster_status_idx = headers.index("ROSTERSTATUS") if "ROSTERSTATUS" in headers else None
-                        # Try to find position and jersey_number if available
                         position_idx = headers.index("POSITION") if "POSITION" in headers else None
                         jersey_idx = headers.index("JERSEY") if "JERSEY" in headers else None
                     except ValueError:
-                        # Fallback indices
-                        person_id_idx = 0
-                        display_first_last_idx = 2
-                        team_id_idx = 8
-                        roster_status_idx = 3
-                        position_idx = None
-                        jersey_idx = None
-                    
+                        person_id_idx, display_first_last_idx, team_id_idx = 0, 2, 8
+                        roster_status_idx, position_idx, jersey_idx = 3, None, None
+
                     for row in rows:
                         if len(row) > max(person_id_idx, display_first_last_idx, team_id_idx):
                             player_id = row[person_id_idx] if person_id_idx < len(row) else None
@@ -175,7 +174,6 @@ class NBADataService:
                             is_active = row[roster_status_idx] == 1 if roster_status_idx and roster_status_idx < len(row) else True
                             position = row[position_idx] if position_idx is not None and position_idx < len(row) else None
                             jersey_number = row[jersey_idx] if jersey_idx is not None and jersey_idx < len(row) else None
-                            
                             if player_id:
                                 all_players.append({
                                     "id": player_id,
@@ -185,38 +183,136 @@ class NBADataService:
                                     "team_id": team_id,
                                     "is_active": is_active,
                                     "position": position,
-                                    "jersey_number": jersey_number
+                                    "jersey_number": jersey_number,
                                 })
             except Exception:
                 pass
-        
-        # Fallback to static players if CommonAllPlayers failed or for historical players
-        # Also merge position and jersey_number from static players for existing players
+
+        # Check how many players actually got a team_id from CommonAllPlayers
+        players_with_team = sum(1 for p in all_players if p.get("team_id") and p.get("team_id") != 0)
+
+        # Strategy 2: ESPN rosters — reliable fallback for team_id mapping
+        # Used when CommonAllPlayers failed or returned no team assignments
+        espn_name_to_nba_team: Dict[str, int] = {}
+        espn_name_to_pos: Dict[str, str] = {}
+        if players_with_team < 100:
+            espn_name_to_nba_team, espn_name_to_pos = NBADataService._fetch_espn_roster_mapping()
+
+        # Merge static players and enrich with ESPN team_id where needed
         if static_players is not None:
             static_players_list = static_players.get_players()
-            # Create a map of static players by ID for easy lookup
             static_players_by_id = {p.get("id"): p for p in static_players_list}
-            
-            # Update existing players with position/jersey_number from static if missing
+
+            # Enrich existing players from CommonAllPlayers
             for player in all_players:
-                player_id = player.get("id")
-                if player_id in static_players_by_id:
-                    static_player = static_players_by_id[player_id]
-                    # Only update if not already set from CommonAllPlayers
-                    if not player.get("position") and static_player.get("position"):
-                        player["position"] = static_player.get("position")
-                    if not player.get("jersey_number") and static_player.get("jersey_number"):
-                        player["jersey_number"] = static_player.get("jersey_number")
-            
-            # Add static players that aren't already in our list (by ID)
+                pid = player.get("id")
+                if pid in static_players_by_id:
+                    sp = static_players_by_id[pid]
+                    if not player.get("position") and sp.get("position"):
+                        player["position"] = sp["position"]
+                    if not player.get("jersey_number") and sp.get("jersey_number"):
+                        player["jersey_number"] = sp["jersey_number"]
+                # If still no team_id, try ESPN mapping by name
+                if (not player.get("team_id") or player.get("team_id") == 0) and espn_name_to_nba_team:
+                    name_key = (player.get("full_name") or "").strip().lower()
+                    if name_key in espn_name_to_nba_team:
+                        player["team_id"] = espn_name_to_nba_team[name_key]
+                        player["is_active"] = True
+                        if not player.get("position") and name_key in espn_name_to_pos:
+                            player["position"] = espn_name_to_pos[name_key]
+
+            # Add static players not already present
             existing_ids = {p.get("id") for p in all_players}
             for p in static_players_list:
                 if p.get("id") not in existing_ids:
-                    all_players.append(p)
-        
-        # Cache for 24 hours
+                    enriched = dict(p)
+                    name_key = (enriched.get("full_name") or "").strip().lower()
+                    if name_key in espn_name_to_nba_team:
+                        enriched["team_id"] = espn_name_to_nba_team[name_key]
+                        enriched["is_active"] = True
+                        if name_key in espn_name_to_pos:
+                            enriched["position"] = espn_name_to_pos[name_key]
+                    all_players.append(enriched)
+
         cache.set(cache_key, all_players, ttl=86400)
         return all_players
+
+    @staticmethod
+    def _fetch_espn_roster_mapping() -> tuple:
+        """Fetch all 30 NBA team rosters from ESPN and build a
+        lowercase-name → nba_team_id mapping plus name → position mapping.
+        ESPN is fast and reliable even when stats.nba.com is down."""
+        import requests as _req
+
+        ESPN_SLUG_TO_NBA_ID: Dict[str, int] = {
+            "atl": 1610612737, "bos": 1610612738, "bkn": 1610612751,
+            "cha": 1610612766, "chi": 1610612741, "cle": 1610612739,
+            "dal": 1610612742, "den": 1610612743, "det": 1610612765,
+            "gs":  1610612744, "hou": 1610612745, "ind": 1610612754,
+            "lac": 1610612746, "lal": 1610612747, "mem": 1610612763,
+            "mia": 1610612748, "mil": 1610612749, "min": 1610612750,
+            "no":  1610612740, "ny":  1610612752, "okc": 1610612760,
+            "orl": 1610612753, "phi": 1610612755, "phx": 1610612756,
+            "por": 1610612757, "sac": 1610612758, "sa":  1610612759,
+            "tor": 1610612761, "uta": 1610612762, "wsh": 1610612764,
+        }
+
+        name_to_team: Dict[str, int] = {}
+        name_to_pos: Dict[str, str] = {}
+
+        try:
+            teams_resp = _req.get(
+                "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+                timeout=15,
+            )
+            teams_data = teams_resp.json()
+            espn_teams = teams_data.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
+
+            espn_id_to_slug: Dict[str, str] = {}
+            for t in espn_teams:
+                td = t.get("team", {})
+                espn_id_to_slug[td.get("id", "")] = td.get("slug", "")
+
+            for t in espn_teams:
+                td = t.get("team", {})
+                espn_team_id = td.get("id", "")
+                slug = td.get("slug", "")
+                abbr = (td.get("abbreviation") or "").lower()
+
+                # Resolve NBA team_id from slug or abbreviation
+                nba_team_id = None
+                for s, nid in ESPN_SLUG_TO_NBA_ID.items():
+                    if s == slug or s == abbr:
+                        nba_team_id = nid
+                        break
+                if not nba_team_id:
+                    continue
+
+                # Fetch roster for this team
+                try:
+                    roster_resp = _req.get(
+                        f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{espn_team_id}/roster",
+                        timeout=15,
+                    )
+                    roster_data = roster_resp.json()
+                    athletes = roster_data.get("athletes", [])
+                    for a in athletes:
+                        name = (a.get("fullName") or a.get("displayName") or "").strip().lower()
+                        if name:
+                            name_to_team[name] = nba_team_id
+                            pos = a.get("position", {})
+                            if isinstance(pos, dict):
+                                pos_abbr = pos.get("abbreviation", "")
+                            else:
+                                pos_abbr = str(pos)
+                            if pos_abbr:
+                                name_to_pos[name] = pos_abbr
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        return name_to_team, name_to_pos
 
     @staticmethod
     def _fetch_player_game_log_impl(player_id: int, season: Optional[str]) -> List[Dict[str, Any]]:
