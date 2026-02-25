@@ -40,7 +40,10 @@ export function SuggestionCards({ suggestions, horizontal = false }: { suggestio
   const CardContent = ({ s }: { s: SuggestionItem }) => {
     const direction = s.suggestion || s.chosenDirection || ((s.fairLine != null && s.marketLine != null && s.fairLine >= s.marketLine) ? 'over' : 'under')
     const isOver = direction === 'over'
-    const rationaleText = Array.isArray(s.rationale) ? s.rationale[0] : (s.rationale || '')
+    // Prefer LLM rationale when present: API sends [summary, llm] so use last element
+    const rationaleText = Array.isArray(s.rationale)
+      ? (s.rationale.length > 1 ? s.rationale[s.rationale.length - 1] : s.rationale[0])
+      : (s.rationale || '')
 
     return (
       <>
