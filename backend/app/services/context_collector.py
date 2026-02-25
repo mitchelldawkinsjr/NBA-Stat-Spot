@@ -15,10 +15,22 @@ from ..services.team_player_service import TeamPlayerService
 from ..services.team_standings_service import get_team_standings_service
 from ..services.news_context_service import get_news_context_service
 from ..services.cache_service import get_cache_service
+from ..core.config import current_candidate_season
 import structlog
 import threading
 
 logger = structlog.get_logger()
+
+# Minutes threshold: treat as "did not play" if minutes is 0 or missing (DNP)
+MIN_MINUTES_PLAYED_THRESHOLD = 0.5
+# If most recent game or last 2 games have no minutes, infer possible injury
+RECENT_GAMES_TO_CHECK = 2
+# Below this ratio of "normal" minutes → treat as potentially hurt (e.g. half minutes = 0.5)
+HALF_NORMAL_MINUTES_RATIO = 0.55
+# Minimum games with real minutes needed to compute "normal" baseline (excludes DNPs)
+MIN_GAMES_FOR_BASELINE_MINUTES = 5
+# When computing baseline, only use games with at least this many minutes (exclude DNPs and garbage time)
+MIN_MINUTES_TO_COUNT_FOR_BASELINE = 5.0
 
 
 class ContextCollector:
@@ -647,9 +659,99 @@ class ContextCollector:
         return result
     
     @staticmethod
+    def _minutes_played(g: Dict) -> float:
+        """Parse minutes from a game log entry (handles number or 'MM:SS')."""
+        m = g.get("minutes") or g.get("MIN") or 0
+        if m is None:
+            return 0.0
+        if isinstance(m, str) and ":" in str(m):
+            parts = str(m).split(":")
+            return float(parts[0]) + (float(parts[1]) / 60.0) if len(parts) >= 2 else 0.0
+        try:
+            return float(m) if m else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    @staticmethod
+    def _infer_injury_from_recent_minutes(
+        player_id: int, game_date: date, season: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        When ESPN says no injury, infer possible injury from recent minutes:
+        1) DNP / no minutes in last game(s) → strong signal (questionable).
+        2) Played half (or less) of normal minutes in last game(s) → potentially hurt (questionable).
+        Returns a result dict to use as injury_info, or None if no inference.
+        """
+        try:
+            season_str = season or current_candidate_season()
+            logs = NBADataService.fetch_player_game_log(player_id, season_str)
+            if not logs or len(logs) < 1:
+                return None
+            recent = logs[: max(3, RECENT_GAMES_TO_CHECK)]
+            mins = [ContextCollector._minutes_played(g) for g in recent]
+
+            # —— Tier 1: DNP / no minutes ——
+            no_minutes_count = sum(1 for m in mins if m < MIN_MINUTES_PLAYED_THRESHOLD)
+            if no_minutes_count >= len(recent):
+                return {
+                    "is_injured": True,
+                    "injury_status": "questionable",
+                    "injury_description": "No minutes in last game(s) — check availability",
+                    "injury_date": None,
+                }
+            if len(mins) >= 1 and mins[0] < MIN_MINUTES_PLAYED_THRESHOLD:
+                return {
+                    "is_injured": True,
+                    "injury_status": "questionable",
+                    "injury_description": "DNP last game — check availability",
+                    "injury_date": None,
+                }
+
+            # —— Tier 2: "Normal" baseline from season (exclude DNPs) ——
+            all_mins = [ContextCollector._minutes_played(g) for g in logs]
+            baseline_mins = [
+                m for m in all_mins
+                if m >= MIN_MINUTES_TO_COUNT_FOR_BASELINE
+            ]
+            if len(baseline_mins) < MIN_GAMES_FOR_BASELINE_MINUTES:
+                return None
+            normal_avg = sum(baseline_mins) / len(baseline_mins)
+            half_normal = normal_avg * HALF_NORMAL_MINUTES_RATIO
+
+            # —— Last game well below normal (e.g. half or less) → potentially hurt ——
+            last_min = mins[0]
+            if last_min <= half_normal and last_min >= MIN_MINUTES_PLAYED_THRESHOLD:
+                desc = f"Below normal minutes ({int(last_min)} min vs ~{int(round(normal_avg))} avg) — check availability"
+                return {
+                    "is_injured": True,
+                    "injury_status": "questionable",
+                    "injury_description": desc,
+                    "injury_date": None,
+                }
+
+            # —— Last 2 games both below half normal ——
+            if len(mins) >= 2 and all(m >= MIN_MINUTES_PLAYED_THRESHOLD for m in mins[:2]):
+                if mins[0] <= half_normal and mins[1] <= half_normal:
+                    avg_recent = (mins[0] + mins[1]) / 2
+                    desc = f"Last 2 games below normal minutes (~{int(avg_recent)} vs ~{int(round(normal_avg))} avg) — check availability"
+                    return {
+                        "is_injured": True,
+                        "injury_status": "questionable",
+                        "injury_description": desc,
+                        "injury_date": None,
+                    }
+
+            return None
+        except Exception as e:
+            logger.debug("Could not infer injury from minutes", player_id=player_id, error=str(e))
+            return None
+
+    @staticmethod
     def get_injury_status(player_id: int, game_date: date) -> Dict[str, Any]:
         """
         Get injury status for a player from ESPN API.
+        When ESPN has no injury listed, infers possible injury from recent minutes
+        (no minutes in last game(s) → questionable / check availability).
         
         Args:
             player_id: Player ID
@@ -693,8 +795,9 @@ class ContextCollector:
             # Fetch injuries from ESPN
             injuries_data = espn_service.get_injuries()
             if not injuries_data:
-                # Return default if no injury data available
-                result = {
+                # No ESPN injury data — try inferring from recent minutes (DNP / 0 min)
+                inferred = ContextCollector._infer_injury_from_recent_minutes(player_id, game_date)
+                result = inferred if inferred else {
                     "is_injured": False,
                     "injury_status": None,
                     "injury_description": None,
@@ -816,14 +919,15 @@ class ContextCollector:
             # Log if player not found for debugging
             logger.debug("Player not found in injury reports", player_id=player_id, player_name=player_name, espn_slug=espn_slug, espn_player_id=espn_player_id)
             
-            # No injury found
-            result = {
+            # No injury found in ESPN — infer from recent minutes (DNP / 0 min) to avoid showing "Healthy" when they didn't play
+            inferred = ContextCollector._infer_injury_from_recent_minutes(player_id, game_date)
+            result = inferred if inferred else {
                 "is_injured": False,
                 "injury_status": None,
                 "injury_description": None,
                 "injury_date": None
             }
-            # Cache "not injured" for 4 hours - injuries change infrequently (1-2 times per day)
+            # Cache for 4 hours - injuries change infrequently (1-2 times per day)
             cache.set(cache_key, result, ttl=14400)  # 4 hours
             return result
             

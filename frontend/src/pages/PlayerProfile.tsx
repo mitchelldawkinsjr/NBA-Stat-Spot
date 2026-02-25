@@ -1033,7 +1033,10 @@ export default function PlayerProfile() {
                             },
                             { 
                               label: 'Injury Status', 
-                              value: playerContext?.injury_status || 'Healthy',
+                              value: [
+                                playerContext?.injury_status || 'Healthy',
+                                playerContext?.injury_description,
+                              ].filter(Boolean).join(' — ') || 'Healthy',
                               valueColor: playerContext?.is_injured ? 'text-red-600' : 'text-green-600'
                             },
                           ]}
