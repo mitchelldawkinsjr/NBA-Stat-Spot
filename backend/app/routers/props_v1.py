@@ -287,11 +287,13 @@ def daily_props(
     min_confidence: Optional[float] = Query(None, description="Minimum confidence score (0-100) to filter results", example=70.0, ge=0, le=100),
     limit: Optional[int] = Query(None, description="Maximum number of results to return. No limit by default.", example=50, ge=1),
     season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26"),
-    last_n: Optional[int] = Query(None, description="Number of recent games to consider for analysis", example=10, ge=1)
+    last_n: Optional[int] = Query(None, description="Number of recent games to consider for analysis", example=10, ge=1),
+    hot_form_only: bool = Query(False, description="If True, only return props for players in good/hot form (recent performance above season)")
 ):
     """
     Get top daily props for all players playing today.
     Uses cached data if available (cached for today), otherwise fetches fresh data.
+    Use hot_form_only=True to get high-confidence props only among players in hot form.
     """
     from datetime import date as date_type, datetime
     from ..routers.admin_v1 import _get_daily_props_cache, _set_daily_props_cache
@@ -301,6 +303,33 @@ def daily_props(
         target_date_str = date
     else:
         target_date_str = datetime.now().strftime("%Y-%m-%d")
+    
+    # When filtering by hot form we need fresh data (isHot computed per player); skip cache
+    if hot_form_only:
+        try:
+            fetch_limit = limit if limit and limit > 0 else 200
+            result = DailyPropsService.get_top_props_for_date(
+                date=date,
+                season=season,
+                min_confidence=min_confidence or 65.0,
+                limit=fetch_limit,
+                last_n=last_n,
+                hot_form_only=True,
+            )
+            items = result.get("items", [])
+            if limit and limit > 0:
+                items = items[:limit]
+            return {
+                "items": items,
+                "total": len(items),
+                "cached": False,
+                "hotFormOnly": True,
+            }
+        except Exception as e:
+            import structlog
+            logger = structlog.get_logger()
+            logger.error("Error fetching hot-form daily props", error=str(e))
+            return {"items": [], "total": 0, "cached": False, "hotFormOnly": True}
     
     # Check if we have valid cached data for the requested date
     cached_data = _get_daily_props_cache(target_date_str)

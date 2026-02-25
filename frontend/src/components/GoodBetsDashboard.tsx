@@ -48,6 +48,17 @@ async function fetchDaily(minConfidence?: number, date?: string) {
   return data
 }
 
+async function fetchHotFormProps(date?: string, minConfidence = 70) {
+  const targetDate = date || getTodayDate()
+  const params = new URLSearchParams()
+  params.append('hot_form_only', 'true')
+  params.append('min_confidence', String(minConfidence))
+  if (date) params.append('date', date)
+  const res = await apiFetch(`api/v1/props/daily?${params.toString()}`)
+  if (!res.ok) return { items: [], total: 0, hotFormOnly: true }
+  return res.json()
+}
+
 async function fetchTopPicks(date?: string) {
   const targetDate = date || getTodayDate()
   const cacheKey = 'top-picks-20'
@@ -183,6 +194,16 @@ export function GoodBetsDashboard() {
     refetchOnReconnect: false,
     retry: 1,
   })
+
+  // Hot form + high confidence props (players in good form, min 70% confidence)
+  const { data: hotFormData, isLoading: hotFormLoading } = useQuery({
+    queryKey: ['daily-hot-form', today],
+    queryFn: () => fetchHotFormProps(today, 70),
+    enabled: games.length > 0,
+    staleTime: 15 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  })
+  const hotFormItems = (hotFormData?.items ?? []) as any[]
   
   // Fetch league-wide stat leaders when "All" is selected
   const { data: leagueStatLeadersData, isLoading: leagueStatLeadersLoading, error: leagueStatLeadersError } = useQuery({
@@ -245,6 +266,7 @@ export function GoodBetsDashboard() {
       queryClient.invalidateQueries({ queryKey: ['games-today', today] })
       queryClient.invalidateQueries({ queryKey: ['daily-50', today] })
       queryClient.invalidateQueries({ queryKey: ['top-picks', today] })
+      queryClient.invalidateQueries({ queryKey: ['daily-hot-form', today] })
       updateProgress(50)
 
       // Step 4: Refetch all data sources
@@ -697,6 +719,51 @@ export function GoodBetsDashboard() {
                   })}
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Hot form high-confidence props */}
+          <div className="p-3 sm:p-4 border border-amber-200 dark:border-amber-800/50 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 shadow-sm transition-colors duration-200">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg" aria-hidden>🔥</span>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Hot form · High confidence</h3>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 transition-colors duration-200">
+              Props from players in good form (recent &gt; season) with 70%+ confidence
+            </p>
+            {hotFormLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <svg className="animate-spin h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="ml-2 text-sm text-gray-600">Loading…</span>
+              </div>
+            ) : games.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">No games today.</p>
+            ) : hotFormItems.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">No hot-form high-confidence props for today.</p>
+            ) : (
+              <ul className="space-y-2 max-h-64 overflow-y-auto">
+                {hotFormItems.slice(0, 15).map((item: any, idx: number) => (
+                  <li key={`${item.playerId}-${item.type}-${idx}`}>
+                    <a
+                      href={`/player/${item.playerId}`}
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white dark:bg-slate-800/80 border border-amber-100 dark:border-amber-800/30 hover:border-amber-300 dark:hover:border-amber-600/50 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-medium text-gray-900 dark:text-slate-100 truncate block">{item.playerName}</span>
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          {item.type} {item.marketLine ?? item.fairLine ?? '—'} {item.suggestion === 'over' ? 'OVER' : 'UNDER'}
+                        </span>
+                      </div>
+                      <span className="flex-shrink-0 text-sm font-bold text-amber-700 dark:text-amber-400">
+                        {Math.round(item.confidence ?? 0)}%
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 

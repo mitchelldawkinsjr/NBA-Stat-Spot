@@ -7,6 +7,7 @@ from datetime import datetime
 from .nba_api_service import NBADataService
 from .prop_engine import PropBetEngine
 from .prop_filter import PropFilter
+from .stats_calculator import StatsCalculator
 from ..core.config import current_candidate_season
 
 
@@ -15,6 +16,27 @@ class DailyPropsService:
     
     # Stat types to compute props for
     STAT_TYPES = ["pts", "reb", "ast", "tpm"]
+    
+    # Minimum ratio of recent_5 to season avg to count as "hot" (e.g. 1.05 = 5% above season)
+    HOT_FORM_RATIO = 1.05
+    
+    @staticmethod
+    def _player_in_hot_form(logs: List[Dict], n_recent: int = 5) -> bool:
+        """
+        True if player is in good form: recent average above season for any of PTS/REB/AST,
+        or trend "up" for any of those stats.
+        """
+        if not logs or len(logs) < n_recent:
+            return False
+        for stat in ("pts", "reb", "ast"):
+            season_avg = StatsCalculator.calculate_rolling_average(logs, stat, n_games=len(logs))
+            recent_avg = StatsCalculator.calculate_rolling_average(logs, stat, n_games=n_recent)
+            form = StatsCalculator.calculate_recent_form(logs, stat, n_games=n_recent)
+            if season_avg > 0 and recent_avg >= season_avg * DailyPropsService.HOT_FORM_RATIO:
+                return True
+            if form.get("trend") == "up":
+                return True
+        return False
     
     @staticmethod
     def _compute_props_for_player(
@@ -71,11 +93,13 @@ class DailyPropsService:
             # Enrich with PRA (Points + Rebounds + Assists)
             for game in logs:
                 game["pra"] = (
-                    float(game.get("pts", 0) or 0) + 
-                    float(game.get("reb", 0) or 0) + 
+                    float(game.get("pts", 0) or 0) +
+                    float(game.get("reb", 0) or 0) +
                     float(game.get("ast", 0) or 0)
                 )
             
+            # Compute "hot form" once per player: recent 5 above season avg or trend "up" for any main stat
+            is_hot = DailyPropsService._player_in_hot_form(logs)
             suggestions: List[Dict] = []
             
             # Compute props for each stat type
@@ -141,6 +165,7 @@ class DailyPropsService:
                                     "rationale": evaluation.get("rationale", {}).get("summary", "Based on recent form and hit rate"),
                                     "stats": evaluation.get("stats", {}),
                                     "gameDate": game_date,
+                                    "isHot": is_hot,
                                 }
                                 suggestions.append(suggestion)
                         except Exception:
@@ -173,6 +198,7 @@ class DailyPropsService:
                                 "rationale": evaluation_pra.get("rationale", {}).get("summary", "Based on recent form and hit rate"),
                                 "stats": evaluation_pra.get("stats", {}),
                                 "gameDate": game_date,
+                                "isHot": is_hot,
                             }
                             suggestions.append(suggestion_pra)
                     except Exception:
@@ -192,7 +218,8 @@ class DailyPropsService:
         season: Optional[str] = None,
         min_confidence: Optional[float] = None,
         limit: int = 50,
-        last_n: Optional[int] = None
+        last_n: Optional[int] = None,
+        hot_form_only: bool = False,
     ) -> Dict:
         """
         Get top props for all players playing on a given date.
@@ -203,6 +230,7 @@ class DailyPropsService:
             min_confidence: Minimum confidence threshold (optional)
             limit: Maximum number of props to return
             last_n: Optional limit to last N games for computation
+            hot_form_only: If True, only return props for players in hot form (recent > season)
             
         Returns:
             Dictionary with "items" list of top props
@@ -388,6 +416,10 @@ class DailyPropsService:
                             all_props.extend(props)
                     except Exception:
                         continue
+        
+        # Filter by hot form first (only players in good form)
+        if hot_form_only and all_props:
+            all_props = [p for p in all_props if p.get("isHot") is True]
         
         # Filter by minimum confidence if specified
         props_before_filter = all_props.copy() if all_props else []

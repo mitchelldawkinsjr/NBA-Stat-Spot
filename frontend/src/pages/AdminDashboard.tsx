@@ -118,6 +118,17 @@ async function checkPropSuggestionsIntegrity() {
   return apiPost('/api/v1/admin/data-integrity/check/prop-suggestions')
 }
 
+async function cleanRecentPlayerNames() {
+  return apiPost('/api/v1/admin/players/clean-recent-names')
+}
+
+async function refreshDefensiveRanks(season?: string) {
+  const endpoint = season
+    ? `/api/v1/admin/refresh/defensive-ranks?season=${encodeURIComponent(season)}`
+    : '/api/v1/admin/refresh/defensive-ranks'
+  return apiPost(endpoint)
+}
+
 interface ActivityLog {
   id: string
   timestamp: Date
@@ -286,7 +297,10 @@ export default function AdminDashboard() {
       const results = data?.results || {}
       const dailyCount = results.dailyProps?.count || 0
       const hitRateCount = results.highHitRate?.count || 0
-      addActivityLog('success', `All services refreshed`, `Daily Props: ${dailyCount}, High Hit Rate: ${hitRateCount}`)
+      const ranksCount = results.defensiveRanks?.teamsRanked
+      const parts = [`Daily Props: ${dailyCount}`, `High Hit Rate: ${hitRateCount}`]
+      if (typeof ranksCount === 'number') parts.push(`Defensive Ranks: ${ranksCount} teams`)
+      addActivityLog('success', `All services refreshed`, parts.join(', '))
       refetchCacheStatus()
       refetchHealth()
       queryClient.invalidateQueries({ queryKey: ['daily-50'] })
@@ -493,6 +507,45 @@ export default function AdminDashboard() {
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Prop suggestions integrity check failed', error.message)
+    }
+  })
+
+  const cleanRecentNamesMutation = useMutation({
+    mutationFn: cleanRecentPlayerNames,
+    onMutate: () => {
+      addActivityLog('info', 'Cleaning recent player names (rostered only)...')
+    },
+    onSuccess: (data: { recent_players?: number; names_updated?: number }) => {
+      addActivityLog(
+        'success',
+        'Player names cleaned',
+        `${data?.names_updated ?? 0} updated of ${data?.recent_players ?? 0} recent players`
+      )
+      refetchHealth()
+      refetchStatus()
+      refetchTeamsStatus()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Clean recent names failed', error.message)
+    }
+  })
+
+  const refreshDefensiveRanksMutation = useMutation({
+    mutationFn: () => refreshDefensiveRanks(scanParams.season),
+    onMutate: () => {
+      addActivityLog('info', 'Refreshing defensive ranks cache...', `Season: ${scanParams.season}`)
+    },
+    onSuccess: (data: { teamsRanked?: number }) => {
+      addActivityLog(
+        'success',
+        'Defensive ranks refreshed',
+        `${data?.teamsRanked ?? 0} teams cached (24h)`
+      )
+      refetchCacheStatus()
+      refetchHealth()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Defensive ranks refresh failed', error.message)
     }
   })
 
@@ -1383,6 +1436,30 @@ export default function AdminDashboard() {
             </button>
           </div>
         </div>
+
+      {/* Player & context */}
+      <div className="mt-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
+        <div className="mb-2">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Player & context</h2>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Clean names and refresh opponent defense ranks for player profiles</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => cleanRecentNamesMutation.mutate()}
+            disabled={cleanRecentNamesMutation.isPending}
+            className="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 text-amber-900 dark:text-amber-300 text-xs font-medium rounded-lg disabled:opacity-50 border border-amber-300 dark:border-amber-700 transition-colors duration-200"
+          >
+            {cleanRecentNamesMutation.isPending ? 'Running...' : 'Clean recent player names'}
+          </button>
+          <button
+            onClick={() => refreshDefensiveRanksMutation.mutate()}
+            disabled={refreshDefensiveRanksMutation.isPending}
+            className="px-3 py-1.5 bg-sky-100 dark:bg-sky-900/30 hover:bg-sky-200 dark:hover:bg-sky-900/50 text-sky-900 dark:text-sky-300 text-xs font-medium rounded-lg disabled:opacity-50 border border-sky-300 dark:border-sky-700 transition-colors duration-200"
+          >
+            {refreshDefensiveRanksMutation.isPending ? 'Refreshing...' : 'Refresh defensive ranks'}
+          </button>
+        </div>
+      </div>
 
       {/* Team Management */}
       <div className="mt-3 rounded-2xl bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-4 transition-colors duration-200">
