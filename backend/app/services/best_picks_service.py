@@ -64,12 +64,12 @@ def _scan_player(
     target_date: str,
     n_recent: int = 10,
 ) -> List[Dict[str, Any]]:
-    """Return the best pick per stat-type for one player."""
+    """Return the best pick per stat-type for one player. Uses line search when possible; falls back to average-based picks."""
     try:
         logs = NBADataService.fetch_player_game_log(player_id, season)
-        if not logs or len(logs) < 5:
+        if not logs or len(logs) < 3:
             return []
-        if _avg_minutes(logs) < 22.0:
+        if _avg_minutes(logs) < 18.0:
             return []
         logs = _enrich_pra(logs)
     except Exception:
@@ -77,9 +77,13 @@ def _scan_player(
 
     results: List[Dict[str, Any]] = []
     all_stats = STAT_TYPES + ["pra"]
+    # Only run line search when we have enough games; otherwise we'll use average-based only
+    min_games_for_line_search = 5
 
     for stat in all_stats:
         try:
+            if len(logs) < min_games_for_line_search:
+                continue
             for direction in ("over", "under"):
                 line, hr = PropBetEngine.find_best_line(logs, stat, direction, n_recent)
                 if hr < 0.55:
@@ -129,6 +133,56 @@ def _scan_player(
         key = r["type"]
         if key not in best_per_stat or r["confidence"] > best_per_stat[key]["confidence"]:
             best_per_stat[key] = r
+
+    # Average-based fallback: when no line met 0.55 hit rate, use season average as the line
+    # so we still show picks (props typically move around averages)
+    for stat in all_stats:
+        key = DISPLAY.get(stat, stat.upper())
+        if key in best_per_stat:
+            continue
+        try:
+            line = PropBetEngine.determine_line_value(logs, stat)
+            recent = logs[-n_recent:] if n_recent else logs
+            hr_over = StatsCalculator.calculate_hit_rate(recent, line, stat, "over")
+            hr_under = StatsCalculator.calculate_hit_rate(recent, line, stat, "under")
+            direction = "over" if hr_over >= hr_under else "under"
+            hr = hr_over if direction == "over" else hr_under
+
+            confidence = PropBetEngine.multi_factor_confidence(logs, stat, line, direction)
+            form = StatsCalculator.calculate_recent_form(logs, stat)
+            consistency = StatsCalculator.calculate_consistency(logs, stat, n_games=n_recent)
+            streak = StatsCalculator.calculate_streak(logs, stat, line, direction)
+
+            rationale = PropBetEngine.build_rationale_text(
+                hr, direction, line, form["trend"], consistency, streak, min(len(logs), n_recent)
+            )
+            rationale = "Based on season average. " + rationale
+
+            best_per_stat[key] = {
+                "type": key,
+                "playerId": player_id,
+                "playerName": player_name,
+                "marketLine": line,
+                "fairLine": line,
+                "confidence": confidence,
+                "suggestion": direction,
+                "hitRate": round(hr * 100, 1),
+                "sampleSize": min(len(logs), n_recent),
+                "streak": streak,
+                "consistency": round(consistency, 2),
+                "tier": _tier_label(confidence),
+                "rationale": rationale,
+                "gameDate": target_date,
+                "stats": {
+                    "hit_rate": hr,
+                    "recent": form,
+                    "consistency": round(consistency, 2),
+                    "streak": streak,
+                },
+            }
+        except Exception:
+            continue
+
     return list(best_per_stat.values())
 
 
