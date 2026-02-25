@@ -1,5 +1,6 @@
 """
-Local LLM Service - Uses local LLM (Ollama/LlamaCpp) for rationale generation
+Local LLM Service - Uses local or remote LLM (Ollama/LlamaCpp) for rationale generation.
+Supports Ollama on a VPS via OLLAMA_HOST (e.g. http://your-vps:11434).
 """
 from __future__ import annotations
 from typing import Dict, Optional, Any
@@ -8,8 +9,11 @@ from .base_llm import BaseLLMService
 
 try:
     import ollama
+    from ollama import Client as OllamaClient
     OLLAMA_AVAILABLE = True
 except ImportError:
+    ollama = None
+    OllamaClient = None
     OLLAMA_AVAILABLE = False
 
 try:
@@ -18,11 +22,20 @@ try:
 except ImportError:
     LLAMA_CPP_AVAILABLE = False
 
+# Default timeout for Ollama requests (remote VPS may be slower)
+OLLAMA_REQUEST_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "90"))
+
 
 class LocalLLMService(BaseLLMService):
-    """Local LLM service using Ollama or LlamaCpp"""
+    """Local or remote LLM service using Ollama or LlamaCpp"""
     
-    def __init__(self, provider: str = "ollama", model_name: str = "llama3.2", model_path: Optional[str] = None):
+    def __init__(
+        self,
+        provider: str = "ollama",
+        model_name: str = "llama3.2",
+        model_path: Optional[str] = None,
+        ollama_host: Optional[str] = None,
+    ):
         """
         Initialize local LLM service.
         
@@ -30,16 +43,23 @@ class LocalLLMService(BaseLLMService):
             provider: "ollama" or "llamacpp"
             model_name: Model name (for Ollama) or path (for LlamaCpp)
             model_path: Path to model file (for LlamaCpp)
+            ollama_host: Base URL for Ollama (e.g. http://vps-ip:11434). Uses OLLAMA_HOST env if None.
         """
         self.provider = provider.lower()
         self.model_name = model_name
         self.model_path = model_path
         self._available = False
         self._model = None
-        
+        self._ollama_client: Optional[Any] = None
+
         if self.provider == "ollama":
             if not OLLAMA_AVAILABLE:
                 raise ImportError("Ollama library not available. Install with: pip install ollama")
+            host = ollama_host or os.getenv("OLLAMA_HOST") or os.getenv("LLM_OLLAMA_BASE_URL")
+            if host:
+                self._ollama_client = OllamaClient(host=host, timeout=OLLAMA_REQUEST_TIMEOUT)
+            else:
+                self._ollama_client = OllamaClient(timeout=OLLAMA_REQUEST_TIMEOUT)
             self._available = True
         elif self.provider == "llamacpp":
             if not LLAMA_CPP_AVAILABLE:
@@ -96,7 +116,7 @@ class LocalLLMService(BaseLLMService):
         
         try:
             if self.provider == "ollama":
-                response = ollama.generate(
+                response = self._ollama_client.generate(
                     model=self.model_name,
                     prompt=prompt,
                     options={
@@ -104,7 +124,7 @@ class LocalLLMService(BaseLLMService):
                         "num_predict": 300
                     }
                 )
-                rationale = response["response"].strip()
+                rationale = response.response.strip() if hasattr(response, "response") else response.get("response", "").strip()
             elif self.provider == "llamacpp":
                 if not self._model:
                     raise RuntimeError("LlamaCpp model not loaded")
@@ -194,8 +214,7 @@ Stats:
         
         try:
             if self.provider == "ollama":
-                # Test with a simple prompt
-                test_response = ollama.generate(
+                test_response = self._ollama_client.generate(
                     model=self.model_name,
                     prompt="test",
                     options={"num_predict": 5}
@@ -204,7 +223,8 @@ Stats:
                     "available": True,
                     "provider": self.provider,
                     "model": self.model_name,
-                    "status": "healthy"
+                    "status": "healthy",
+                    "host": os.getenv("OLLAMA_HOST") or os.getenv("LLM_OLLAMA_BASE_URL") or "localhost",
                 }
             elif self.provider == "llamacpp":
                 if not self._model:

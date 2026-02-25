@@ -2,6 +2,7 @@
 Rationale Generator Service - Generates human-readable explanations for prop bets
 """
 from __future__ import annotations
+import os
 from typing import Dict, Optional, Any
 from .llm.base_llm import BaseLLMService
 from .llm.openai_service import OpenAIService
@@ -31,14 +32,20 @@ class RationaleGenerator:
             logger = structlog.get_logger()
             logger.warning("OpenAI service not available", error=str(e))
         
-        # Try local Ollama as fallback
+        # Try Ollama (local or VPS via OLLAMA_HOST / LLM_OLLAMA_BASE_URL) as fallback
         try:
-            ollama_service = LocalLLMService(provider="ollama", model_name="llama3.2")
+            ollama_host = os.getenv("OLLAMA_HOST") or os.getenv("LLM_OLLAMA_BASE_URL")
+            ollama_model = os.getenv("OLLAMA_MODEL", "llama3.2")
+            ollama_service = LocalLLMService(
+                provider="ollama",
+                model_name=ollama_model,
+                ollama_host=ollama_host,
+            )
             if ollama_service.is_available():
                 self.services.append(ollama_service)
                 import structlog
                 logger = structlog.get_logger()
-                logger.info("Ollama LLM service initialized")
+                logger.info("Ollama LLM service initialized", host=ollama_host or "localhost", model=ollama_model)
         except Exception as e:
             import structlog
             logger = structlog.get_logger()
