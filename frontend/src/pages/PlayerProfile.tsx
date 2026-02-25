@@ -521,28 +521,54 @@ export default function PlayerProfile() {
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
   })
 
-  // Extract opponent from most recent game
+  // Fetch today's games to use current match of the day for Defensive Matchup
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const { data: todayGamesData } = useQuery<{ games: { home: string; away: string; status?: string }[] }>({
+    queryKey: ['games-today', todayStr],
+    queryFn: async () => {
+      const res = await apiFetch(`api/v1/games/today?date=${todayStr}`)
+      if (!res.ok) return { games: [] }
+      return res.json()
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+
+  // Opponent: prefer today's match (current match of the day); fallback to last game's opponent
   const opponentTeamId = useMemo(() => {
-    if (!enrichedLogs.length || !teamsData?.items) return null
-    
+    if (!teamsData?.items) return null
+
+    const teams = teamsData.items
+    const playerTeamAbbr = teamId != null
+      ? (teams.find(t => t.id === teamId)?.abbreviation ?? null)
+      : null
+
+    // 1) If player has a game today, use today's opponent (current match of the day)
+    const todayGames = todayGamesData?.games ?? []
+    if (playerTeamAbbr && todayGames.length > 0) {
+      const abbrUpper = playerTeamAbbr.toUpperCase()
+      const todaysGame = todayGames.find(
+        g => (g.home?.toUpperCase() === abbrUpper) || (g.away?.toUpperCase() === abbrUpper)
+      )
+      if (todaysGame) {
+        const opponentAbbr =
+          (todaysGame.home?.toUpperCase() === abbrUpper ? todaysGame.away : todaysGame.home) ?? ''
+        if (opponentAbbr) {
+          const opponentTeam = teams.find(t => t.abbreviation?.toUpperCase() === opponentAbbr)
+          if (opponentTeam?.id) return opponentTeam.id
+        }
+      }
+    }
+
+    // 2) Fallback: opponent from most recent game in log
+    if (!enrichedLogs.length) return null
     const mostRecentGame = enrichedLogs[enrichedLogs.length - 1]
     const matchup = mostRecentGame.matchup || ''
-    
-    // Parse matchup string like "LAL vs. BOS" or "LAL @ BOS"
-    // Extract the opponent abbreviation
     const parts = matchup.split(/\s+(?:vs\.?|@)\s+/i)
     if (parts.length !== 2) return null
-    
-    // Get opponent abbreviation (second part)
     const opponentAbbr = parts[1].trim().toUpperCase()
-    
-    // Find opponent team by abbreviation
-    const opponentTeam = teamsData.items.find(t => 
-      t.abbreviation?.toUpperCase() === opponentAbbr
-    )
-    
-    return opponentTeam?.id || null
-  }, [enrichedLogs, teamsData])
+    const opponentTeam = teams.find(t => t.abbreviation?.toUpperCase() === opponentAbbr)
+    return opponentTeam?.id ?? null
+  }, [enrichedLogs, teamsData, todayGamesData, teamId, todayStr])
 
   // Fetch player context with H2H data
   // Cached for 6 hours on backend, so use cache aggressively on frontend

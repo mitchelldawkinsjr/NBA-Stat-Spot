@@ -5,7 +5,8 @@ from datetime import datetime, date
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..services.prop_scanner import PropScannerService
-from ..services.nba_api_service import NBADataService
+from ..models.players import Player
+from ..services.nba_api_service import NBADataService, _clean_player_name
 from ..services.daily_props_service import DailyPropsService
 from ..services.high_hit_rate_service import HighHitRateService
 from ..services.best_picks_service import BestPicksService
@@ -14,6 +15,7 @@ from ..services.data_integrity_service import DataIntegrityService
 from ..services.game_status_monitor import GameStatusMonitor
 from ..services.cache_service import get_cache_service
 from ..services.external_api_rate_limiter import get_rate_limiter
+from ..services.context_collector import ContextCollector
 from ..core.rate_limiter import limiter
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin_v1"])
@@ -140,6 +142,36 @@ def sync_players():
         return {"status": "success", "count": len(players)}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+@router.post("/players/clean-recent-names")
+def clean_recent_player_names(db: Session = Depends(get_db)):
+    """Clean full_name, first_name, last_name for recent players only (those with team_id set — on a roster this year or last)."""
+    try:
+        recent = db.query(Player).filter(Player.team_id.isnot(None)).all()
+        updated = 0
+        for p in recent:
+            if not p.full_name:
+                continue
+            cleaned = _clean_player_name(p.full_name)
+            if cleaned == (p.full_name or ""):
+                continue
+            p.full_name = cleaned
+            parts = cleaned.split()
+            if len(parts) >= 2:
+                p.first_name = parts[0]
+                p.last_name = " ".join(parts[1:])
+            elif len(parts) == 1:
+                p.first_name = parts[0]
+                p.last_name = ""
+            updated += 1
+        db.commit()
+        return {"status": "success", "recent_players": len(recent), "names_updated": updated}
+    except Exception as e:
+        if db:
+            db.rollback()
+        return {"status": "error", "message": str(e)}
+
 
 @router.post("/sync/teams")
 def sync_teams():
@@ -486,6 +518,26 @@ def refresh_stat_leaders(request: Request):
         return {"status": "error", "message": str(e)}
 
 
+@router.post("/refresh/defensive-ranks")
+@limiter.limit("5/hour")
+def refresh_defensive_ranks(
+    request: Request,
+    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+):
+    """Pre-compute opponent defense ranks (PTS/REB/AST) for all teams and cache for 24h.
+    Ensures Opponent Defense Rank cards on player profiles show values instead of —."""
+    try:
+        ranks = ContextCollector._calculate_defensive_ranks(season or "2025-26")
+        teams_count = len(ranks) if ranks else 0
+        return {
+            "status": "success",
+            "teamsRanked": teams_count,
+            "message": f"Cached defensive ranks for {teams_count} teams (24h)"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @router.post("/refresh/all")
 @limiter.limit("10/hour")
 def refresh_all(request: Request):
@@ -562,6 +614,16 @@ def refresh_all(request: Request):
         results["statLeaders"] = _compute_and_cache_stat_leaders()
     except Exception as e:
         results["statLeaders"] = {"status": "error", "message": str(e)}
+
+    # Pre-warm opponent defense ranks so Opponent Defense Rank cards show values
+    try:
+        ranks = ContextCollector._calculate_defensive_ranks("2025-26")
+        results["defensiveRanks"] = {
+            "status": "success",
+            "teamsRanked": len(ranks) if ranks else 0
+        }
+    except Exception as e:
+        results["defensiveRanks"] = {"status": "error", "message": str(e)}
 
     return {
         "status": "success",

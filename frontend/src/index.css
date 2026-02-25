@@ -74,32 +74,59 @@
   --panel-border: #334155;
 }
 
-html {
+/* Fix CSS variable scoping and strengthen border contrast */
+:root {
+  color: #111827;
   background-color: #ffffff;
+  --panel-bg: #ffffff;
+  --panel-border: #cbd5e1;
+}
+
+:root.dark,
+[data-mode="dark"] {
+  color: #f1f5f9;
+  background-color: #0f172a;
+  --panel-bg: #0f172a;
+  --panel-border: #475569;
+}
+
+html {
+  background-color: var(--panel-bg, #ffffff);
   transition: background-color 0.2s ease;
 }
 
 html.dark,
 html[data-mode="dark"] {
-  background-color: #0f172a;
+  background-color: var(--panel-bg, #0f172a);
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #ffffff !important;
+  background-color: var(--panel-bg, #ffffff) !important;
   color: #111827;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 html.dark body,
 html[data-mode="dark"] body {
-  background-color: #0f172a !important;
+  background-color: var(--panel-bg, #0f172a) !important;
   color: #f1f5f9;
 }
 
 #root {
   min-height: 100vh;
   background-color: inherit;
+}
+
+/* Improve border visibility for common panel/card containers */
+.card,
+.panel,
+.content-card,
+.content-panel,
+.dashboard-section,
+.glass-card,
+.section-card {
+  border: 1px solid var(--panel-border, #cbd5e1);
 }

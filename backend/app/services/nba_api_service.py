@@ -1,8 +1,25 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
-from datetime import datetime
+import re
 import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 from ..services.cache_service import get_cache_service
+
+
+def _clean_player_name(name: str) -> str:
+    """Clean a player name for display: strip, collapse spaces, normalize Jr./Sr./II/III/IV spacing.
+    Only applied to recent (rostered) players."""
+    if not name or not isinstance(name, str):
+        return name
+    s = name.strip()
+    if not s:
+        return name
+    # Collapse multiple spaces/newlines/tabs to single space
+    s = re.sub(r"\s+", " ", s)
+    # Ensure one space before common suffixes (Jr., Sr., II, III, IV)
+    s = re.sub(r"\s*(Jr\.?|Sr\.?|II|III|IV)\s*$", r" \1", s, flags=re.IGNORECASE)
+    return s.strip()
 
 try:
     from nba_api.stats.static import teams as static_teams
@@ -233,6 +250,22 @@ class NBADataService:
                         if name_key in espn_name_to_pos:
                             enriched["position"] = espn_name_to_pos[name_key]
                     all_players.append(enriched)
+
+        # Clean names for recent players only (on a team this year / current roster)
+        for p in all_players:
+            tid = p.get("team_id")
+            if tid is not None and tid != 0:
+                fn = p.get("full_name") or ""
+                if fn:
+                    cleaned = _clean_player_name(fn)
+                    p["full_name"] = cleaned
+                    parts = cleaned.split()
+                    if len(parts) >= 2:
+                        p["first_name"] = parts[0]
+                        p["last_name"] = " ".join(parts[1:])
+                    elif len(parts) == 1:
+                        p["first_name"] = parts[0]
+                        p["last_name"] = ""
 
         cache.set(cache_key, all_players, ttl=86400)
         return all_players
