@@ -817,12 +817,62 @@ class NBADataService:
                 logger = structlog.get_logger()
                 logger.warning("Live scoreboard failed", error=str(e))
         
+        # ESPN fallback: when NBA API returns no games (e.g. blocked on VPS, rate limit, or empty),
+        # use ESPN scoreboard so top-picks and daily props still get today's games.
+        if not games:
+            try:
+                from .espn_api_service import get_espn_service
+                espn = get_espn_service()
+                espn_date_str = today_et.strftime("%Y%m%d")
+                scoreboard_data = espn.get_scoreboard(date=espn_date_str)
+                if scoreboard_data and isinstance(scoreboard_data.get("events"), list):
+                    for event in scoreboard_data["events"]:
+                        try:
+                            comps = event.get("competitions") or []
+                            home_abbr = away_abbr = None
+                            for comp in comps:
+                                for c in comp.get("competitors") or []:
+                                    abbr = (c.get("team") or {}).get("abbreviation", "")
+                                    if (c.get("homeAway") or "").lower() == "home":
+                                        home_abbr = abbr
+                                    else:
+                                        away_abbr = abbr
+                            if home_abbr and away_abbr:
+                                status_obj = event.get("status") or {}
+                                status_id = str(status_obj.get("id", "1"))
+                                status_desc = (status_obj.get("description") or "").upper()
+                                if status_id == "3" or "FINAL" in status_desc or status_obj.get("completed"):
+                                    status = "FINAL"
+                                elif status_id == "2" or "IN PROGRESS" in status_desc or "LIVE" in status_desc:
+                                    status = "LIVE"
+                                else:
+                                    status = "SCHEDULED"
+                                games.append({
+                                    "gameId": str(event.get("id", "")),
+                                    "home": home_abbr,
+                                    "away": away_abbr,
+                                    "gameTimeUTC": event.get("date"),
+                                    "gameEt": event.get("date"),
+                                    "status": status,
+                                })
+                        except (KeyError, TypeError, IndexError):
+                            continue
+                    if games:
+                        import structlog
+                        _log = structlog.get_logger()
+                        _log.info("fetch_todays_games: using ESPN fallback", count=len(games), date=today_str)
+            except Exception as e:
+                import structlog
+                _log = structlog.get_logger()
+                _log.warning("ESPN fallback for todays_games failed", error=str(e))
+        
         # Note: Game status monitoring for cache invalidation is handled separately
         # via GameStatusMonitor.check_and_invalidate_finished_games() which can be
         # called periodically or via admin endpoint POST /api/v1/admin/cache/refresh/player-logs
         
-        # Cache for 24 hours
-        cache.set(cache_key, games, ttl=86400)
+        # Cache for 24 hours only when we have games (do not cache empty list so next request can try ESPN fallback)
+        if games:
+            cache.set(cache_key, games, ttl=86400)
         return games
     
     @staticmethod

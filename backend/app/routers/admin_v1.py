@@ -671,6 +671,22 @@ def clear_best_bets_cache():
     finally:
         db.close()
 
+@router.post("/cache/clear/todays-games")
+def clear_todays_games_cache():
+    """Clear today's games and top-picks cache so they refetch (e.g. after NBA API was empty and ESPN fallback is now used)."""
+    db = next(get_db())
+    try:
+        n = _cache.clear_pattern("nba_api:todays_games:*", db=db)
+        m = _cache.clear_pattern("top_picks:*", db=db)
+        return {
+            "status": "success",
+            "message": "Today's games and top-picks cache cleared; next request will refetch.",
+            "todays_games_cleared": n,
+            "top_picks_cleared": m
+        }
+    finally:
+        db.close()
+
 @router.post("/cache/clear/teams")
 def clear_teams_cache():
     """Clear teams and players cache"""
