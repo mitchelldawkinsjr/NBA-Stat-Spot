@@ -2,10 +2,11 @@
 Teams API Router - Team information and rosters
 """
 import structlog
-from fastapi import APIRouter, HTTPException, Path
-from typing import List, Dict, Any
+from fastapi import APIRouter, HTTPException, Path, Query
+from typing import List, Dict, Any, Optional
 from ..services.nba_api_service import NBADataService
 from ..services.team_player_service import TeamPlayerService
+from ..services.context_collector import ContextCollector
 
 router = APIRouter(prefix="/api/v1/teams", tags=["teams_v1"])
 logger = structlog.get_logger()
@@ -42,6 +43,50 @@ def list_teams():
             for t in teams
         ]
     }
+
+
+@router.get(
+    "/team-stats/ranks",
+    summary="Get team defense and offense ranks",
+    description="Returns defensive and offensive rankings (PTS, REB, AST, 3PM) for all teams. Defense = what team allows (lower rank = better D). Offense = what team scores (rank 1 = best).",
+    response_description="List of teams with def/off ranks",
+    tags=["teams_v1"]
+)
+def get_team_stats_ranks(
+    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+):
+    """Get team-level defense and offense ranks for all teams."""
+    try:
+        teams = NBADataService.fetch_all_teams() or []
+        def_ranks = ContextCollector._calculate_defensive_ranks(season or "2025-26")
+        off_ranks = ContextCollector._calculate_offensive_ranks(season or "2025-26")
+        items = []
+        for t in teams:
+            team_id = t.get("id")
+            if team_id is None:
+                continue
+            d = def_ranks.get(team_id) or {}
+            o = off_ranks.get(team_id) or {}
+            items.append({
+                "id": team_id,
+                "abbreviation": t.get("abbreviation"),
+                "full_name": t.get("full_name"),
+                "def_rank_pts": d.get("pts"),
+                "def_rank_reb": d.get("reb"),
+                "def_rank_ast": d.get("ast"),
+                "def_rank_3pm": d.get("3pm"),
+                "off_rank_pts": o.get("pts"),
+                "off_rank_reb": o.get("reb"),
+                "off_rank_ast": o.get("ast"),
+                "off_rank_3pm": o.get("3pm"),
+            })
+        return {"season": season or "2025-26", "items": items}
+    except Exception as e:
+        logger.error("team-stats ranks failed", error=str(e), exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="Team stats temporarily unavailable. Try again shortly.",
+        )
 
 
 @router.get(

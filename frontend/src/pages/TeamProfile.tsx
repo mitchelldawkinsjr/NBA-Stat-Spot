@@ -1,6 +1,27 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+} from 'recharts'
 import { apiFetch } from '../utils/api'
+
+const NUM_TEAMS = 30
+/** Convert rank (1=best) to "strength" (higher = better) for charting */
+function rankToStrength(rank: number | null): number {
+  if (rank == null) return 0
+  return Math.max(0, NUM_TEAMS + 1 - rank)
+}
 
 type Team = {
   id: number
@@ -19,10 +40,22 @@ type Player = {
   jersey_number?: string
 }
 
+type TeamStatsRanks = {
+  def_rank_pts: number | null
+  def_rank_reb: number | null
+  def_rank_ast: number | null
+  def_rank_3pm: number | null
+  off_rank_pts: number | null
+  off_rank_reb: number | null
+  off_rank_ast: number | null
+  off_rank_3pm: number | null
+}
+
 export default function TeamProfile() {
   const { id } = useParams()
   const [team, setTeam] = useState<Team | null>(null)
   const [roster, setRoster] = useState<Player[]>([])
+  const [teamStats, setTeamStats] = useState<TeamStatsRanks | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,14 +77,61 @@ export default function TeamProfile() {
         const data = await res.json()
         setTeam(data.team)
         setRoster(data.roster || [])
-      } catch (e: any) {
-        setError(e?.message || 'Error loading team')
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Error loading team')
       } finally {
         setLoading(false)
       }
     }
     fetchTeam()
   }, [id])
+
+  useEffect(() => {
+    const fetchTeamStats = async () => {
+      if (!id) return
+      try {
+        const res = await apiFetch('api/v1/teams/team-stats/ranks?season=2025-26')
+        if (!res.ok) return
+        const data = await res.json()
+        const item = (data.items || []).find((t: { id: number }) => Number(t.id) === Number(id))
+        if (item) {
+          setTeamStats({
+            def_rank_pts: item.def_rank_pts ?? null,
+            def_rank_reb: item.def_rank_reb ?? null,
+            def_rank_ast: item.def_rank_ast ?? null,
+            def_rank_3pm: item.def_rank_3pm ?? null,
+            off_rank_pts: item.off_rank_pts ?? null,
+            off_rank_reb: item.off_rank_reb ?? null,
+            off_rank_ast: item.off_rank_ast ?? null,
+            off_rank_3pm: item.off_rank_3pm ?? null,
+          })
+        }
+      } catch {
+        // Non-blocking; team stats are optional
+      }
+    }
+    fetchTeamStats()
+  }, [id])
+
+  const chartData = useMemo(() => {
+    if (!teamStats) return []
+    return [
+      { stat: 'PTS', defense: rankToStrength(teamStats.def_rank_pts), offense: rankToStrength(teamStats.off_rank_pts), defRank: teamStats.def_rank_pts, offRank: teamStats.off_rank_pts },
+      { stat: 'REB', defense: rankToStrength(teamStats.def_rank_reb), offense: rankToStrength(teamStats.off_rank_reb), defRank: teamStats.def_rank_reb, offRank: teamStats.off_rank_reb },
+      { stat: 'AST', defense: rankToStrength(teamStats.def_rank_ast), offense: rankToStrength(teamStats.off_rank_ast), defRank: teamStats.def_rank_ast, offRank: teamStats.off_rank_ast },
+      { stat: '3PM', defense: rankToStrength(teamStats.def_rank_3pm), offense: rankToStrength(teamStats.off_rank_3pm), defRank: teamStats.def_rank_3pm, offRank: teamStats.off_rank_3pm },
+    ].filter((d) => d.defense > 0 || d.offense > 0)
+  }, [teamStats])
+
+  const radarData = useMemo(() => {
+    if (!chartData.length) return []
+    return chartData.map((d) => ({
+      subject: d.stat,
+      Defense: d.defense,
+      Offense: d.offense,
+      fullMark: NUM_TEAMS,
+    }))
+  }, [chartData])
 
   if (loading) {
     return (
@@ -117,6 +197,96 @@ export default function TeamProfile() {
           </div>
         </div>
       </div>
+
+      {/* Team Stats (Defense & Offense Ranks) */}
+      {teamStats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3 transition-colors duration-200">Defense Ranks</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 transition-colors duration-200">Lower rank = better defense (fewer points/stats allowed)</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'PTS', value: teamStats.def_rank_pts },
+                { label: 'REB', value: teamStats.def_rank_reb },
+                { label: 'AST', value: teamStats.def_rank_ast },
+                { label: '3PM', value: teamStats.def_rank_3pm },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
+                  <span className="font-bold text-gray-900 dark:text-slate-100">{value != null ? `#${value}` : '—'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3 transition-colors duration-200">Offense Ranks</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 transition-colors duration-200">Rank 1 = best (most points/stats scored)</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'PTS', value: teamStats.off_rank_pts },
+                { label: 'REB', value: teamStats.off_rank_reb },
+                { label: 'AST', value: teamStats.off_rank_ast },
+                { label: '3PM', value: teamStats.off_rank_3pm },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
+                  <span className="font-bold text-gray-900 dark:text-slate-100">{value != null ? `#${value}` : '—'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Charts: Defense & Offense strength */}
+      {chartData.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">Defense & Offense by stat</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 transition-colors duration-200">Higher bar = better (rank 1 → strength 30)</p>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="stat" tick={{ fill: 'currentColor', fontSize: 12 }} stroke="#94a3b8" />
+                  <YAxis domain={[0, NUM_TEAMS]} tick={{ fill: 'currentColor', fontSize: 11 }} stroke="#94a3b8" />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'var(--tw-bg-opacity, 1)', borderRadius: 8 }}
+                    formatter={(value: number, name: string, item: unknown) => {
+                      const payload = (item as { payload?: { defRank?: number; offRank?: number } })?.payload
+                      const rank = name === 'Defense' ? payload?.defRank : payload?.offRank
+                      return [rank != null ? `Rank #${rank} (strength ${value})` : `Strength ${value}`, name]
+                    }}
+                    labelFormatter={(label) => `Stat: ${label}`}
+                  />
+                  <Legend />
+                  <Bar dataKey="defense" name="Defense" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="offense" name="Offense" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">Defense vs Offense profile</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 transition-colors duration-200">Shape comparison across PTS, REB, AST, 3PM</p>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={radarData} margin={{ top: 16, right: 16, bottom: 16, left: 16 }}>
+                  <PolarGrid stroke="#64748b" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: 'currentColor', fontSize: 12 }} />
+                  <PolarRadiusAxis angle={90} domain={[0, NUM_TEAMS]} tick={{ fill: 'currentColor', fontSize: 10 }} />
+                  <Radar name="Defense" dataKey="Defense" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.4} strokeWidth={2} />
+                  <Radar name="Offense" dataKey="Offense" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.4} strokeWidth={2} />
+                  <Legend />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'var(--tw-bg-opacity, 1)', borderRadius: 8 }}
+                    formatter={(value: number) => [`Strength ${value}`, '']}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Roster Section */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 transition-colors duration-200">

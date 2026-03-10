@@ -11,6 +11,7 @@ from ..services.high_hit_rate_service import HighHitRateService
 from ..services.best_picks_service import BestPicksService
 from ..services.stats_calculator import StatsCalculator
 from ..services.settings_service import SettingsService
+from ..services.cache_service import get_cache_service
 from ..core.rate_limiter import limiter
 
 router = APIRouter(prefix="/api/v1/props", tags=["props_v1"])
@@ -443,6 +444,81 @@ def daily_props(
             "cached": False
         }
 
+
+@router.get(
+    "/pick-of-the-day",
+    summary="Get AI Pick of the Day",
+    description="""
+    Returns the single best prop suggestion for today based on confidence.
+    Uses the same AI/ML pipeline as daily props when AI is enabled.
+    Cached per day (24h TTL).
+    """,
+    response_description="One pick (player + stat + line + direction) or null if no games.",
+    tags=["props_v1"]
+)
+def pick_of_the_day(
+    date: Optional[str] = Query(None, description="Target date YYYY-MM-DD. Defaults to today."),
+):
+    from datetime import datetime
+    from ..routers.admin_v1 import _get_daily_props_cache, _set_daily_props_cache
+
+    target_date = date or datetime.now().strftime("%Y-%m-%d")
+    cache = get_cache_service()
+    cache_key = f"pick_of_the_day:{target_date}"
+
+    # Try cache first
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return {"pick": cached, "cached": True, "date": target_date}
+
+    # Build candidate list: use daily props cache or fetch
+    items = []
+    cached_daily = _get_daily_props_cache(target_date)
+    if cached_daily:
+        items = cached_daily.get("items", [])
+    if not items:
+        try:
+            result = DailyPropsService.get_top_props_for_date(
+                date=target_date,
+                season="2025-26",
+                min_confidence=50.0,
+                limit=200,
+                last_n=10,
+            )
+            items = result.get("items", [])
+        except Exception:
+            items = []
+
+    # Filter to target date
+    items = [
+        i for i in items
+        if (i.get("gameDate") or i.get("game_date") or "").startswith(target_date[:10])
+    ]
+    if not items:
+        return {"pick": None, "cached": False, "date": target_date}
+
+    # Sort by confidence descending, take best
+    items.sort(key=lambda x: (x.get("confidence") or 0), reverse=True)
+    best = items[0]
+
+    pick = {
+        "playerId": best.get("playerId"),
+        "playerName": best.get("playerName"),
+        "type": best.get("type"),
+        "marketLine": best.get("marketLine") or best.get("fairLine"),
+        "fairLine": best.get("fairLine"),
+        "suggestion": best.get("suggestion", "over"),
+        "confidence": best.get("confidence"),
+        "rationale": best.get("rationale"),
+        "gameDate": best.get("gameDate") or best.get("game_date"),
+        "confidenceSource": best.get("confidenceSource"),
+        "rationaleSource": best.get("rationaleSource"),
+        "mlAvailable": best.get("mlAvailable"),
+    }
+    cache.set(cache_key, pick, ttl=86400)
+    return {"pick": pick, "cached": False, "date": target_date}
+
+
 @router.get(
     "/player/{player_id}",
     summary="Get basic prop suggestions for a player",
@@ -775,15 +851,33 @@ def top_picks(
     date: Optional[str] = Query(None, description="Date YYYY-MM-DD, defaults to today"),
     season: Optional[str] = Query(None, description="Season string e.g. 2025-26"),
     limit: int = Query(20, description="Max results", ge=1),
+    refresh: bool = Query(False, description="If true, skip cache and refetch (use when cached result is empty)"),
 ):
     from datetime import datetime as _dt
     from ..routers.admin_v1 import _cache
 
     target = date or _dt.now().strftime("%Y-%m-%d")
     cache_key = f"top_picks:{target}"
-    cached = _cache.get(cache_key)
+    cached = None if refresh else _cache.get(cache_key)
     if cached:
         items = cached.get("items", [])
+        # Self-heal: if cache has no items but there are games today, refetch (e.g. stale cache from before ESPN fallback)
+        if not items:
+            games = NBADataService.fetch_todays_games() or []
+            games = [g for g in games if g.get("home") and g.get("away")]
+            if games:
+                try:
+                    _cache.delete(cache_key)
+                    result = BestPicksService.get_top_picks(date=date, season=season, limit=limit)
+                    if result.get("items"):
+                        _cache.set(cache_key, result, ttl=86400)
+                    result["cached"] = False
+                    if limit:
+                        result["items"] = (result.get("items") or [])[:limit]
+                    result["returned"] = len(result.get("items", []))
+                    return result
+                except Exception:
+                    pass
         if limit:
             items = items[:limit]
         return {**cached, "items": items, "returned": len(items), "cached": True}

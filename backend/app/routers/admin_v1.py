@@ -524,7 +524,7 @@ def refresh_defensive_ranks(
     request: Request,
     season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
 ):
-    """Pre-compute opponent defense ranks (PTS/REB/AST) for all teams and cache for 24h.
+    """Pre-compute opponent defense ranks (PTS/REB/AST/3PM) for all teams and cache for 24h.
     Ensures Opponent Defense Rank cards on player profiles show values instead of —."""
     try:
         ranks = ContextCollector._calculate_defensive_ranks(season or "2025-26")
@@ -533,6 +533,25 @@ def refresh_defensive_ranks(
             "status": "success",
             "teamsRanked": teams_count,
             "message": f"Cached defensive ranks for {teams_count} teams (24h)"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/refresh/offensive-ranks")
+@limiter.limit("5/hour")
+def refresh_offensive_ranks(
+    request: Request,
+    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+):
+    """Pre-compute team offense ranks (PTS/REB/AST/3PM) for all teams and cache for 24h."""
+    try:
+        ranks = ContextCollector._calculate_offensive_ranks(season or "2025-26")
+        teams_count = len(ranks) if ranks else 0
+        return {
+            "status": "success",
+            "teamsRanked": teams_count,
+            "message": f"Cached offensive ranks for {teams_count} teams (24h)"
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -615,7 +634,7 @@ def refresh_all(request: Request):
     except Exception as e:
         results["statLeaders"] = {"status": "error", "message": str(e)}
 
-    # Pre-warm opponent defense ranks so Opponent Defense Rank cards show values
+    # Pre-warm opponent defense and offense ranks
     try:
         ranks = ContextCollector._calculate_defensive_ranks("2025-26")
         results["defensiveRanks"] = {
@@ -624,6 +643,14 @@ def refresh_all(request: Request):
         }
     except Exception as e:
         results["defensiveRanks"] = {"status": "error", "message": str(e)}
+    try:
+        off_ranks = ContextCollector._calculate_offensive_ranks("2025-26")
+        results["offensiveRanks"] = {
+            "status": "success",
+            "teamsRanked": len(off_ranks) if off_ranks else 0
+        }
+    except Exception as e:
+        results["offensiveRanks"] = {"status": "error", "message": str(e)}
 
     return {
         "status": "success",

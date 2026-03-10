@@ -112,7 +112,9 @@ class DailyPropsService:
                     try:
                         from ..services.settings_service import SettingsService
                         ai_enabled = SettingsService.get_ai_enabled()
-                    except Exception:
+                    except Exception as e:
+                        import structlog
+                        structlog.get_logger().warning("Failed to read AI setting, defaulting to disabled", error=str(e))
                         ai_enabled = False
                     
                     # Map stat key to display format
@@ -131,6 +133,7 @@ class DailyPropsService:
                             if ai_enabled and game_date:
                                 try:
                                     from datetime import datetime
+                                    import structlog
                                     game_date_obj = datetime.strptime(game_date, "%Y-%m-%d").date() if isinstance(game_date, str) else game_date
                                     evaluation = PropBetEngine.evaluate_prop_with_ml(
                                         logs, stat_key, fair_line, direction,
@@ -140,6 +143,8 @@ class DailyPropsService:
                                         is_home_game=True,
                                         season=season
                                     )
+                                    if evaluation.get("confidence_source") == "ml_blended" or evaluation.get("rationale", {}).get("source") == "llm":
+                                        structlog.get_logger().debug("AI used for daily prop", player_id=player_id, stat=stat_key, confidence_source=evaluation.get("confidence_source"), rationale_source=evaluation.get("rationale", {}).get("source"))
                                 except Exception:
                                     # Fallback to rule-based if AI fails
                                     evaluation = PropBetEngine.evaluate_prop(logs, stat_key, fair_line, direction)
@@ -154,6 +159,7 @@ class DailyPropsService:
                             # 1. The evaluation suggests this direction, OR
                             # 2. The confidence is high enough (>= 50) regardless of default suggestion
                             if eval_suggestion == direction or confidence >= 50:
+                                rationale_obj = evaluation.get("rationale", {})
                                 suggestion = {
                                     "type": display_map.get(stat_key, stat_key.upper()),
                                     "playerId": player_id,
@@ -162,11 +168,18 @@ class DailyPropsService:
                                     "fairLine": fair_line,
                                     "confidence": confidence,
                                     "suggestion": direction,
-                                    "rationale": evaluation.get("rationale", {}).get("summary", "Based on recent form and hit rate"),
+                                    "rationale": rationale_obj.get("summary", "Based on recent form and hit rate"),
                                     "stats": evaluation.get("stats", {}),
                                     "gameDate": game_date,
                                     "isHot": is_hot,
                                 }
+                                # Expose AI usage so frontend can show when AI was used
+                                if evaluation.get("confidence_source"):
+                                    suggestion["confidenceSource"] = evaluation.get("confidence_source")
+                                if rationale_obj.get("source"):
+                                    suggestion["rationaleSource"] = rationale_obj.get("source")
+                                if evaluation.get("ml_available"):
+                                    suggestion["mlAvailable"] = True
                                 suggestions.append(suggestion)
                         except Exception:
                             # Skip this direction if evaluation fails
@@ -318,6 +331,15 @@ class DailyPropsService:
             
             # Process ALL players on today's teams - comprehensive league-wide scan
             # No limit on players - we want to check everyone playing today
+            try:
+                from ..services.settings_service import SettingsService
+                import structlog
+                if SettingsService.get_ai_enabled():
+                    structlog.get_logger().info("Daily props: AI enabled — ML/LLM will be used for evaluations")
+                else:
+                    structlog.get_logger().info("Daily props: AI disabled — using rule-based evaluations only")
+            except Exception:
+                pass
             
             # Process players in parallel for better performance
             from concurrent.futures import ThreadPoolExecutor, as_completed

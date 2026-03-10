@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { QuickPropLab } from './QuickPropLab'
 import { DailyPropsPanel } from './DailyPropsPanel'
 import { SuggestionCards } from './SuggestionCards'
+import { PlayerAvatar } from './PlayerAvatar'
 import { PlayerNewsSection } from './PlayerNewsSection'
 import { useSeason } from '../context/SeasonContext'
 import { useSnackbar } from '../context/SnackbarContext'
@@ -87,6 +88,13 @@ async function fetchStatLeaders(season?: string) {
   const url = `api/v1/players/stat-leaders${params.toString() ? '?' + params.toString() : ''}`
   const res = await apiFetch(url)
   if (!res.ok) throw new Error('Failed to load stat leaders')
+  return res.json()
+}
+
+async function fetchPickOfTheDay(date?: string) {
+  const params = date ? `?date=${encodeURIComponent(date)}` : ''
+  const res = await apiFetch(`api/v1/props/pick-of-the-day${params}`)
+  if (!res.ok) throw new Error('Failed to load pick of the day')
   return res.json()
 }
 
@@ -194,8 +202,18 @@ export function GoodBetsDashboard() {
     retry: 1,
   })
 
-  // Hot form + high confidence props (players in good form, min 70% confidence)
   const gamesCount = gamesData?.games?.length ?? 0
+
+  const { data: pickOfTheDayData, isLoading: pickOfTheDayLoading } = useQuery({
+    queryKey: ['pick-of-the-day', today],
+    queryFn: () => fetchPickOfTheDay(today),
+    enabled: gamesCount > 0,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+  })
+  const pickOfTheDay = pickOfTheDayData?.pick ?? null
+
+  // Hot form + high confidence props (players in good form, min 70% confidence)
   const { data: hotFormData, isLoading: hotFormLoading } = useQuery({
     queryKey: ['daily-hot-form', today],
     queryFn: () => fetchHotFormProps(today, 70),
@@ -267,6 +285,7 @@ export function GoodBetsDashboard() {
       queryClient.invalidateQueries({ queryKey: ['daily-50', today] })
       queryClient.invalidateQueries({ queryKey: ['top-picks', today] })
       queryClient.invalidateQueries({ queryKey: ['daily-hot-form', today] })
+      queryClient.invalidateQueries({ queryKey: ['pick-of-the-day', today] })
       updateProgress(50)
 
       // Step 4: Refetch all data sources
@@ -373,6 +392,31 @@ export function GoodBetsDashboard() {
       .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
       .slice(0, 6)
   }, [dailyData, today, games.length])
+
+  // Hot players: from hot-form-only props (same tag logic as Players to Watch, backend isHot filter)
+  const hotPlayers = useMemo(() => {
+    const items = (hotFormData?.items ?? []) as any[]
+    const todayItems = items.filter((item) => {
+      const itemDate = item.gameDate || item.game_date
+      return itemDate && (itemDate === today || itemDate.startsWith(today))
+    })
+    const byPlayer = new Map<number, { id: number; name: string; tags: string[]; highlight: any; confidence: number }>()
+    for (const s of todayItems) {
+      if (!s.playerId) continue
+      const entry = byPlayer.get(s.playerId) || { id: s.playerId, name: s.playerName || 'Player', tags: [] as string[], highlight: s, confidence: s.confidence ?? 0 }
+      if ((s.confidence ?? 0) > entry.confidence) {
+        entry.highlight = s
+        entry.confidence = s.confidence ?? 0
+      }
+      if (s.type === 'PTS' && !entry.tags.includes('🔥 Hot Scoring')) entry.tags.push('🔥 Hot Scoring')
+      if ((s.confidence ?? 0) >= 65 && !entry.tags.includes('📈 Trending')) entry.tags.push('📈 Trending')
+      if (s.isHot && !entry.tags.includes('🔥 Hot')) entry.tags.push('🔥 Hot')
+      byPlayer.set(s.playerId, entry)
+    }
+    return Array.from(byPlayer.values())
+      .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+      .slice(0, 8)
+  }, [hotFormData, today, games.length])
 
   const statLeaders = useMemo(() => {
     // If "All" is selected, use league-wide stat leaders
@@ -666,6 +710,130 @@ export function GoodBetsDashboard() {
             )}
           </div>
 
+          {/* AI Pick of the Day — single best bet from today's props */}
+          <div className="p-3 sm:p-4 border-2 border-violet-200 dark:border-violet-800/50 rounded-xl bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-950/30 dark:to-indigo-950/20 shadow-md transition-colors duration-200">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl" aria-hidden>⭐</span>
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">AI Pick of the Day</h3>
+              {(pickOfTheDay?.confidenceSource === 'ml_blended' || pickOfTheDay?.rationaleSource === 'llm' || pickOfTheDay?.mlAvailable) && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-200 dark:bg-violet-800/50 text-violet-800 dark:text-violet-200 font-medium">AI</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 transition-colors duration-200">
+              Best prop for today based on confidence — same pipeline as daily props (ML/LLM when AI is on).
+            </p>
+            {pickOfTheDayLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <svg className="animate-spin h-6 w-6 text-violet-600" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading pick…</span>
+              </div>
+            ) : games.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center transition-colors duration-200">No games today.</p>
+            ) : !pickOfTheDay ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center transition-colors duration-200">No pick available for today. Try refreshing daily props in Admin.</p>
+            ) : (
+              <a
+                href={`/player/${pickOfTheDay.playerId}`}
+                className="block p-4 rounded-xl bg-white dark:bg-slate-800/80 border border-violet-200 dark:border-violet-800/50 hover:border-violet-400 dark:hover:border-violet-600 hover:shadow-lg transition-all duration-200"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-lg font-bold text-gray-900 dark:text-slate-100 truncate transition-colors duration-200">{pickOfTheDay.playerName}</div>
+                    <div className="mt-1 text-sm font-semibold text-violet-700 dark:text-violet-300 transition-colors duration-200">
+                      {pickOfTheDay.type} {pickOfTheDay.marketLine != null ? Number(pickOfTheDay.marketLine) : '—'}{' '}
+                      <span className={pickOfTheDay.suggestion === 'over' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
+                        {String(pickOfTheDay.suggestion).toUpperCase()}
+                      </span>
+                    </div>
+                    {pickOfTheDay.confidence != null && (
+                      <div className="mt-1.5 inline-flex items-center px-2.5 py-1 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-200 text-sm font-bold">
+                        {Math.round(Number(pickOfTheDay.confidence))}% confidence
+                      </div>
+                    )}
+                  </div>
+                  {pickOfTheDay.rationale && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 sm:max-w-[50%] sm:text-right transition-colors duration-200 line-clamp-3">
+                      {typeof pickOfTheDay.rationale === 'string' ? pickOfTheDay.rationale : (Array.isArray(pickOfTheDay.rationale) ? pickOfTheDay.rationale[0] : '')}
+                    </p>
+                  )}
+                </div>
+                <div className="mt-2 pt-2 border-t border-violet-100 dark:border-violet-800/30 text-[11px] text-gray-500 dark:text-gray-400 transition-colors duration-200">
+                  View full analysis →
+                </div>
+              </a>
+            )}
+          </div>
+
+          {/* Hot players — same tag concept as player profile (HOT form) */}
+          <div className="p-3 sm:p-4 border border-amber-200 dark:border-amber-800/50 rounded-lg bg-amber-50/30 dark:bg-amber-900/10 shadow-sm transition-colors duration-200">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg" aria-hidden>🔥</span>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Hot players</h3>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 transition-colors duration-200">
+              Players in hot form (recent &gt; season) with high-confidence props today — same tag as on player page
+            </p>
+            {hotFormLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <svg className="animate-spin h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">Loading…</span>
+              </div>
+            ) : games.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2 transition-colors duration-200">No games today.</p>
+            ) : hotPlayers.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2 transition-colors duration-200">No hot-form players for today.</p>
+            ) : (
+              <div className="overflow-x-auto -mx-4 px-4">
+                <div className="flex gap-3 min-w-max">
+                  {hotPlayers.map((p) => {
+                    const topConfidence = Math.round(p.highlight?.confidence ?? 0)
+                    const hasTopProp = topConfidence > 0
+                    return (
+                      <a
+                        key={p.id}
+                        href={`/player/${p.id}`}
+                        className={`flex-shrink-0 w-[160px] sm:w-[200px] rounded-xl border p-2.5 sm:p-3 hover:shadow-md transition-colors duration-200 ${hasTopProp ? 'border-amber-300 dark:border-amber-700/50 bg-amber-50/50 dark:bg-amber-900/20' : 'border-amber-200 dark:border-amber-800/30 bg-white dark:bg-slate-800/80'}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 truncate transition-colors duration-200">{p.name}</div>
+                            {hasTopProp && (
+                              <div className="mt-1 flex items-center gap-1.5">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-bold shadow-sm">
+                                  HOT
+                                </span>
+                                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 transition-colors duration-200">{topConfidence}%</span>
+                              </div>
+                            )}
+                            {hasTopProp && (
+                              <div className="mt-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">
+                                {p.highlight?.type} {p.highlight?.marketLine ?? p.highlight?.fairLine ?? '—'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {p.tags.map((t, i) => (
+                            <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 text-[11px] font-medium transition-colors duration-200">{t}</span>
+                          ))}
+                        </div>
+                        {!hasTopProp && (
+                          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">Hot form</div>
+                        )}
+                      </a>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Players to Watch */}
           <div className="p-3 sm:p-4 border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm transition-colors duration-200">
             <h3 className="text-base sm:text-lg font-semibold mb-3 text-gray-800 dark:text-slate-100 transition-colors duration-200">Players to Watch</h3>
@@ -688,7 +856,8 @@ export function GoodBetsDashboard() {
                     const hasTopProp = topConfidence > 0
                     return (
                       <a key={p.id} href={`/player/${p.id}`} className={`flex-shrink-0 w-[160px] sm:w-[200px] rounded-xl border p-2.5 sm:p-3 hover:shadow-sm transition ${hasTopProp ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200 bg-gray-50'}`}>
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2">
+                          <PlayerAvatar playerId={p.id} playerName={p.name} size="medium" className="flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold text-gray-900 truncate">{p.name}</div>
                             {hasTopProp && (
@@ -751,11 +920,14 @@ export function GoodBetsDashboard() {
                       href={`/player/${item.playerId}`}
                       className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white dark:bg-slate-800/80 border border-amber-100 dark:border-amber-800/30 hover:border-amber-300 dark:hover:border-amber-600/50 transition-colors"
                     >
-                      <div className="min-w-0">
-                        <span className="font-medium text-gray-900 dark:text-slate-100 truncate block">{item.playerName}</span>
-                        <span className="text-xs text-gray-600 dark:text-gray-400">
-                          {item.type} {item.marketLine ?? item.fairLine ?? '—'} {item.suggestion === 'over' ? 'OVER' : 'UNDER'}
-                        </span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <PlayerAvatar playerId={item.playerId} playerName={item.playerName} size="small" />
+                        <div className="min-w-0">
+                          <span className="font-medium text-gray-900 dark:text-slate-100 truncate block">{item.playerName}</span>
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            {item.type} {item.marketLine ?? item.fairLine ?? '—'} {item.suggestion === 'over' ? 'OVER' : 'UNDER'}
+                          </span>
+                        </div>
                       </div>
                       <span className="flex-shrink-0 text-sm font-bold text-amber-700 dark:text-amber-400">
                         {Math.round(item.confidence ?? 0)}%
@@ -782,56 +954,59 @@ export function GoodBetsDashboard() {
               <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Stat Leaders</h3>
               {/* Minimal toggle aligned to the right */}
               <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold transition-colors ${statLeadersFilterToday ? 'text-gray-500 dark:text-gray-400' : 'text-black dark:text-slate-100'}`}>
+                <span className={`text-xs font-bold transition-colors ${statLeadersFilterToday ? 'text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-white'}`}>
                   All
                 </span>
                 <button
                   onClick={() => setStatLeadersFilterToday(!statLeadersFilterToday)}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 ${
                     statLeadersFilterToday 
-                      ? 'bg-blue-800' 
-                      : 'bg-gray-500'
+                      ? 'bg-blue-600 dark:bg-blue-500' 
+                      : 'bg-gray-400 dark:bg-gray-500'
                   }`}
                   role="switch"
                   aria-checked={statLeadersFilterToday}
                   aria-label="Filter by today's games"
                 >
                   <span
-                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-200 ${
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
                       statLeadersFilterToday ? 'translate-x-5' : 'translate-x-0.5'
                     }`}
                   />
                 </button>
-                <span className={`text-xs font-bold transition-colors ${statLeadersFilterToday ? 'text-black' : 'text-gray-500'}`}>
+                <span className={`text-xs font-bold transition-colors ${statLeadersFilterToday ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                   Today
                 </span>
               </div>
             </div>
             {(dailyLoading || (leagueStatLeadersLoading && !statLeadersFilterToday)) ? (
-              <p className="text-gray-600">Loading…</p>
+              <p className="text-gray-600 dark:text-gray-400">Loading…</p>
             ) : leagueStatLeadersError && !statLeadersFilterToday ? (
-              <p className="text-xs text-red-600">Error loading stat leaders. Please try again.</p>
-            ) : (!statLeadersFilterToday || games.length > 0) ? (
+              <p className="text-xs text-red-600 dark:text-red-400">Error loading stat leaders. Please try again.</p>
+            ) : (statLeadersFilterToday && !gamesLoading && games.length === 0) ? (
+              <p className="text-gray-600 dark:text-gray-400">No games scheduled for today.</p>
+            ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {(['PTS','AST','REB','3PM'] as const).map((cat) => {
                   const leaders = statLeaders[cat] ?? []
                   return (
-                    <div key={cat} className="rounded-lg bg-gray-50 p-3 ring-1 ring-gray-200">
-                      <div className="text-xs font-bold text-gray-700 mb-2">{cat}</div>
+                    <div key={cat} className="rounded-lg bg-gray-50 dark:bg-slate-700/50 p-3 ring-1 ring-gray-200 dark:ring-slate-600">
+                      <div className="text-xs font-bold text-gray-700 dark:text-slate-200 mb-2">{cat}</div>
                       {leaders.length === 0 ? (
-                        <p className="text-xs text-gray-500">No data available</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">No data available</p>
                       ) : (
                         <ol className="space-y-1 text-sm">
                           {leaders.map((s: any, idx: number) => (
                             <li key={`${s.playerId}-${idx}`} className="flex items-center justify-between gap-2">
                               <a 
                                 href={`/player/${s.playerId}`} 
-                                className="text-gray-900 hover:text-blue-700 font-semibold truncate flex-1 min-w-0"
+                                className="flex items-center gap-2 text-gray-900 dark:text-slate-100 hover:text-blue-700 dark:hover:text-blue-400 font-semibold truncate flex-1 min-w-0"
                                 title={s.playerName || 'Player'}
                               >
-                                {s.playerName || 'Unknown Player'}
+                                <PlayerAvatar playerId={s.playerId} playerName={s.playerName} size="small" />
+                                <span className="truncate">{s.playerName || 'Unknown Player'}</span>
                               </a>
-                              <span className="text-gray-700 text-xs font-bold whitespace-nowrap">
+                              <span className="text-gray-700 dark:text-slate-200 text-xs font-bold whitespace-nowrap">
                                 {(s.fairLine ?? s.marketLine ?? 0).toFixed(1)}
                               </span>
                             </li>
@@ -842,8 +1017,6 @@ export function GoodBetsDashboard() {
                   )
                 })}
               </div>
-            ) : (
-              <p className="text-gray-600">No games scheduled for today.</p>
             )}
           </div>
         </div>

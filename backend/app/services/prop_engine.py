@@ -173,6 +173,9 @@ class PropBetEngine:
                     ml_confidence = model_server.predict_confidence(normalized_features)
                     ml_predicted_line = model_server.predict_line(normalized_features)
                     ml_available = ml_confidence is not None or ml_predicted_line is not None
+                    if ml_available:
+                        import structlog
+                        structlog.get_logger().debug("ML model used for prop", player_id=player_id, stat_type=stat_type, ml_confidence=ml_confidence)
             except Exception:
                 ml_available = False
 
@@ -238,7 +241,11 @@ class PropBetEngine:
                     espn_context=espn_context if espn_context else None,
                 )
                 result["rationale"]["llm"] = llm_rationale
-                result["rationale"]["source"] = "llm" if rationale_generator.is_available() else "rule_based"
+                llm_used = rationale_generator.is_available()
+                result["rationale"]["source"] = "llm" if llm_used else "rule_based"
+                if llm_used:
+                    import structlog
+                    structlog.get_logger().debug("LLM rationale generated", player_id=player_id, stat_type=stat_type)
             except Exception:
                 result["rationale"]["source"] = "rule_based"
 

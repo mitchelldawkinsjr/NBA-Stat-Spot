@@ -17,6 +17,7 @@ import { DataTable } from '../components/ui/DataTable'
 import type { DataTableColumn } from '../components/ui/DataTable'
 import { pearsonCorrelation } from '../utils/correlation'
 import { PageLoader } from '../components/LoadingSpinner'
+import { PlayerAvatar } from '../components/PlayerAvatar'
 import type { Team } from '../types/api'
 
 type GameLog = {
@@ -614,9 +615,12 @@ export default function PlayerProfile() {
       <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-white dark:bg-slate-800 shadow-xl ring-1 ring-gray-200 dark:ring-slate-700 mt-2 sm:mt-3 transition-colors duration-200">
         <div className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
-            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-slate-100 dark:bg-slate-700 ring-1 ring-gray-200 dark:ring-slate-600 flex items-center justify-center text-base sm:text-lg font-semibold text-slate-800 dark:text-slate-200 flex-shrink-0 transition-colors duration-200">
-              {(playerName || 'P').slice(0,1)}
-            </div>
+            <PlayerAvatar
+              playerId={id ? parseInt(id, 10) : 0}
+              playerName={playerName}
+              size="large"
+              className="ring-1 ring-gray-200 dark:ring-slate-600"
+            />
             <div className="min-w-0 flex-1">
               <h2 id="player-profile-title" className="text-base sm:text-lg md:text-xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 truncate transition-colors duration-200">{playerName ? playerName : 'Player'} Profile</h2>
               <div className="mt-0.5 flex items-center gap-2 flex-wrap">
@@ -1004,9 +1008,29 @@ export default function PlayerProfile() {
                                 ? `#${playerContext.opponent_defense.rank_ast}` 
                                 : '—' 
                             },
+                            { 
+                              label: '3PM Def Rank', 
+                              value: playerContext?.opponent_defense?.rank_3pm != null 
+                                ? `#${playerContext.opponent_defense.rank_3pm}` 
+                                : '—' 
+                            },
                           ]}
                         />
                       </div>
+                      {/* Opponent Offense (pace / scoring context) */}
+                      {(playerContext?.opponent_offense && (playerContext.opponent_offense.rank_pts != null || playerContext.opponent_offense.rank_3pm != null)) && (
+                        <div className="w-[180px] flex-none">
+                          <MatchupCard
+                            title="Opponent Offense Rank"
+                            stats={[
+                              { label: 'PTS Off Rank', value: playerContext.opponent_offense.rank_pts != null ? `#${playerContext.opponent_offense.rank_pts}` : '—' },
+                              { label: 'REB Off Rank', value: playerContext.opponent_offense.rank_reb != null ? `#${playerContext.opponent_offense.rank_reb}` : '—' },
+                              { label: 'AST Off Rank', value: playerContext.opponent_offense.rank_ast != null ? `#${playerContext.opponent_offense.rank_ast}` : '—' },
+                              { label: '3PM Off Rank', value: playerContext.opponent_offense.rank_3pm != null ? `#${playerContext.opponent_offense.rank_3pm}` : '—' },
+                            ]}
+                          />
+                        </div>
+                      )}
                       {/* Recent Form Card */}
                       <div className="w-[180px] flex-none">
                         <MatchupCard
@@ -1059,49 +1083,49 @@ export default function PlayerProfile() {
                       })()}
                       {/* Defensive Matchup Card */}
                       {(() => {
-                        // Calculate defensive rating from available data
+                        // Prefer opponent def rank (PTS) for rating when available; else H2H or conference rank
+                        const defRankPts = playerContext?.opponent_defense?.rank_pts
                         const opponentRank = playerContext?.opponent_performance?.conference_rank
                         const h2hGames = playerContext?.h2h?.games_played || 0
                         const h2hPts = playerContext?.h2h?.avg_pts
                         const seasonPts = seasonAverages.pts
                         
-                        // Calculate defensive rating:
                         let defensiveRating = '—'
-                        if (h2hPts != null && seasonPts > 0 && h2hGames > 0) {
+                        if (defRankPts != null) {
+                          // Lower rank = better defense = tougher matchup for our player
+                          if (defRankPts <= 8) defensiveRating = 'Tough'
+                          else if (defRankPts <= 16) defensiveRating = 'Neutral'
+                          else defensiveRating = 'Friendly'
+                        } else if (h2hPts != null && seasonPts > 0 && h2hGames > 0) {
                           const ptsDiff = seasonPts - h2hPts
-                          if (ptsDiff > 2) {
-                            defensiveRating = 'Strong'
-                          } else if (ptsDiff > 0) {
-                            defensiveRating = 'Moderate'
-                          } else if (ptsDiff > -2) {
-                            defensiveRating = 'Weak'
-                          } else {
-                            defensiveRating = 'Very Weak'
-                          }
+                          if (ptsDiff > 2) defensiveRating = 'Strong'
+                          else if (ptsDiff > 0) defensiveRating = 'Moderate'
+                          else if (ptsDiff > -2) defensiveRating = 'Weak'
+                          else defensiveRating = 'Very Weak'
                         } else if (opponentRank != null) {
-                          if (opponentRank <= 5) {
-                            defensiveRating = 'Strong'
-                          } else if (opponentRank <= 10) {
-                            defensiveRating = 'Moderate'
-                          } else {
-                            defensiveRating = 'Weak'
-                          }
+                          if (opponentRank <= 5) defensiveRating = 'Strong'
+                          else if (opponentRank <= 10) defensiveRating = 'Moderate'
+                          else defensiveRating = 'Weak'
                         }
                         
                         const primary = playerContext?.opponent_team_abbr || '—'
                         const historical = h2hGames > 0 ? `${h2hGames} games` : '—'
+                        const numTeams = 30
+                        const defSummary = defRankPts != null
+                          ? `Def #${defRankPts} of ${numTeams} (${defensiveRating})`
+                          : defensiveRating
                         
                         return (
                           <div className="w-[180px] flex-none bg-teal-50 dark:bg-teal-900/20 border-2 border-teal-200 dark:border-teal-700 rounded-lg p-3 transition-colors duration-200">
                             <div className="font-semibold text-teal-900 dark:text-teal-100 mb-2 text-xs transition-colors duration-200">Defensive Matchup</div>
                             <div className="text-[11px] text-teal-800 dark:text-teal-200 transition-colors duration-200">
-                              <span>Primary:</span> <span className="font-semibold">{primary}</span>
+                              <span>Opponent:</span> <span className="font-semibold">{primary}</span>
                             </div>
                             <div className="text-[11px] text-teal-800 dark:text-teal-200 mt-1 transition-colors duration-200">
-                              <span>Rating:</span> <span className="font-semibold">{defensiveRating}</span>
+                              <span>Rating:</span> <span className="font-semibold">{defSummary}</span>
                             </div>
                             <div className="text-[11px] text-teal-800 dark:text-teal-200 mt-1 transition-colors duration-200">
-                              <span>Historical:</span> <span className="font-semibold">{historical}</span>
+                              <span>H2H:</span> <span className="font-semibold">{historical}</span>
                             </div>
                           </div>
                         )

@@ -444,6 +444,28 @@ def get_player_context(
             season=season or "2025-26"
         )
         
+        # Enrich with full team performance for opponent (def_rank_3pm, offense ranks)
+        opponent_defense = {
+            "rank_pts": context.opponent_def_rank_pts,
+            "rank_reb": context.opponent_def_rank_reb,
+            "rank_ast": context.opponent_def_rank_ast,
+        }
+        opponent_offense = {}
+        if context.opponent_team_id:
+            try:
+                opp_perf = ContextCollector.get_team_performance(
+                    context.opponent_team_id, season=season or "2025-26"
+                )
+                opponent_defense["rank_3pm"] = opp_perf.get("def_rank_3pm")
+                opponent_offense = {
+                    "rank_pts": opp_perf.get("off_rank_pts"),
+                    "rank_reb": opp_perf.get("off_rank_reb"),
+                    "rank_ast": opp_perf.get("off_rank_ast"),
+                    "rank_3pm": opp_perf.get("off_rank_3pm"),
+                }
+            except Exception:
+                pass
+
         # Return context data
         return {
             "player_id": player_id,
@@ -461,11 +483,8 @@ def get_player_context(
                 "avg_ast": context.h2h_avg_ast,
                 "games_played": context.h2h_games_played
             },
-            "opponent_defense": {
-                "rank_pts": context.opponent_def_rank_pts,
-                "rank_reb": context.opponent_def_rank_reb,
-                "rank_ast": context.opponent_def_rank_ast
-            },
+            "opponent_defense": opponent_defense,
+            "opponent_offense": opponent_offense,
             "team_performance": {
                 "win_rate": context.team_win_rate,
                 "conference_rank": context.team_conference_rank,
@@ -482,6 +501,7 @@ def get_player_context(
             "player_id": player_id,
             "error": str(e),
             "h2h": {"avg_pts": None, "avg_reb": None, "avg_ast": None, "games_played": 0},
-            "opponent_defense": {"rank_pts": None, "rank_reb": None, "rank_ast": None}
+            "opponent_defense": {"rank_pts": None, "rank_reb": None, "rank_ast": None, "rank_3pm": None},
+            "opponent_offense": {"rank_pts": None, "rank_reb": None, "rank_ast": None, "rank_3pm": None}
         }
 

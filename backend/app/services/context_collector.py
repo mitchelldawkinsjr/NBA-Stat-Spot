@@ -262,7 +262,7 @@ class ContextCollector:
             teams_by_abbr = {t.get("abbreviation", "").upper(): t for t in teams if t.get("abbreviation")}
             
             # Dictionary to store what each team allows (opponent stats)
-            # Structure: {team_id: {"pts": [list of opponent pts], "reb": [...], "ast": [...]}}
+            # Structure: {team_id: {"pts": [...], "reb": [...], "ast": [...], "3pm": [...]}}
             team_defensive_stats: Dict[int, Dict[str, List[float]]] = {}
             stats_lock = threading.Lock()
             
@@ -270,7 +270,7 @@ class ContextCollector:
             for team in teams:
                 team_id = team.get("id")
                 if team_id:
-                    team_defensive_stats[team_id] = {"pts": [], "reb": [], "ast": []}
+                    team_defensive_stats[team_id] = {"pts": [], "reb": [], "ast": [], "3pm": []}
             
             # Sample size: 3 players per team, 15 games per player for better coverage
             players_per_team = 3
@@ -383,6 +383,7 @@ class ContextCollector:
                         opp_pts_total = 0.0
                         opp_reb_total = 0.0
                         opp_ast_total = 0.0
+                        opp_3pm_total = 0.0
                         players_found = 0
                         
                         # Try to get stats from up to 2 opponent players
@@ -405,6 +406,7 @@ class ContextCollector:
                                     opp_pts_total += float(matching_game.get("pts", 0) or 0)
                                     opp_reb_total += float(matching_game.get("reb", 0) or 0)
                                     opp_ast_total += float(matching_game.get("ast", 0) or 0)
+                                    opp_3pm_total += float(matching_game.get("tpm", 0) or 0)
                                     players_found += 1
                             except Exception:
                                 continue
@@ -416,7 +418,8 @@ class ContextCollector:
                                 "team_id": team_id,
                                 "opp_pts": opp_pts_total,
                                 "opp_reb": opp_reb_total,
-                                "opp_ast": opp_ast_total
+                                "opp_ast": opp_ast_total,
+                                "opp_3pm": opp_3pm_total,
                             })
                     
                     # Log per-player stats for debugging (only for first few players to avoid spam)
@@ -466,6 +469,7 @@ class ContextCollector:
                                             team_defensive_stats[team_id]["pts"].append(stat["opp_pts"])
                                             team_defensive_stats[team_id]["reb"].append(stat["opp_reb"])
                                             team_defensive_stats[team_id]["ast"].append(stat["opp_ast"])
+                                            team_defensive_stats[team_id]["3pm"].append(stat.get("opp_3pm", 0.0))
                             completed += 1
                         except FutureTimeoutError:
                             logger.warning("Task timed out in defensive ranks calculation")
@@ -492,11 +496,13 @@ class ContextCollector:
                     pts_avg = sum(stats["pts"]) / len(stats["pts"])
                     reb_avg = sum(stats["reb"]) / len(stats["reb"]) if stats["reb"] else 0
                     ast_avg = sum(stats["ast"]) / len(stats["ast"]) if stats["ast"] else 0
+                    threepm_avg = sum(stats["3pm"]) / len(stats["3pm"]) if stats["3pm"] else 0.0
                     
                     team_averages[team_id] = {
                         "pts": pts_avg,
                         "reb": reb_avg,
-                        "ast": ast_avg
+                        "ast": ast_avg,
+                        "3pm": threepm_avg,
                     }
             
             logger.info("Team averages calculated", teams_ranked=len(team_averages), min_data_points=1)
@@ -505,6 +511,7 @@ class ContextCollector:
             pts_ranked = sorted(team_averages.items(), key=lambda x: x[1]["pts"])
             reb_ranked = sorted(team_averages.items(), key=lambda x: x[1]["reb"])
             ast_ranked = sorted(team_averages.items(), key=lambda x: x[1]["ast"])
+            threepm_ranked = sorted(team_averages.items(), key=lambda x: x[1]["3pm"])
             
             # Create rank dictionaries
             defensive_ranks: Dict[int, Dict[str, int]] = {}
@@ -524,6 +531,11 @@ class ContextCollector:
                     defensive_ranks[team_id] = {}
                 defensive_ranks[team_id]["ast"] = rank
             
+            for rank, (team_id, _) in enumerate(threepm_ranked, start=1):
+                if team_id not in defensive_ranks:
+                    defensive_ranks[team_id] = {}
+                defensive_ranks[team_id]["3pm"] = rank
+            
             # Cache for 24 hours
             cache.set(cache_key, defensive_ranks, ttl=86400)
             
@@ -532,7 +544,111 @@ class ContextCollector:
         except Exception as e:
             logger.warning("Error calculating defensive ranks", season=season, error=str(e))
             return {}
-    
+
+    @staticmethod
+    def _calculate_offensive_ranks(season: Optional[str] = None) -> Dict[int, Dict[str, int]]:
+        """
+        Calculate offensive rankings for all teams based on what they score (from player game logs).
+        Higher scoring = better offense = rank 1. Cached 24h.
+        Returns: {team_id: {"pts": rank, "reb": rank, "ast": rank, "3pm": rank}}
+        """
+        try:
+            cache = get_cache_service()
+            season_to_use = season or "2025-26"
+            cache_key = f"offensive_ranks:{season_to_use}:24h"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return cached
+
+            teams = NBADataService.fetch_all_teams()
+            if not teams:
+                return {}
+
+            # Per-team per-game totals: team_id -> game_date -> {pts, reb, ast, 3pm}
+            team_game_totals: Dict[int, Dict[str, Dict[str, float]]] = {}
+            for t in teams:
+                tid = t.get("id")
+                if tid:
+                    team_game_totals[tid] = {}
+
+            players_per_team = 5
+            games_per_player = 20
+            all_players = NBADataService.fetch_all_players_including_rookies()
+            players_by_team: Dict[int, List[Dict[str, Any]]] = {}
+            for p in all_players:
+                team_id = p.get("team_id")
+                if team_id:
+                    if team_id not in players_by_team:
+                        players_by_team[team_id] = []
+                    if len(players_by_team[team_id]) < players_per_team:
+                        players_by_team[team_id].append(p)
+
+            for team_id, team_players in players_by_team.items():
+                if team_id not in team_game_totals:
+                    continue
+                for player in team_players:
+                    player_id = player.get("id")
+                    if not player_id:
+                        continue
+                    try:
+                        logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
+                    except Exception:
+                        continue
+                    for g in logs[:games_per_player]:
+                        gd = g.get("game_date")
+                        if not gd:
+                            continue
+                        if gd not in team_game_totals[team_id]:
+                            team_game_totals[team_id][gd] = {"pts": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0}
+                        team_game_totals[team_id][gd]["pts"] += float(g.get("pts", 0) or 0)
+                        team_game_totals[team_id][gd]["reb"] += float(g.get("reb", 0) or 0)
+                        team_game_totals[team_id][gd]["ast"] += float(g.get("ast", 0) or 0)
+                        team_game_totals[team_id][gd]["3pm"] += float(g.get("tpm", 0) or 0)
+
+            # Averages per team (one value per game, then average)
+            team_averages: Dict[int, Dict[str, float]] = {}
+            for team_id, games in team_game_totals.items():
+                if not games:
+                    continue
+                n = len(games)
+                team_averages[team_id] = {
+                    "pts": sum(x["pts"] for x in games.values()) / n,
+                    "reb": sum(x["reb"] for x in games.values()) / n,
+                    "ast": sum(x["ast"] for x in games.values()) / n,
+                    "3pm": sum(x["3pm"] for x in games.values()) / n,
+                }
+
+            # Rank: higher average = better = rank 1 (reverse sort)
+            pts_ranked = sorted(team_averages.items(), key=lambda x: -x[1]["pts"])
+            reb_ranked = sorted(team_averages.items(), key=lambda x: -x[1]["reb"])
+            ast_ranked = sorted(team_averages.items(), key=lambda x: -x[1]["ast"])
+            threepm_ranked = sorted(team_averages.items(), key=lambda x: -x[1]["3pm"])
+
+            offensive_ranks: Dict[int, Dict[str, int]] = {}
+            for rank, (tid, _) in enumerate(pts_ranked, start=1):
+                if tid not in offensive_ranks:
+                    offensive_ranks[tid] = {}
+                offensive_ranks[tid]["pts"] = rank
+            for rank, (tid, _) in enumerate(reb_ranked, start=1):
+                if tid not in offensive_ranks:
+                    offensive_ranks[tid] = {}
+                offensive_ranks[tid]["reb"] = rank
+            for rank, (tid, _) in enumerate(ast_ranked, start=1):
+                if tid not in offensive_ranks:
+                    offensive_ranks[tid] = {}
+                offensive_ranks[tid]["ast"] = rank
+            for rank, (tid, _) in enumerate(threepm_ranked, start=1):
+                if tid not in offensive_ranks:
+                    offensive_ranks[tid] = {}
+                offensive_ranks[tid]["3pm"] = rank
+
+            cache.set(cache_key, offensive_ranks, ttl=86400)
+            logger.info("Offensive ranks calculation complete", teams_ranked=len(offensive_ranks))
+            return offensive_ranks
+        except Exception as e:
+            logger.warning("Error calculating offensive ranks", season=season, error=str(e))
+            return {}
+
     @staticmethod
     def get_team_performance(team_id: int, games: int = 10, season: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -617,6 +733,10 @@ class ContextCollector:
                     logger.warning("Fallback defensive ranks check also failed", team_id=team_id, error=str(fallback_error))
                     team_ranks = {}
             
+            # Offensive ranks (team's own scoring/reb/ast/3pm — higher = better offense)
+            offensive_ranks = ContextCollector._calculate_offensive_ranks(season_to_use)
+            off_ranks = offensive_ranks.get(team_id, {})
+            
             result = {
                 "win_rate": win_loss.get("win_percentage", 0.0),
                 "recent_form": recent_form,
@@ -627,11 +747,16 @@ class ContextCollector:
                 "avg_pts_allowed": None,  # Would need to calculate from game logs
                 "def_rank_pts": team_ranks.get("pts"),
                 "def_rank_reb": team_ranks.get("reb"),
-                "def_rank_ast": team_ranks.get("ast")
+                "def_rank_ast": team_ranks.get("ast"),
+                "def_rank_3pm": team_ranks.get("3pm"),
+                "off_rank_pts": off_ranks.get("pts"),
+                "off_rank_reb": off_ranks.get("reb"),
+                "off_rank_ast": off_ranks.get("ast"),
+                "off_rank_3pm": off_ranks.get("3pm"),
             }
             
             # Log the result for debugging
-            logger.debug("Team performance retrieved", team_id=team_id, def_rank_pts=result["def_rank_pts"], def_rank_reb=result["def_rank_reb"], def_rank_ast=result["def_rank_ast"])
+            logger.debug("Team performance retrieved", team_id=team_id, def_rank_pts=result["def_rank_pts"], def_rank_3pm=result["def_rank_3pm"], off_rank_pts=result["off_rank_pts"])
             
             # Cache for 6 hours (same as H2H)
             cache.set(cache_key, result, ttl=21600)
@@ -648,7 +773,12 @@ class ContextCollector:
             "avg_pts_allowed": None,
             "def_rank_pts": None,
             "def_rank_reb": None,
-            "def_rank_ast": None
+            "def_rank_ast": None,
+            "def_rank_3pm": None,
+            "off_rank_pts": None,
+            "off_rank_reb": None,
+            "off_rank_ast": None,
+            "off_rank_3pm": None,
         }
         # Cache error result for shorter time (1 hour)
         if team_id:

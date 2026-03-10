@@ -208,17 +208,23 @@ class NBADataService:
         # Check how many players actually got a team_id from CommonAllPlayers
         players_with_team = sum(1 for p in all_players if p.get("team_id") and p.get("team_id") != 0)
 
-        # Strategy 2: ESPN rosters — reliable fallback for team_id mapping
-        # Used when CommonAllPlayers failed or returned no team assignments
+        # Strategy 2: ESPN rosters — used to enrich team_id and to add current-roster-only players
+        # (rookies, 2–3 year players) without pulling in 1900s/historical from static.
         espn_name_to_nba_team: Dict[str, int] = {}
         espn_name_to_pos: Dict[str, str] = {}
-        if players_with_team < 100:
-            espn_name_to_nba_team, espn_name_to_pos = NBADataService._fetch_espn_roster_mapping()
+        espn_name_to_nba_team, espn_name_to_pos = NBADataService._fetch_espn_roster_mapping()
 
-        # Merge static players and enrich with ESPN team_id where needed
+        # Merge static players and enrich with ESPN team_id where needed.
+        # Only add current-roster players: never add full static list (contains 1900s/historical).
         if static_players is not None:
             static_players_list = static_players.get_players()
             static_players_by_id = {p.get("id"): p for p in static_players_list}
+            # Name → static player for matching ESPN names to NBA ids (lowercase full_name)
+            static_by_name_lower: Dict[str, Dict[str, Any]] = {}
+            for p in static_players_list:
+                fn = (p.get("full_name") or "").strip().lower()
+                if fn and fn not in static_by_name_lower:
+                    static_by_name_lower[fn] = p
 
             # Enrich existing players from CommonAllPlayers
             for player in all_players:
@@ -238,18 +244,25 @@ class NBADataService:
                         if not player.get("position") and name_key in espn_name_to_pos:
                             player["position"] = espn_name_to_pos[name_key]
 
-            # Add static players not already present
+            # Only add players who are on current rosters (ESPN), never the full static list.
+            # That avoids 1900s/historical players; ESPN + static name match adds rookies and
+            # 2–3 year players who may be missing from CommonAllPlayers.
             existing_ids = {p.get("id") for p in all_players}
-            for p in static_players_list:
-                if p.get("id") not in existing_ids:
-                    enriched = dict(p)
-                    name_key = (enriched.get("full_name") or "").strip().lower()
-                    if name_key in espn_name_to_nba_team:
-                        enriched["team_id"] = espn_name_to_nba_team[name_key]
-                        enriched["is_active"] = True
-                        if name_key in espn_name_to_pos:
-                            enriched["position"] = espn_name_to_pos[name_key]
+            for name_key, team_id in espn_name_to_nba_team.items():
+                sp = static_by_name_lower.get(name_key)
+                if sp and sp.get("id") not in existing_ids:
+                    enriched = {
+                        "id": sp.get("id"),
+                        "full_name": sp.get("full_name", ""),
+                        "first_name": sp.get("first_name", ""),
+                        "last_name": sp.get("last_name", ""),
+                        "team_id": team_id,
+                        "is_active": True,
+                        "position": espn_name_to_pos.get(name_key) or sp.get("position"),
+                        "jersey_number": sp.get("jersey_number"),
+                    }
                     all_players.append(enriched)
+                    existing_ids.add(sp.get("id"))
 
         # Clean names for recent players only (on a team this year / current roster)
         for p in all_players:

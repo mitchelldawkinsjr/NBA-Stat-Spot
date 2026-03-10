@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { analyzeAllGames } from '../services/overUnderService'
+import { analyzeAllGames, analyzeGame } from '../services/overUnderService'
 import type { GameAnalysisResult } from '../types/overUnder'
 import { apiFetch } from '../utils/api'
 
@@ -59,12 +59,7 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
       if (!gameId) {
         throw new Error('Game ID is missing')
       }
-      const response = await apiFetch(`api/v1/over-under/analyze/${gameId}?live_line=${line}`)
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to analyze game: ${response.status} ${errorText}`)
-      }
-      const data = await response.json()
+      const data = await analyzeGame(gameId, line)
       if (!data.analysis) {
         throw new Error('No analysis data returned')
       }

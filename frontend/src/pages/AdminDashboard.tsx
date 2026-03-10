@@ -129,6 +129,26 @@ async function refreshDefensiveRanks(season?: string) {
   return apiPost(endpoint)
 }
 
+async function clearTodaysGamesCache() {
+  return apiPost('/api/v1/admin/cache/clear/todays-games')
+}
+
+async function cacheCleanup() {
+  return apiPost('/api/v1/admin/cache/cleanup')
+}
+
+async function refreshStatLeaders() {
+  return apiPost('/api/v1/admin/refresh/stat-leaders')
+}
+
+async function refreshTopPicks() {
+  return apiPost('/api/v1/admin/refresh/top-picks')
+}
+
+async function fetchRateLimits() {
+  return apiGet('/api/v1/admin/rate-limits')
+}
+
 interface ActivityLog {
   id: string
   timestamp: Date
@@ -188,6 +208,12 @@ export default function AdminDashboard() {
     queryFn: fetchDataIntegrityStatus,
     refetchInterval: 60000, // Check every minute
     staleTime: 30000
+  })
+
+  const { data: rateLimits, refetch: refetchRateLimits } = useQuery({
+    queryKey: ['admin-rate-limits'],
+    queryFn: fetchRateLimits,
+    staleTime: 60000
   })
 
   // Auto-scroll activity log
@@ -546,6 +572,71 @@ export default function AdminDashboard() {
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Defensive ranks refresh failed', error.message)
+    }
+  })
+
+  const clearTodaysGamesCacheMutation = useMutation({
+    mutationFn: clearTodaysGamesCache,
+    onMutate: () => {
+      addActivityLog('info', 'Clearing today\'s games and top-picks cache...')
+    },
+    onSuccess: (data: { todays_games_cleared?: number; top_picks_cleared?: number }) => {
+      addActivityLog(
+        'success',
+        'Today\'s games & top-picks cache cleared',
+        `Games: ${data?.todays_games_cleared ?? 0}, Top picks: ${data?.top_picks_cleared ?? 0}`
+      )
+      refetchCacheStatus()
+      refetchHealth()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Clear today\'s games cache failed', error.message)
+    }
+  })
+
+  const cacheCleanupMutation = useMutation({
+    mutationFn: cacheCleanup,
+    onMutate: () => {
+      addActivityLog('info', 'Cleaning up expired cache entries...')
+    },
+    onSuccess: (data: { count?: number }) => {
+      addActivityLog('success', 'Cache cleanup completed', `${data?.count ?? 0} expired entries removed`)
+      refetchCacheStatus()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Cache cleanup failed', error.message)
+    }
+  })
+
+  const refreshStatLeadersMutation = useMutation({
+    mutationFn: refreshStatLeaders,
+    onMutate: () => {
+      addActivityLog('info', 'Refreshing stat leaders cache...')
+    },
+    onSuccess: (data: { total_entries?: number }) => {
+      addActivityLog('success', 'Stat leaders refreshed', `${data?.total_entries ?? 0} entries cached`)
+      refetchCacheStatus()
+      refetchHealth()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Stat leaders refresh failed', error.message)
+    }
+  })
+
+  const refreshTopPicksMutation = useMutation({
+    mutationFn: refreshTopPicks,
+    onMutate: () => {
+      addActivityLog('info', 'Refreshing top picks cache...')
+    },
+    onSuccess: (data: { count?: number }) => {
+      addActivityLog('success', 'Top picks refreshed', `Cached ${data?.count ?? 0} items`)
+      refetchCacheStatus()
+      refetchHealth()
+      queryClient.invalidateQueries({ queryKey: ['daily-50'] })
+      queryClient.invalidateQueries({ queryKey: ['high-hit-rate'] })
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Top picks refresh failed', error.message)
     }
   })
 
@@ -1364,11 +1455,71 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearHighHitRateCacheMutation.isSuccess || clearBestBetsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess) && (
+              <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
+                <button
+                  onClick={() => clearTodaysGamesCacheMutation.mutate()}
+                  disabled={clearTodaysGamesCacheMutation.isPending}
+                  className="px-3 py-2 text-xs bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 text-amber-900 dark:text-amber-300 rounded disabled:opacity-50 border border-amber-300 dark:border-amber-700 transition-colors duration-200"
+                  title="Clear today's games and top-picks cache (e.g. after NBA API was empty and ESPN fallback is now used)"
+                >
+                  {clearTodaysGamesCacheMutation.isPending ? 'Clearing...' : 'Clear Today\'s Games'}
+                </button>
+                <button
+                  onClick={() => cacheCleanupMutation.mutate()}
+                  disabled={cacheCleanupMutation.isPending}
+                  className="px-3 py-2 text-xs bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 rounded disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
+                  title="Remove expired cache entries"
+                >
+                  {cacheCleanupMutation.isPending ? 'Cleaning...' : 'Cache Cleanup'}
+                </button>
+                <button
+                  onClick={() => refreshStatLeadersMutation.mutate()}
+                  disabled={refreshStatLeadersMutation.isPending}
+                  className="px-3 py-2 text-xs bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-900 dark:text-indigo-300 rounded disabled:opacity-50 border border-indigo-300 dark:border-indigo-700 transition-colors duration-200"
+                  title="Pre-compute stat leaders from game logs"
+                >
+                  {refreshStatLeadersMutation.isPending ? 'Refreshing...' : 'Refresh Stat Leaders'}
+                </button>
+                <button
+                  onClick={() => refreshTopPicksMutation.mutate()}
+                  disabled={refreshTopPicksMutation.isPending}
+                  className="px-3 py-2 text-xs bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/50 text-violet-900 dark:text-violet-300 rounded disabled:opacity-50 border border-violet-300 dark:border-violet-700 transition-colors duration-200"
+                  title="Regenerate unified top-picks cache"
+                >
+                  {refreshTopPicksMutation.isPending ? 'Refreshing...' : 'Refresh Top Picks'}
+                </button>
+              </div>
+
+              {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearHighHitRateCacheMutation.isSuccess || clearBestBetsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess || clearTodaysGamesCacheMutation.isSuccess || cacheCleanupMutation.isSuccess || refreshStatLeadersMutation.isSuccess || refreshTopPicksMutation.isSuccess) && (
                 <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
-                  Cache cleared successfully. Next request will fetch fresh data.
+                  Cache cleared / refreshed successfully. Next request will use updated data.
                 </div>
               )}
+
+              {/* Rate limits (API-NBA, ESPN) */}
+              <div className="mt-3 p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600 transition-colors duration-200">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-xs font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Rate limits</h3>
+                  <button
+                    type="button"
+                    onClick={() => refetchRateLimits()}
+                    className="text-[10px] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-slate-100 transition-colors duration-200"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                {rateLimits?.providers && Object.keys(rateLimits.providers).length > 0 ? (
+                  <div className="flex flex-wrap gap-2 text-[10px] text-gray-600 dark:text-gray-400 transition-colors duration-200">
+                    {Object.entries(rateLimits.providers).map(([name, p]: [string, any]) => (
+                      <span key={name} className="px-1.5 py-0.5 bg-white dark:bg-slate-700 rounded border border-gray-200 dark:border-slate-600">
+                        {name}: {p?.used ?? '?'}/{p?.limit ?? '?'}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-gray-500 dark:text-gray-500 transition-colors duration-200">No rate limit data</div>
+                )}
+              </div>
             </div>
           </div>
         )}
