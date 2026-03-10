@@ -49,7 +49,6 @@ async function fetchDaily(minConfidence?: number, date?: string) {
 }
 
 async function fetchHotFormProps(date?: string, minConfidence = 70) {
-  const targetDate = date || getTodayDate()
   const params = new URLSearchParams()
   params.append('hot_form_only', 'true')
   params.append('min_confidence', String(minConfidence))
@@ -196,10 +195,11 @@ export function GoodBetsDashboard() {
   })
 
   // Hot form + high confidence props (players in good form, min 70% confidence)
+  const gamesCount = gamesData?.games?.length ?? 0
   const { data: hotFormData, isLoading: hotFormLoading } = useQuery({
     queryKey: ['daily-hot-form', today],
     queryFn: () => fetchHotFormProps(today, 70),
-    enabled: games.length > 0,
+    enabled: gamesCount > 0,
     staleTime: 15 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   })
