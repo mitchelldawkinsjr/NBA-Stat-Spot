@@ -31,34 +31,33 @@ def last_season_str() -> str:
 
 
 # CORS Configuration
+# Origins that must be allowed in production so the app and API at 360web.cloud and GitHub Pages work
+_CORS_SAFE_ORIGINS = [
+    "https://mitchelldawkinsjr.github.io",
+    "https://nba-stat-spot.360web.cloud",
+    "http://nba-stat-spot.360web.cloud",
+    "https://nba.360web.cloud",
+    "http://nba.360web.cloud",
+]
+
+
 def get_cors_origins() -> list[str]:
     """
     Get allowed CORS origins based on environment.
-    Returns list of allowed origins.
+    In production, always includes known app origins so /api/v1/props/daily etc. work from the frontend.
     """
-    # Check environment mode from ENV or ENVIRONMENT variable
     env_mode = os.getenv("ENV", os.getenv("ENVIRONMENT", "")).lower()
-    
-    # Determine if we're in development or production
-    # Default to development unless explicitly set to production
     is_development = env_mode not in ["production", "prod"]
-    
+
     if is_development:
-        # In development, allow all origins for easy local testing
         return ["*"]
-    
-    # In production, use configured origins from environment variable
+
+    # Merge CORS_ORIGINS with safe list so 360web and GitHub Pages are always allowed
+    origins_set: set[str] = set(_CORS_SAFE_ORIGINS)
     cors_origins_env = os.getenv("CORS_ORIGINS", "")
     if cors_origins_env:
-        origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
-        if origins:
-            return origins
-
-    # Fallback: allow known frontend origins so GitHub Pages + 360web work without env config
-    return [
-        "https://mitchelldawkinsjr.github.io",
-        "https://nba-stat-spot.360web.cloud",
-        "http://nba-stat-spot.360web.cloud",
-        "https://nba.360web.cloud",
-        "http://nba.360web.cloud",
-    ]
+        for origin in cors_origins_env.split(","):
+            o = origin.strip()
+            if o:
+                origins_set.add(o)
+    return list(origins_set)
