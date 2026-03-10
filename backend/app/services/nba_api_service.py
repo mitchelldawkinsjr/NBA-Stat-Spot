@@ -1,10 +1,26 @@
 from __future__ import annotations
+import json
+import os
 import re
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from ..services.cache_service import get_cache_service
+
+
+def _load_rookie_merge_list() -> List[Dict[str, Any]]:
+    """Load curated list of rookies (full_name, nba_id, team_abbr) not yet in nba_api static data."""
+    try:
+        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(app_dir, "data", "rookie_merge.json")
+        if not os.path.isfile(path):
+            return []
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
 
 
 def _clean_player_name(name: str) -> str:
@@ -89,11 +105,31 @@ except Exception:  # pragma: no cover
 
 
 class NBADataService:
+    # ESPN abbreviation -> NBA team ID (used for teams fallback and roster mapping)
+    ESPN_ABBR_TO_NBA_ID: Dict[str, int] = {
+        "ATL": 1610612737, "BOS": 1610612738, "BKN": 1610612751,
+        "CHA": 1610612766, "CHI": 1610612741, "CLE": 1610612739,
+        "DAL": 1610612742, "DEN": 1610612743, "DET": 1610612765,
+        "GS": 1610612744, "GSW": 1610612744,
+        "HOU": 1610612745, "IND": 1610612754,
+        "LAC": 1610612746, "LAL": 1610612747, "MEM": 1610612763,
+        "MIA": 1610612748, "MIL": 1610612749, "MIN": 1610612750,
+        "NO": 1610612740, "NOP": 1610612740,
+        "NY": 1610612752, "NYK": 1610612752,
+        "OKC": 1610612760, "ORL": 1610612753,
+        "PHI": 1610612755, "PHX": 1610612756,
+        "POR": 1610612757, "SAC": 1610612758,
+        "SA": 1610612759, "SAS": 1610612759,
+        "TOR": 1610612761,
+        "UTAH": 1610612762, "UTA": 1610612762,
+        "WSH": 1610612764, "WAS": 1610612764,
+    }
+
     @staticmethod
     def fetch_all_teams() -> List[Dict[str, Any]]:
         """
         Fetch all NBA teams. Cached for 24 hours with date-based key for daily invalidation.
-        Uses CacheService (Redis/SQLite) for persistence across container restarts.
+        Uses NBA API static data when available; falls back to ESPN so team pages always have data.
         """
         cache = get_cache_service()
         today_str = datetime.now().date().isoformat()
@@ -104,13 +140,40 @@ class NBADataService:
         if cached_data is not None:
             return cached_data
         
-        # Fetch if not cached
-        if static_teams is None:
-            return []
-        result = static_teams.get_teams()
+        result: List[Dict[str, Any]] = []
+        if static_teams is not None:
+            result = static_teams.get_teams()
         
-        # Cache for 24 hours (86400 seconds)
-        cache.set(cache_key, result, ttl=86400)
+        # Fallback to ESPN when NBA static teams unavailable or empty (e.g. in Docker without nba_api)
+        if not result:
+            try:
+                import requests as _req
+                resp = _req.get(
+                    "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+                    timeout=15,
+                )
+                data = resp.json()
+                espn_teams = data.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
+                for t in espn_teams:
+                    td = t.get("team", {})
+                    abbr = (td.get("abbreviation") or "").strip().upper()
+                    nba_id = NBADataService.ESPN_ABBR_TO_NBA_ID.get(abbr)
+                    if nba_id is None:
+                        continue
+                    result.append({
+                        "id": nba_id,
+                        "full_name": td.get("displayName") or td.get("name") or "",
+                        "abbreviation": abbr,
+                        "city": td.get("location") or td.get("nickname") or "",
+                        "nickname": td.get("nickname") or td.get("shortDisplayName") or "",
+                        "conference": None,
+                        "division": None,
+                    })
+            except Exception:
+                pass
+        
+        if result:
+            cache.set(cache_key, result, ttl=86400)
         return result
 
     @staticmethod
@@ -264,6 +327,30 @@ class NBADataService:
                     all_players.append(enriched)
                     existing_ids.add(sp.get("id"))
 
+        # Strategy 3: Curated merge — rookies on NBA.com/ESPN not yet in static_players
+        existing_ids = {p.get("id") for p in all_players}
+        for entry in _load_rookie_merge_list():
+            nba_id = entry.get("nba_id")
+            full_name = (entry.get("full_name") or "").strip()
+            if not nba_id or not full_name or nba_id in existing_ids:
+                continue
+            team_abbr = (entry.get("team_abbr") or "").strip().upper()
+            team_id = NBADataService.ESPN_ABBR_TO_NBA_ID.get(team_abbr) if team_abbr else None
+            if team_id is None and espn_name_to_nba_team:
+                team_id = espn_name_to_nba_team.get(full_name.lower())
+            name_parts = full_name.split()
+            all_players.append({
+                "id": nba_id,
+                "full_name": full_name,
+                "first_name": name_parts[0] if name_parts else "",
+                "last_name": " ".join(name_parts[1:]) if len(name_parts) > 1 else "",
+                "team_id": team_id,
+                "is_active": True,
+                "position": espn_name_to_pos.get(full_name.lower()) if espn_name_to_pos else None,
+                "jersey_number": None,
+            })
+            existing_ids.add(nba_id)
+
         # Clean names for recent players only (on a team this year / current roster)
         for p in all_players:
             tid = p.get("team_id")
@@ -290,26 +377,6 @@ class NBADataService:
         ESPN is fast and reliable even when stats.nba.com is down."""
         import requests as _req
 
-        # Map ESPN team abbreviation (upper) → NBA team_id
-        ESPN_ABBR_TO_NBA_ID: Dict[str, int] = {
-            "ATL": 1610612737, "BOS": 1610612738, "BKN": 1610612751,
-            "CHA": 1610612766, "CHI": 1610612741, "CLE": 1610612739,
-            "DAL": 1610612742, "DEN": 1610612743, "DET": 1610612765,
-            "GS":  1610612744, "GSW": 1610612744,
-            "HOU": 1610612745, "IND": 1610612754,
-            "LAC": 1610612746, "LAL": 1610612747, "MEM": 1610612763,
-            "MIA": 1610612748, "MIL": 1610612749, "MIN": 1610612750,
-            "NO":  1610612740, "NOP": 1610612740,
-            "NY":  1610612752, "NYK": 1610612752,
-            "OKC": 1610612760, "ORL": 1610612753,
-            "PHI": 1610612755, "PHX": 1610612756,
-            "POR": 1610612757, "SAC": 1610612758,
-            "SA":  1610612759, "SAS": 1610612759,
-            "TOR": 1610612761,
-            "UTAH": 1610612762, "UTA": 1610612762,
-            "WSH": 1610612764, "WAS": 1610612764,
-        }
-
         name_to_team: Dict[str, int] = {}
         name_to_pos: Dict[str, str] = {}
 
@@ -326,7 +393,7 @@ class NBADataService:
                 espn_team_id = td.get("id", "")
                 espn_abbr = (td.get("abbreviation") or "").upper()
 
-                nba_team_id = ESPN_ABBR_TO_NBA_ID.get(espn_abbr)
+                nba_team_id = NBADataService.ESPN_ABBR_TO_NBA_ID.get(espn_abbr)
                 if not nba_team_id:
                     continue
 
@@ -1053,5 +1120,53 @@ class NBADataService:
                 import structlog
                 logger = structlog.get_logger()
                 logger.warning("Live scoreboard failed for date", date=str(target_date), error=str(e))
+        
+        # ESPN fallback when NBA API returns no games (e.g. blocked on VPS or empty)
+        if not games:
+            try:
+                from .espn_api_service import get_espn_service
+                espn = get_espn_service()
+                espn_date_str = target_date.strftime("%Y%m%d")
+                scoreboard_data = espn.get_scoreboard(date=espn_date_str)
+                if scoreboard_data and isinstance(scoreboard_data.get("events"), list):
+                    for event in scoreboard_data["events"]:
+                        try:
+                            comps = event.get("competitions") or []
+                            home_abbr = away_abbr = None
+                            for comp in comps:
+                                for c in comp.get("competitors") or []:
+                                    abbr = (c.get("team") or {}).get("abbreviation", "")
+                                    if (c.get("homeAway") or "").lower() == "home":
+                                        home_abbr = abbr
+                                    else:
+                                        away_abbr = abbr
+                            if home_abbr and away_abbr:
+                                status_obj = event.get("status") or {}
+                                status_id = str(status_obj.get("id", "1"))
+                                status_desc = (status_obj.get("description") or "").upper()
+                                if status_id == "3" or "FINAL" in status_desc or status_obj.get("completed"):
+                                    status = "FINAL"
+                                elif status_id == "2" or "IN PROGRESS" in status_desc or "LIVE" in status_desc:
+                                    status = "LIVE"
+                                else:
+                                    status = "SCHEDULED"
+                                games.append({
+                                    "gameId": str(event.get("id", "")),
+                                    "home": home_abbr,
+                                    "away": away_abbr,
+                                    "gameTimeUTC": event.get("date"),
+                                    "gameEt": event.get("date"),
+                                    "status": status,
+                                })
+                        except (KeyError, TypeError, IndexError):
+                            continue
+                    if games:
+                        import structlog
+                        _log = structlog.get_logger()
+                        _log.info("fetch_games_for_date: using ESPN fallback", date=str(target_date), count=len(games))
+            except Exception as e:
+                import structlog
+                _log = structlog.get_logger()
+                _log.warning("ESPN fallback for fetch_games_for_date failed", date=str(target_date), error=str(e))
         
         return games

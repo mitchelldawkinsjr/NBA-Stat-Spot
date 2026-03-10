@@ -650,6 +650,181 @@ class ContextCollector:
             return {}
 
     @staticmethod
+    def _calculate_team_ranks_from_player_stats(
+        season: Optional[str] = None,
+    ) -> tuple[Dict[int, Dict[str, int]], Dict[int, Dict[str, int]]]:
+        """
+        Fallback: compute defensive and offensive ranks purely from player game logs.
+        Used when primary _calculate_defensive_ranks / _calculate_offensive_ranks return empty.
+        Returns (defensive_ranks, offensive_ranks); each is {team_id: {"pts": rank, "reb": rank, ...}}.
+        """
+        try:
+            cache = get_cache_service()
+            season_to_use = season or "2025-26"
+            cache_key = f"team_ranks_from_players_fallback:{season_to_use}:24h"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return cached.get("def", {}), cached.get("off", {})
+
+            teams = NBADataService.fetch_all_teams()
+            if not teams:
+                return {}, {}
+
+            teams_by_abbr: Dict[str, Dict[str, Any]] = {}
+            for t in teams:
+                abbr = (t.get("abbreviation") or "").strip().upper()
+                if abbr:
+                    teams_by_abbr[abbr] = t
+
+            team_game_totals: Dict[int, Dict[str, Dict[str, float]]] = {}
+            team_defensive_lists: Dict[int, Dict[str, List[float]]] = {}
+            for t in teams:
+                tid = t.get("id")
+                if tid:
+                    team_game_totals[tid] = {}
+                    team_defensive_lists[tid] = {"pts": [], "reb": [], "ast": [], "3pm": []}
+
+            players_per_team = 5
+            games_per_player = 20
+            all_players = NBADataService.fetch_all_players_including_rookies()
+            players_by_team: Dict[int, List[Dict[str, Any]]] = {}
+            for p in all_players:
+                team_id = p.get("team_id")
+                if team_id:
+                    if team_id not in players_by_team:
+                        players_by_team[team_id] = []
+                    if len(players_by_team[team_id]) < players_per_team:
+                        players_by_team[team_id].append(p)
+
+            for team_id, team_players in players_by_team.items():
+                if team_id not in team_game_totals:
+                    continue
+                for player in team_players:
+                    player_id = player.get("id")
+                    if not player_id:
+                        continue
+                    try:
+                        logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
+                    except Exception:
+                        continue
+                    for g in logs[:games_per_player]:
+                        gd = g.get("game_date")
+                        if not gd:
+                            continue
+                        if gd not in team_game_totals[team_id]:
+                            team_game_totals[team_id][gd] = {"pts": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0}
+                        team_game_totals[team_id][gd]["pts"] += float(g.get("pts", 0) or 0)
+                        team_game_totals[team_id][gd]["reb"] += float(g.get("reb", 0) or 0)
+                        team_game_totals[team_id][gd]["ast"] += float(g.get("ast", 0) or 0)
+                        team_game_totals[team_id][gd]["3pm"] += float(g.get("tpm", 0) or 0)
+
+                        # Defense: this game's opponent scoring = points allowed by team_id
+                        matchup = (g.get("matchup") or "").upper()
+                        opponent_abbr = None
+                        for sep in [" VS. ", " VS ", " @ ", " V "]:
+                            if sep in matchup:
+                                parts = matchup.split(sep)
+                                if len(parts) == 2:
+                                    opponent_abbr = parts[1].strip().strip(" .")
+                                    break
+                        if not opponent_abbr and team_id in team_defensive_lists:
+                            import re
+                            match = re.search(r"([A-Z]{2,4})\s+(?:VS\.?|@|V\.?)\s+([A-Z]{2,4})", matchup)
+                            if match:
+                                opponent_abbr = match.group(2).strip()
+                        if opponent_abbr:
+                            opponent_team = teams_by_abbr.get(opponent_abbr)
+                            if not opponent_team:
+                                for abbr, ot in teams_by_abbr.items():
+                                    if abbr.startswith(opponent_abbr[:2]) or opponent_abbr.startswith(abbr[:2]):
+                                        opponent_team = ot
+                                        break
+                            if opponent_team:
+                                opp_tid = opponent_team.get("id")
+                                opp_players = players_by_team.get(opp_tid, [])[:2]
+                                for opp_p in opp_players:
+                                    opp_pid = opp_p.get("id")
+                                    if not opp_pid:
+                                        continue
+                                    try:
+                                        opp_logs = NBADataService.fetch_player_game_log(opp_pid, season_to_use)
+                                        same_game = next((lg for lg in opp_logs if lg.get("game_date") == gd), None)
+                                        if same_game and team_id in team_defensive_lists:
+                                            team_defensive_lists[team_id]["pts"].append(float(same_game.get("pts", 0) or 0))
+                                            team_defensive_lists[team_id]["reb"].append(float(same_game.get("reb", 0) or 0))
+                                            team_defensive_lists[team_id]["ast"].append(float(same_game.get("ast", 0) or 0))
+                                            team_defensive_lists[team_id]["3pm"].append(float(same_game.get("tpm", 0) or 0))
+                                            break
+                                    except Exception:
+                                        continue
+                    except Exception:
+                        continue
+
+            # Offensive averages and ranks
+            team_off_avg: Dict[int, Dict[str, float]] = {}
+            for tid, games in team_game_totals.items():
+                if not games:
+                    continue
+                n = len(games)
+                team_off_avg[tid] = {
+                    "pts": sum(x["pts"] for x in games.values()) / n,
+                    "reb": sum(x["reb"] for x in games.values()) / n,
+                    "ast": sum(x["ast"] for x in games.values()) / n,
+                    "3pm": sum(x["3pm"] for x in games.values()) / n,
+                }
+            pts_o = sorted(team_off_avg.items(), key=lambda x: -x[1]["pts"])
+            reb_o = sorted(team_off_avg.items(), key=lambda x: -x[1]["reb"])
+            ast_o = sorted(team_off_avg.items(), key=lambda x: -x[1]["ast"])
+            pm3_o = sorted(team_off_avg.items(), key=lambda x: -x[1]["3pm"])
+            offensive_ranks: Dict[int, Dict[str, int]] = {}
+            for rank, (tid, _) in enumerate(pts_o, start=1):
+                offensive_ranks.setdefault(tid, {})["pts"] = rank
+            for rank, (tid, _) in enumerate(reb_o, start=1):
+                offensive_ranks.setdefault(tid, {})["reb"] = rank
+            for rank, (tid, _) in enumerate(ast_o, start=1):
+                offensive_ranks.setdefault(tid, {})["ast"] = rank
+            for rank, (tid, _) in enumerate(pm3_o, start=1):
+                offensive_ranks.setdefault(tid, {})["3pm"] = rank
+
+            # Defensive averages (lower = better) and ranks
+            team_def_avg: Dict[int, Dict[str, float]] = {}
+            for tid, lists in team_defensive_lists.items():
+                if not lists["pts"]:
+                    continue
+                n = len(lists["pts"])
+                team_def_avg[tid] = {
+                    "pts": sum(lists["pts"]) / n,
+                    "reb": sum(lists["reb"]) / n if lists["reb"] else 0,
+                    "ast": sum(lists["ast"]) / n if lists["ast"] else 0,
+                    "3pm": sum(lists["3pm"]) / n if lists["3pm"] else 0,
+                }
+            pts_d = sorted(team_def_avg.items(), key=lambda x: x[1]["pts"])
+            reb_d = sorted(team_def_avg.items(), key=lambda x: x[1]["reb"])
+            ast_d = sorted(team_def_avg.items(), key=lambda x: x[1]["ast"])
+            pm3_d = sorted(team_def_avg.items(), key=lambda x: x[1]["3pm"])
+            defensive_ranks: Dict[int, Dict[str, int]] = {}
+            for rank, (tid, _) in enumerate(pts_d, start=1):
+                defensive_ranks.setdefault(tid, {})["pts"] = rank
+            for rank, (tid, _) in enumerate(reb_d, start=1):
+                defensive_ranks.setdefault(tid, {})["reb"] = rank
+            for rank, (tid, _) in enumerate(ast_d, start=1):
+                defensive_ranks.setdefault(tid, {})["ast"] = rank
+            for rank, (tid, _) in enumerate(pm3_d, start=1):
+                defensive_ranks.setdefault(tid, {})["3pm"] = rank
+
+            cache.set(cache_key, {"def": defensive_ranks, "off": offensive_ranks}, ttl=86400)
+            logger.info(
+                "Team ranks from player stats fallback complete",
+                season=season_to_use,
+                def_teams=len(defensive_ranks),
+                off_teams=len(offensive_ranks),
+            )
+            return defensive_ranks, offensive_ranks
+        except Exception as e:
+            logger.warning("Team ranks from player stats fallback failed", season=season, error=str(e))
+            return {}, {}
+
+    @staticmethod
     def get_team_performance(team_id: int, games: int = 10, season: Optional[str] = None) -> Dict[str, Any]:
         """
         Get recent team performance metrics from ESPN standings.

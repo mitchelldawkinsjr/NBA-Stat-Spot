@@ -259,14 +259,22 @@ class DailyPropsService:
             # Use today's date in UTC to match frontend
             target_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         
-        # Get today's games (includes scheduled, live, and recently completed games)
+        # Get games for the target date (so frontend date and backend use the same day)
         try:
-            games = NBADataService.fetch_todays_games()
-            # Filter to include all games for today regardless of status
-            # (scheduled, in progress, or recently finished)
+            if date:
+                games = NBADataService.fetch_games_for_date(date)
+            else:
+                games = NBADataService.fetch_todays_games()
+            # Filter to include all games with home/away
             games = [g for g in games if g.get("home") and g.get("away")]
-        except Exception:
+        except Exception as e:
+            import structlog
+            structlog.get_logger().warning("daily_props: failed to fetch games", date=date, error=str(e))
             games = []
+        
+        import structlog
+        _log = structlog.get_logger()
+        _log.info("daily_props: games for date", target_date=target_date, games_count=len(games))
         
         # Extract team abbreviations from games
         team_abbrs = set()
@@ -278,6 +286,9 @@ class DailyPropsService:
         
         all_props: List[Dict] = []
         team_ids_today: set = set()  # Initialize outside the if block
+        
+        if not team_abbrs:
+            _log.warning("daily_props: no teams for date (no games or fetch failed)", target_date=target_date)
         
         if team_abbrs:
             # Map team abbreviations to team IDs
@@ -293,6 +304,7 @@ class DailyPropsService:
             }
             # Filter out None values
             team_ids_today = {tid for tid in team_ids_today if tid is not None}
+            _log.info("daily_props: teams playing", target_date=target_date, team_abbrs=len(team_abbrs), team_ids=len(team_ids_today))
             
             # Get all players (including rookies) who are on today's teams
             all_players = NBADataService.fetch_all_players_including_rookies() or []
@@ -328,6 +340,8 @@ class DailyPropsService:
                         todays_players.append(player)
                         if len(todays_players) >= 60:
                             break
+            
+            _log.info("daily_props: players on teams", target_date=target_date, todays_players=len(todays_players), all_players_total=len(all_players))
             
             # Process ALL players on today's teams - comprehensive league-wide scan
             # No limit on players - we want to check everyone playing today
@@ -502,6 +516,14 @@ class DailyPropsService:
         
         # Return top N
         top_props = ranked_props[:max(1, limit)]
+        
+        _log.info(
+            "daily_props: result",
+            target_date=target_date,
+            items_returned=len(top_props),
+            total_props=len(all_props),
+            hot_form_only=hot_form_only,
+        )
         
         return {
             "items": top_props,

@@ -55,11 +55,20 @@ def list_teams():
 def get_team_stats_ranks(
     season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
 ):
-    """Get team-level defense and offense ranks for all teams."""
+    """Get team-level defense and offense ranks for all teams. Uses player-stats fallback when primary ranks are empty."""
     try:
+        season_str = season or "2025-26"
         teams = NBADataService.fetch_all_teams() or []
-        def_ranks = ContextCollector._calculate_defensive_ranks(season or "2025-26")
-        off_ranks = ContextCollector._calculate_offensive_ranks(season or "2025-26")
+        def_ranks = ContextCollector._calculate_defensive_ranks(season_str)
+        off_ranks = ContextCollector._calculate_offensive_ranks(season_str)
+        if not def_ranks or not off_ranks:
+            def_fb, off_fb = ContextCollector._calculate_team_ranks_from_player_stats(season_str)
+            if not def_ranks and def_fb:
+                def_ranks = def_fb
+                logger.info("Using team ranks from player-stats fallback for defense", season=season_str)
+            if not off_ranks and off_fb:
+                off_ranks = off_fb
+                logger.info("Using team ranks from player-stats fallback for offense", season=season_str)
         items = []
         for t in teams:
             team_id = t.get("id")
