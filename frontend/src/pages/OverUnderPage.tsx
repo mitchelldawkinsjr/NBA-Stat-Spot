@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { analyzeAllGames, analyzeGame } from '../services/overUnderService'
 import type { GameAnalysisResult } from '../types/overUnder'
-import { apiFetch } from '../utils/api'
 
 const REFRESH_INTERVAL = 30000 // 30 seconds
 
