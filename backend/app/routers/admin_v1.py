@@ -538,6 +538,33 @@ def refresh_defensive_ranks(
         return {"status": "error", "message": str(e)}
 
 
+@router.get("/players/missing-from-espn")
+def players_missing_from_espn():
+    """
+    Compare ESPN current rosters to app player list. Returns names that appear on
+    ESPN rosters but are not in the app (e.g. rookies not yet in nba_api static data).
+    Add them to backend/app/data/rookie_merge.json with nba_id and team_abbr (from nba.com).
+    """
+    try:
+        espn_name_to_team, _ = NBADataService._fetch_espn_roster_mapping()
+        all_players = NBADataService.fetch_all_players_including_rookies() or []
+        app_names_lower = {(p.get("full_name") or "").strip().lower() for p in all_players if (p.get("full_name") or "").strip()}
+        # NBA team_id -> abbreviation (first abbr wins for duplicates)
+        id_to_abbr = {}
+        for abbr, tid in NBADataService.ESPN_ABBR_TO_NBA_ID.items():
+            if tid not in id_to_abbr:
+                id_to_abbr[tid] = abbr
+        missing = []
+        for name_lower, team_id in espn_name_to_team.items():
+            if name_lower and name_lower not in app_names_lower:
+                abbr = id_to_abbr.get(team_id, "")
+                missing.append({"name": name_lower.title(), "team_abbr": abbr, "team_id": team_id})
+        missing.sort(key=lambda x: (x["team_abbr"], x["name"]))
+        return {"missing": missing, "count": len(missing)}
+    except Exception as e:
+        return {"missing": [], "count": 0, "error": str(e)}
+
+
 @router.post("/refresh/offensive-ranks")
 @limiter.limit("5/hour")
 def refresh_offensive_ranks(

@@ -329,27 +329,34 @@ class NBADataService:
 
         # Strategy 3: Curated merge — rookies on NBA.com/ESPN not yet in static_players
         existing_ids = {p.get("id") for p in all_players}
-        for entry in _load_rookie_merge_list():
-            nba_id = entry.get("nba_id")
-            full_name = (entry.get("full_name") or "").strip()
-            if not nba_id or not full_name or nba_id in existing_ids:
-                continue
-            team_abbr = (entry.get("team_abbr") or "").strip().upper()
-            team_id = NBADataService.ESPN_ABBR_TO_NBA_ID.get(team_abbr) if team_abbr else None
-            if team_id is None and espn_name_to_nba_team:
-                team_id = espn_name_to_nba_team.get(full_name.lower())
-            name_parts = full_name.split()
-            all_players.append({
-                "id": nba_id,
-                "full_name": full_name,
-                "first_name": name_parts[0] if name_parts else "",
-                "last_name": " ".join(name_parts[1:]) if len(name_parts) > 1 else "",
-                "team_id": team_id,
-                "is_active": True,
-                "position": espn_name_to_pos.get(full_name.lower()) if espn_name_to_pos else None,
-                "jersey_number": None,
-            })
-            existing_ids.add(nba_id)
+        try:
+            for entry in _load_rookie_merge_list():
+                try:
+                    raw_id = entry.get("nba_id")
+                    nba_id = int(raw_id) if raw_id is not None else None
+                except (TypeError, ValueError):
+                    nba_id = None
+                full_name = (entry.get("full_name") or "").strip()
+                if not nba_id or not full_name or nba_id in existing_ids:
+                    continue
+                team_abbr = (entry.get("team_abbr") or "").strip().upper()
+                team_id = NBADataService.ESPN_ABBR_TO_NBA_ID.get(team_abbr) if team_abbr else None
+                if team_id is None and espn_name_to_nba_team:
+                    team_id = espn_name_to_nba_team.get(full_name.lower())
+                name_parts = full_name.split()
+                all_players.append({
+                    "id": nba_id,
+                    "full_name": full_name,
+                    "first_name": name_parts[0] if name_parts else "",
+                    "last_name": " ".join(name_parts[1:]) if len(name_parts) > 1 else "",
+                    "team_id": team_id,
+                    "is_active": True,
+                    "position": espn_name_to_pos.get(full_name.lower()) if espn_name_to_pos else None,
+                    "jersey_number": None,
+                })
+                existing_ids.add(nba_id)
+        except Exception:
+            pass  # Don't break the whole player list if merge fails
 
         # Clean names for recent players only (on a team this year / current roster)
         for p in all_players:

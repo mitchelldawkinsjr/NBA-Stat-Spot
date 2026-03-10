@@ -399,6 +399,7 @@ def daily_props(
         return {
             "items": all_items,
             "total": len(all_items),
+            "date": target_date_str,
             "cached": False
         }
     except Exception as e:
