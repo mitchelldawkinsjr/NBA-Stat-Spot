@@ -452,22 +452,22 @@ class ContextCollector:
                 return {}
             
             # Process in parallel with ThreadPoolExecutor
-            # Use 10 workers to balance speed vs API rate limits
+            # Use 10 workers to balance speed vs API rate limits; allow enough time for all 30 teams (90 tasks)
             logger.info("Starting defensive ranks calculation", total_tasks=len(tasks), season=season_to_use)
-            
+            overall_timeout = 600.0  # 10 minutes so all teams can complete (was 120s, often stopped at ~10 teams)
+            per_task_timeout = 15.0  # per-task timeout for slow API
+
             with ThreadPoolExecutor(max_workers=10) as executor:
                 # Submit all tasks
                 future_to_task = {
-                    executor.submit(process_team_player, task): task 
+                    executor.submit(process_team_player, task): task
                     for task in tasks
                 }
-                
-                # Collect results as they complete
                 completed = 0
                 try:
-                    for future in as_completed(future_to_task, timeout=120.0):  # 2 minute overall timeout
+                    for future in as_completed(future_to_task, timeout=overall_timeout):
                         try:
-                            game_stats = future.result(timeout=5.0)  # 5 second timeout per task
+                            game_stats = future.result(timeout=per_task_timeout)
                             if game_stats:
                                 with stats_lock:
                                     for stat in game_stats:
@@ -485,7 +485,10 @@ class ContextCollector:
                             logger.warning("Error processing task in defensive ranks", error=str(e))
                             continue
                 except FutureTimeoutError:
-                    logger.warning("Overall timeout reached in defensive ranks calculation", completed=completed, total=len(tasks))
+                    logger.warning(
+                        "Overall timeout reached in defensive ranks calculation",
+                        completed=completed, total=len(tasks), timeout_sec=overall_timeout,
+                    )
                     # Continue with whatever data we've collected so far
             
             logger.info("Completed defensive ranks calculation", completed=completed, total=len(tasks))
@@ -543,11 +546,24 @@ class ContextCollector:
                     defensive_ranks[team_id] = {}
                 defensive_ranks[team_id]["3pm"] = rank
             
+            # If we have fewer than 30 teams (e.g. due to earlier timeout or API gaps), fill missing from fallback
+            all_team_ids = {t.get("id") for t in teams if t.get("id")}
+            if all_team_ids and len(defensive_ranks) < len(all_team_ids):
+                try:
+                    def_fb, _ = ContextCollector._calculate_team_ranks_from_player_stats(season_to_use)
+                    for tid in all_team_ids:
+                        tid_int = int(tid)
+                        if tid_int not in defensive_ranks and tid_int in def_fb:
+                            defensive_ranks[tid_int] = def_fb[tid_int]
+                    logger.info("Filled missing defensive ranks from fallback", added=len(defensive_ranks) - len(team_averages), total_now=len(defensive_ranks))
+                except Exception as fb_err:
+                    logger.warning("Could not fill missing defensive ranks from fallback", error=str(fb_err))
+
             # Cache for 24 hours
             cache.set(cache_key, defensive_ranks, ttl=86400)
             # Also cache raw averages for matchup advantage score computation
             cache.set(f"defensive_avgs:{season_to_use}:24h", team_averages, ttl=86400)
-            
+
             logger.info("Defensive ranks calculation complete", teams_ranked=len(defensive_ranks))
             return defensive_ranks
         except Exception as e:
