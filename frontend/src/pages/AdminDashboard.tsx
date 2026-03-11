@@ -7,14 +7,6 @@ async function fetchHealth() {
   return apiGet('/api/v1/admin/health')
 }
 
-async function fetchScanStatus() {
-  return apiGet('/api/v1/admin/scan/status')
-}
-
-async function fetchBestBets() {
-  return apiGet('/api/v1/admin/best-bets')
-}
-
 async function fetchCacheStatus() {
   return apiGet('/api/v1/admin/cache/status')
 }
@@ -23,21 +15,12 @@ async function refreshDailyProps() {
   return apiPost('/api/v1/admin/refresh/daily-props?min_confidence=50&limit=50')
 }
 
-async function refreshHighHitRate() {
-  return apiPost('/api/v1/admin/refresh/high-hit-rate?min_hit_rate=0.75&limit=10&last_n=10')
-}
-
 async function refreshAll() {
   return apiPost('/api/v1/admin/refresh/all')
 }
 
-async function triggerScan(params: { season: string; minConfidence: number; limit: number }) {
-  const qs = new URLSearchParams({
-    season: params.season,
-    min_confidence: String(params.minConfidence),
-    limit: String(params.limit),
-  })
-  return apiPost(`/api/v1/admin/scan/best-bets?${qs}`)
+async function warmDashboard() {
+  return apiPost('/api/v1/admin/warm-dashboard')
 }
 
 async function syncPlayers() {
@@ -60,14 +43,6 @@ async function clearDailyPropsCache() {
   return apiPost('/api/v1/admin/cache/clear/daily-props')
 }
 
-async function clearHighHitRateCache() {
-  return apiPost('/api/v1/admin/cache/clear/high-hit-rate')
-}
-
-async function clearBestBetsCache() {
-  return apiPost('/api/v1/admin/cache/clear/best-bets')
-}
-
 async function clearTeamsCache() {
   return apiPost('/api/v1/admin/cache/clear/teams')
 }
@@ -86,15 +61,6 @@ async function refreshDailyPropsCustom(params: { minConfidence: number; limit: n
     limit: String(params.limit),
   })
   return apiPost(`/api/v1/admin/refresh/daily-props?${qs}`)
-}
-
-async function refreshHighHitRateCustom(params: { minHitRate: number; limit: number; lastN: number }) {
-  const qs = new URLSearchParams({
-    min_hit_rate: String(params.minHitRate),
-    limit: String(params.limit),
-    last_n: String(params.lastN),
-  })
-  return apiPost(`/api/v1/admin/refresh/high-hit-rate?${qs}`)
 }
 
 async function runDataIntegrityCheck(season?: string) {
@@ -183,9 +149,8 @@ interface ActivityLog {
 
 export default function AdminDashboard() {
   const queryClient = useQueryClient()
-  const [scanParams, setScanParams] = useState({ season: '2025-26', minConfidence: 65, limit: 50 })
+  const [integritySeason, setIntegritySeason] = useState('2025-26')
   const [dailyPropsParams, setDailyPropsParams] = useState({ minConfidence: 50, limit: 50 })
-  const [highHitRateParams, setHighHitRateParams] = useState({ minHitRate: 0.75, limit: 10, lastN: 10 })
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [activityLog, setActivityLog] = useState<ActivityLog[]>([])
   const logEndRef = useRef<HTMLDivElement>(null)
@@ -194,18 +159,6 @@ export default function AdminDashboard() {
     queryKey: ['admin-health'], 
     queryFn: fetchHealth, 
     refetchInterval: 30000,
-    staleTime: 10000
-  })
-  const { data: scanStatus, isLoading: scanStatusLoading, error: scanStatusError, refetch: refetchStatus } = useQuery({ 
-    queryKey: ['scan-status'], 
-    queryFn: fetchScanStatus, 
-    refetchInterval: 10000,
-    staleTime: 5000
-  })
-  const { data: bestBetsData, isLoading: bestBetsLoading, error: bestBetsError, refetch: refetchBestBets } = useQuery({ 
-    queryKey: ['best-bets'], 
-    queryFn: fetchBestBets,
-    refetchInterval: 20000,
     staleTime: 10000
   })
   const { data: cacheStatus, isLoading: cacheStatusLoading, error: cacheStatusError, refetch: refetchCacheStatus } = useQuery({ 
@@ -256,21 +209,21 @@ export default function AdminDashboard() {
     setActivityLog(prev => [...prev.slice(-49), log]) // Keep last 50 entries
   }
 
-  const scanMutation = useMutation({
-    mutationFn: triggerScan,
+  const warmDashboardMutation = useMutation({
+    mutationFn: warmDashboard,
     onMutate: () => {
-      addActivityLog('info', 'Starting prop scan...', `Season: ${scanParams.season}, Min Confidence: ${scanParams.minConfidence}%, Limit: ${scanParams.limit}`)
+      addActivityLog('info', 'Warming dashboard (daily props, top picks, game predictions, stat leaders)...')
     },
     onSuccess: (data) => {
-      addActivityLog('success', `Scan completed successfully`, `Found ${data?.count || 0} best bets`)
-      setTimeout(() => {
-        refetchBestBets()
-        refetchStatus()
-        refetchCacheStatus()
-      }, 1000)
+      const results = data?.results || {}
+      addActivityLog('success', 'Dashboard warmed', Object.keys(results).map(k => `${k}: ${typeof results[k] === 'number' ? results[k] : results[k]?.count ?? results[k]}`).join(', '))
+      refetchCacheStatus()
+      refetchHealth()
+      queryClient.invalidateQueries({ queryKey: ['top-picks'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-props'] })
     },
     onError: (error: Error) => {
-      addActivityLog('error', 'Scan failed', error.message)
+      addActivityLog('error', 'Warm dashboard failed', error.message)
     }
   })
 
@@ -282,7 +235,6 @@ export default function AdminDashboard() {
     onSuccess: (data) => {
       addActivityLog('success', `Player sync completed`, `Synced ${data?.count || 0} players`)
       refetchHealth()
-      refetchStatus()
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Player sync failed', error.message)
@@ -297,7 +249,6 @@ export default function AdminDashboard() {
     onSuccess: (data) => {
       addActivityLog('success', `Team sync completed`, `Synced ${data?.count || 0} teams`)
       refetchHealth()
-      refetchStatus()
       refetchTeamsStatus()
     },
     onError: (error: Error) => {
@@ -311,30 +262,14 @@ export default function AdminDashboard() {
       addActivityLog('info', 'Refreshing daily props cache...')
     },
     onSuccess: (data) => {
-      addActivityLog('success', `Daily props refreshed`, `Cached ${data?.count || 0} props`)
+      addActivityLog('success', `Daily props refreshed`, `Cached ${data?.count ?? data?.message ?? 0} props`)
       refetchCacheStatus()
       refetchHealth()
-      queryClient.invalidateQueries({ queryKey: ['daily-50'] })
-      queryClient.invalidateQueries({ queryKey: ['high-hit-rate'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-props'] })
+      queryClient.invalidateQueries({ queryKey: ['top-picks'] })
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Daily props refresh failed', error.message)
-    }
-  })
-
-  const refreshHighHitRateMutation = useMutation({
-    mutationFn: refreshHighHitRate,
-    onMutate: () => {
-      addActivityLog('info', 'Refreshing high hit rate cache...')
-    },
-    onSuccess: (data) => {
-      addActivityLog('success', `High hit rate refreshed`, `Cached ${data?.count || 0} bets`)
-      refetchCacheStatus()
-      refetchHealth()
-      queryClient.invalidateQueries({ queryKey: ['high-hit-rate'] })
-    },
-    onError: (error: Error) => {
-      addActivityLog('error', 'High hit rate refresh failed', error.message)
     }
   })
 
@@ -345,16 +280,12 @@ export default function AdminDashboard() {
     },
     onSuccess: (data) => {
       const results = data?.results || {}
-      const dailyCount = results.dailyProps?.count || 0
-      const hitRateCount = results.highHitRate?.count || 0
-      const ranksCount = results.defensiveRanks?.teamsRanked
-      const parts = [`Daily Props: ${dailyCount}`, `High Hit Rate: ${hitRateCount}`]
-      if (typeof ranksCount === 'number') parts.push(`Defensive Ranks: ${ranksCount} teams`)
-      addActivityLog('success', `All services refreshed`, parts.join(', '))
+      const parts = Object.entries(results).map(([k, v]) => `${k}: ${typeof v === 'object' && v && 'count' in v ? (v as { count?: number }).count : v}`).filter(Boolean)
+      addActivityLog('success', 'All services refreshed', parts.slice(0, 8).join(', '))
       refetchCacheStatus()
       refetchHealth()
-      queryClient.invalidateQueries({ queryKey: ['daily-50'] })
-      queryClient.invalidateQueries({ queryKey: ['high-hit-rate'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-props'] })
+      queryClient.invalidateQueries({ queryKey: ['top-picks'] })
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Refresh all failed', error.message)
@@ -390,35 +321,6 @@ export default function AdminDashboard() {
     }
   })
 
-  const clearHighHitRateCacheMutation = useMutation({
-    mutationFn: clearHighHitRateCache,
-    onMutate: () => {
-      addActivityLog('warning', 'Clearing high hit rate cache...')
-    },
-    onSuccess: () => {
-      addActivityLog('success', 'High hit rate cache cleared')
-      refetchCacheStatus()
-    },
-    onError: (error: Error) => {
-      addActivityLog('error', 'Cache clear failed', error.message)
-    }
-  })
-
-  const clearBestBetsCacheMutation = useMutation({
-    mutationFn: clearBestBetsCache,
-    onMutate: () => {
-      addActivityLog('warning', 'Clearing best bets cache...')
-    },
-    onSuccess: () => {
-      addActivityLog('success', 'Best bets cache cleared')
-      refetchCacheStatus()
-      refetchBestBets()
-    },
-    onError: (error: Error) => {
-      addActivityLog('error', 'Cache clear failed', error.message)
-    }
-  })
-
   const clearTeamsCacheMutation = useMutation({
     mutationFn: clearTeamsCache,
     onMutate: () => {
@@ -445,8 +347,8 @@ export default function AdminDashboard() {
       addActivityLog('success', `AI features ${data.aiEnabled ? 'enabled' : 'disabled'}`)
       refetchAIStatus()
       // Invalidate queries to refresh data with new AI setting
-      queryClient.invalidateQueries({ queryKey: ['daily-50'] })
-      queryClient.invalidateQueries({ queryKey: ['high-hit-rate'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-props'] })
+      queryClient.invalidateQueries({ queryKey: ['top-picks'] })
       queryClient.invalidateQueries({ queryKey: ['props'] })
     },
     onError: (error: Error) => {
@@ -460,26 +362,11 @@ export default function AdminDashboard() {
       addActivityLog('info', 'Refreshing daily props with custom params...', `Min Confidence: ${dailyPropsParams.minConfidence}%, Limit: ${dailyPropsParams.limit}`)
     },
     onSuccess: (data) => {
-      addActivityLog('success', `Daily props refreshed (custom)`, `Cached ${data?.count || 0} props`)
+      addActivityLog('success', 'Daily props refreshed (custom)', String(data?.count ?? data?.message ?? ''))
       refetchCacheStatus()
       refetchHealth()
-      queryClient.invalidateQueries({ queryKey: ['daily-50'] })
-    },
-    onError: (error: Error) => {
-      addActivityLog('error', 'Custom refresh failed', error.message)
-    }
-  })
-
-  const refreshHighHitRateCustomMutation = useMutation({
-    mutationFn: refreshHighHitRateCustom,
-    onMutate: () => {
-      addActivityLog('info', 'Refreshing high hit rate with custom params...', `Min Hit Rate: ${highHitRateParams.minHitRate}, Limit: ${highHitRateParams.limit}, Last N: ${highHitRateParams.lastN}`)
-    },
-    onSuccess: (data) => {
-      addActivityLog('success', `High hit rate refreshed (custom)`, `Cached ${data?.count || 0} bets`)
-      refetchCacheStatus()
-      refetchHealth()
-      queryClient.invalidateQueries({ queryKey: ['high-hit-rate'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-props'] })
+      queryClient.invalidateQueries({ queryKey: ['top-picks'] })
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Custom refresh failed', error.message)
@@ -487,9 +374,9 @@ export default function AdminDashboard() {
   })
 
   const integrityCheckMutation = useMutation({
-    mutationFn: () => runDataIntegrityCheck(scanParams.season),
+    mutationFn: () => runDataIntegrityCheck(integritySeason),
     onMutate: () => {
-      addActivityLog('info', 'Running full data integrity check...', `Season: ${scanParams.season}`)
+      addActivityLog('info', 'Running full data integrity check...', `Season: ${integritySeason}`)
     },
     onSuccess: (data) => {
       const results = data?.results
@@ -525,9 +412,9 @@ export default function AdminDashboard() {
   })
 
   const gameStatsIntegrityMutation = useMutation({
-    mutationFn: () => checkGameStatsIntegrity(scanParams.season),
+    mutationFn: () => checkGameStatsIntegrity(integritySeason),
     onMutate: () => {
-      addActivityLog('info', 'Checking game stats data integrity...', `Season: ${scanParams.season}`)
+      addActivityLog('info', 'Checking game stats data integrity...', `Season: ${integritySeason}`)
     },
     onSuccess: (data) => {
       const results = data?.results
@@ -572,7 +459,7 @@ export default function AdminDashboard() {
         `${data?.names_updated ?? 0} updated of ${data?.recent_players ?? 0} recent players`
       )
       refetchHealth()
-      refetchStatus()
+      refetchCacheStatus()
       refetchTeamsStatus()
     },
     onError: (error: Error) => {
@@ -581,9 +468,9 @@ export default function AdminDashboard() {
   })
 
   const refreshDefensiveRanksMutation = useMutation({
-    mutationFn: () => refreshDefensiveRanks(scanParams.season),
+    mutationFn: () => refreshDefensiveRanks(integritySeason),
     onMutate: () => {
-      addActivityLog('info', 'Refreshing defensive ranks cache...', `Season: ${scanParams.season}`)
+      addActivityLog('info', 'Refreshing defensive ranks cache...', `Season: ${integritySeason}`)
     },
     onSuccess: (data: { teamsRanked?: number }) => {
       addActivityLog(
@@ -600,9 +487,9 @@ export default function AdminDashboard() {
   })
 
   const refreshPaceRanksMutation = useMutation({
-    mutationFn: () => refreshPaceRanks(scanParams.season),
+    mutationFn: () => refreshPaceRanks(integritySeason),
     onMutate: () => {
-      addActivityLog('info', 'Refreshing pace ranks cache...', `Season: ${scanParams.season}`)
+      addActivityLog('info', 'Refreshing pace ranks cache...', `Season: ${integritySeason}`)
     },
     onSuccess: (data: { teamsRanked?: number }) => {
       addActivityLog('success', 'Pace ranks refreshed', `${data?.teamsRanked ?? 0} teams cached (24h)`)
@@ -614,9 +501,9 @@ export default function AdminDashboard() {
   })
 
   const refreshPositionDefenseMutation = useMutation({
-    mutationFn: () => refreshPositionDefenseRanks(scanParams.season),
+    mutationFn: () => refreshPositionDefenseRanks(integritySeason),
     onMutate: () => {
-      addActivityLog('info', 'Refreshing position defense ranks...', `Season: ${scanParams.season}`)
+      addActivityLog('info', 'Refreshing position defense ranks...', `Season: ${integritySeason}`)
     },
     onSuccess: (data: { positions?: string[] }) => {
       addActivityLog('success', 'Position defense ranks refreshed', `Positions: ${(data?.positions ?? []).join(', ')}`)
@@ -722,8 +609,8 @@ export default function AdminDashboard() {
       addActivityLog('success', 'Top picks refreshed', `Cached ${data?.count ?? 0} items`)
       refetchCacheStatus()
       refetchHealth()
-      queryClient.invalidateQueries({ queryKey: ['daily-50'] })
-      queryClient.invalidateQueries({ queryKey: ['high-hit-rate'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-props'] })
+      queryClient.invalidateQueries({ queryKey: ['top-picks'] })
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Top picks refresh failed', error.message)
@@ -745,8 +632,6 @@ export default function AdminDashboard() {
         addActivityLog('info', 'Page visible - refreshing all data...')
         refetchHealth()
         refetchCacheStatus()
-        refetchStatus()
-        refetchBestBets()
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -760,8 +645,6 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const bestBets = bestBetsData?.results || []
-  
   const formatTimeAgo = (timestamp: string | null | undefined) => {
     if (!timestamp) return 'Never'
     const date = new Date(timestamp)
@@ -835,29 +718,23 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${scanStatusLoading ? 'opacity-60' : ''}`}>
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">Total Players</div>
+        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${cacheStatusLoading ? 'opacity-60' : ''}`}>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">Daily Props</div>
           <div className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
-            {scanStatusLoading ? '...' : (scanStatus?.totalPlayers || health?.totalPlayers || 0)}
+            {cacheStatusLoading ? '...' : (cacheStatus?.dailyProps?.count ?? 0)}
           </div>
           <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
-            {scanStatusLoading ? 'Loading...' : 'In database'}
-            {scanStatusError && <span className="text-red-600 dark:text-red-400 ml-1">(Error)</span>}
+            {cacheStatus?.dailyProps?.valid ? 'Cached' : 'Not cached'}
           </div>
         </div>
 
-        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${bestBetsLoading ? 'opacity-60' : ''}`}>
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">Best Bets</div>
+        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${cacheStatusLoading ? 'opacity-60' : ''}`}>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">Today&apos;s Games</div>
           <div className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
-            {bestBetsLoading ? '...' : bestBets.length}
+            {cacheStatusLoading ? '...' : (health?.todayGames ?? 0)}
           </div>
           <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
-            {bestBetsLoading ? 'Loading...' : (
-              scanStatus?.lastScan || bestBetsData?.lastScanned 
-                ? formatTimeAgo(scanStatus?.lastScan || bestBetsData?.lastScanned) 
-                : (scanStatus?.bestBetsCount ? `${scanStatus.bestBetsCount} cached` : 'Not scanned')
-            )}
-            {bestBetsError && <span className="text-red-600 dark:text-red-400 ml-1">(Error)</span>}
+            {cacheStatus?.nbaApiCache?.todaysGames ? 'Cached' : 'Not cached'}
           </div>
         </div>
 
@@ -931,8 +808,8 @@ export default function AdminDashboard() {
                 addActivityLog('info', 'Manually refreshing status...')
                 refetchCacheStatus()
                 refetchHealth()
-                refetchStatus()
-                refetchBestBets()
+                refetchCacheStatus()
+                refetchCacheStatus()
               }}
               disabled={cacheStatusLoading || healthLoading}
               className="px-2 py-1 text-xs font-medium text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors duration-200"
@@ -977,46 +854,6 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            {/* High Hit Rate Cache */}
-            <div className={`p-2 rounded-lg border-2 transition-colors duration-200 ${cacheStatus?.highHitRate?.valid ? 'border-green-200 dark:border-green-700/50 bg-green-50/50 dark:bg-green-900/20' : 'border-amber-200 dark:border-amber-700/50 bg-amber-50/50 dark:bg-amber-900/20'}`}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">High Hit Rate</div>
-                {cacheStatus?.highHitRate?.valid ? (
-                  <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full font-medium transition-colors duration-200">Valid</span>
-                ) : (
-                  <span className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full font-medium transition-colors duration-200">Stale/None</span>
-                )}
-              </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 transition-colors duration-200">
-                <span className="font-medium">Count:</span> {cacheStatus?.highHitRate?.count || 0}
-              </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
-                <span className="font-medium">Updated:</span> {formatTimeAgo(cacheStatus?.highHitRate?.lastUpdated)}
-              </div>
-              {cacheStatus?.highHitRate?.date && (
-                <div className="text-xs text-gray-500 dark:text-gray-500 mt-1 transition-colors duration-200">
-                  Date: {cacheStatus.highHitRate.date}
-                </div>
-              )}
-            </div>
-
-            {/* Best Bets Cache */}
-            <div className={`p-2 rounded-lg border-2 transition-colors duration-200 ${cacheStatus?.bestBets?.cached ? 'border-blue-200 dark:border-blue-700/50 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-slate-600 bg-gray-50/50 dark:bg-slate-700/50'}`}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Best Bets Scan</div>
-                {cacheStatus?.bestBets?.cached ? (
-                  <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full font-medium transition-colors duration-200">Cached</span>
-                ) : (
-                  <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-full font-medium transition-colors duration-200">None</span>
-                )}
-              </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 transition-colors duration-200">
-                <span className="font-medium">Count:</span> {cacheStatus?.bestBets?.count || 0}
-              </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
-                <span className="font-medium">Updated:</span> {formatTimeAgo(cacheStatus?.bestBets?.lastUpdated)}
-              </div>
-            </div>
           </div>
           )}
         </div>
@@ -1231,6 +1068,17 @@ export default function AdminDashboard() {
             </div>
           ) : null}
 
+          {/* Season for integrity and ranks */}
+          <div className="mt-2">
+            <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Season (integrity & ranks)</label>
+            <input
+              value={integritySeason}
+              onChange={(e) => setIntegritySeason(e.target.value)}
+              className="w-24 px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
+              placeholder="2025-26"
+            />
+          </div>
+
           {/* Action Buttons */}
           <div className="mt-2 grid grid-cols-2 gap-1.5">
           <button
@@ -1329,6 +1177,29 @@ export default function AdminDashboard() {
 
           <div className="grid grid-cols-1 gap-1.5">
           <button
+            onClick={() => warmDashboardMutation.mutate()}
+            disabled={warmDashboardMutation.isPending}
+            className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-900 dark:text-emerald-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-emerald-300 dark:border-emerald-700 transition-colors duration-200"
+          >
+            {warmDashboardMutation.isPending ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Warming...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Warm dashboard</span>
+              </>
+            )}
+          </button>
+
+          <button
             onClick={() => refreshDailyPropsMutation.mutate()}
             disabled={refreshDailyPropsMutation.isPending}
             className="px-3 py-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-blue-300 dark:border-blue-700 transition-colors duration-200"
@@ -1352,31 +1223,8 @@ export default function AdminDashboard() {
           </button>
 
           <button
-            onClick={() => refreshHighHitRateMutation.mutate()}
-            disabled={refreshHighHitRateMutation.isPending}
-            className="px-3 py-2 bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-900 dark:text-green-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-green-300 dark:border-green-700 transition-colors duration-200"
-          >
-            {refreshHighHitRateMutation.isPending ? (
-              <>
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Refreshing...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span>Refresh High Hit Rate</span>
-              </>
-            )}
-          </button>
-
-          <button
             onClick={() => refreshAllMutation.mutate()}
-            disabled={refreshAllMutation.isPending || refreshDailyPropsMutation.isPending || refreshHighHitRateMutation.isPending}
+            disabled={refreshAllMutation.isPending || refreshDailyPropsMutation.isPending || warmDashboardMutation.isPending}
             className="px-3 py-2 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 text-purple-900 dark:text-purple-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-purple-300 dark:border-purple-700 transition-colors duration-200"
           >
             {refreshAllMutation.isPending ? (
@@ -1399,18 +1247,18 @@ export default function AdminDashboard() {
         </div>
 
         {/* Success/Error Messages */}
-        {(refreshDailyPropsMutation.isSuccess || refreshHighHitRateMutation.isSuccess || refreshAllMutation.isSuccess) && (
+        {(refreshDailyPropsMutation.isSuccess || warmDashboardMutation.isSuccess || refreshAllMutation.isSuccess) && (
           <div className="mt-2 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs text-emerald-800 dark:text-emerald-300 transition-colors duration-200">
             {refreshAllMutation.isSuccess && 'All services refreshed successfully! '}
-            {refreshDailyPropsMutation.isSuccess && !refreshAllMutation.isSuccess && 'Daily props refreshed successfully! '}
-            {refreshHighHitRateMutation.isSuccess && !refreshAllMutation.isSuccess && 'High hit rate bets refreshed successfully! '}
+            {warmDashboardMutation.isSuccess && !refreshAllMutation.isSuccess && 'Dashboard warmed successfully! '}
+            {refreshDailyPropsMutation.isSuccess && !refreshAllMutation.isSuccess && !warmDashboardMutation.isSuccess && 'Daily props refreshed successfully! '}
             Cache updated and ready for use.
           </div>
         )}
 
-        {(refreshDailyPropsMutation.isError || refreshHighHitRateMutation.isError || refreshAllMutation.isError) && (
+        {(refreshDailyPropsMutation.isError || warmDashboardMutation.isError || refreshAllMutation.isError) && (
           <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
-            Error: {refreshAllMutation.error?.message || refreshDailyPropsMutation.error?.message || refreshHighHitRateMutation.error?.message}
+            Error: {refreshAllMutation.error?.message || refreshDailyPropsMutation.error?.message || warmDashboardMutation.error?.message}
           </div>
         )}
 
@@ -1471,53 +1319,6 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
-                {/* High Hit Rate Custom */}
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">High Hit Rate</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Min Hit Rate</label>
-                      <input
-                        type="number"
-                        step="0.05"
-                        value={highHitRateParams.minHitRate}
-                        onChange={(e) => setHighHitRateParams({ ...highHitRateParams, minHitRate: Number(e.target.value) })}
-                        className="w-full px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
-                        min="0"
-                        max="1"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Limit</label>
-                      <input
-                        type="number"
-                        value={highHitRateParams.limit}
-                        onChange={(e) => setHighHitRateParams({ ...highHitRateParams, limit: Number(e.target.value) })}
-                        className="w-full px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
-                        min="1"
-                        max="50"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Last N</label>
-                      <input
-                        type="number"
-                        value={highHitRateParams.lastN}
-                        onChange={(e) => setHighHitRateParams({ ...highHitRateParams, lastN: Number(e.target.value) })}
-                        className="w-full px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
-                        min="5"
-                        max="20"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => refreshHighHitRateCustomMutation.mutate(highHitRateParams)}
-                    disabled={refreshHighHitRateCustomMutation.isPending}
-                    className="w-full px-3 py-1.5 text-xs bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-900 dark:text-green-300 rounded disabled:opacity-50 border border-green-300 dark:border-green-700 transition-colors duration-200"
-                  >
-                    {refreshHighHitRateCustomMutation.isPending ? 'Refreshing...' : 'Refresh with Custom Params'}
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -1533,20 +1334,6 @@ export default function AdminDashboard() {
                   className="px-3 py-2 text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-900 dark:text-red-300 rounded disabled:opacity-50 border border-red-300 dark:border-red-700 transition-colors duration-200"
                 >
                   Clear Daily Props
-                </button>
-                <button
-                  onClick={() => clearHighHitRateCacheMutation.mutate()}
-                  disabled={clearHighHitRateCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-900 dark:text-red-300 rounded disabled:opacity-50 border border-red-300 dark:border-red-700 transition-colors duration-200"
-                >
-                  Clear High Hit Rate
-                </button>
-                <button
-                  onClick={() => clearBestBetsCacheMutation.mutate()}
-                  disabled={clearBestBetsCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-900 dark:text-red-300 rounded disabled:opacity-50 border border-red-300 dark:border-red-700 transition-colors duration-200"
-                >
-                  Clear Best Bets
                 </button>
                 <button
                   onClick={() => clearTeamsCacheMutation.mutate()}
@@ -1626,7 +1413,7 @@ export default function AdminDashboard() {
                 </Link>
               </div>
 
-              {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearHighHitRateCacheMutation.isSuccess || clearBestBetsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess || clearTodaysGamesCacheMutation.isSuccess || clearGamePredictionsCacheMutation.isSuccess || cacheCleanupMutation.isSuccess || refreshStatLeadersMutation.isSuccess || refreshTopPicksMutation.isSuccess) && (
+              {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess || clearTodaysGamesCacheMutation.isSuccess || clearGamePredictionsCacheMutation.isSuccess || cacheCleanupMutation.isSuccess || refreshStatLeadersMutation.isSuccess || refreshTopPicksMutation.isSuccess) && (
                 <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
                   Cache cleared / refreshed successfully. Next request will use updated data.
                 </div>
@@ -1660,69 +1447,22 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+      </div>
 
-      {/* Scanning Controls */}
+      {/* Sync */}
       <div className="mt-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
-          <div className="mb-2">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Prop Scanner</h2>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Scan games for best bets</p>
-          </div>
-          {scanStatus?.lastScan && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">
-              Last: {new Date(scanStatus.lastScan).toLocaleTimeString()}
-              {scanStatus?.todayGames !== undefined && ` • ${scanStatus.todayGames} games`}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 gap-1.5 mb-2">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Season</label>
-            <input
-              value={scanParams.season}
-              onChange={(e) => setScanParams({ ...scanParams, season: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
-              placeholder="2025-26"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Min Confidence (%)</label>
-            <input
-              type="number"
-              value={scanParams.minConfidence}
-              onChange={(e) => setScanParams({ ...scanParams, minConfidence: Number(e.target.value) })}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
-              min="0"
-              max="100"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Limit</label>
-            <input
-              type="number"
-              value={scanParams.limit}
-              onChange={(e) => setScanParams({ ...scanParams, limit: Number(e.target.value) })}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
-              min="1"
-              max="100"
-            />
-          </div>
-          <div className="flex items-end gap-2">
-            <button
-              onClick={() => scanMutation.mutate(scanParams)}
-              disabled={scanMutation.isPending}
-              className="flex-1 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 text-xs font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed border border-blue-300 dark:border-blue-700 transition-colors duration-200"
-            >
-              {scanMutation.isPending ? 'Scanning...' : 'Start Scan'}
-            </button>
-            <button
-              onClick={() => syncMutation.mutate()}
-              disabled={syncMutation.isPending}
-              className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
-            >
-              {syncMutation.isPending ? 'Syncing...' : 'Sync Players'}
-            </button>
-          </div>
+        <div className="mb-2">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Sync</h2>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Sync players from NBA API</p>
         </div>
+        <button
+          onClick={() => syncMutation.mutate()}
+          disabled={syncMutation.isPending}
+          className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
+        >
+          {syncMutation.isPending ? 'Syncing...' : 'Sync Players'}
+        </button>
+      </div>
 
       {/* Player & context */}
       <div className="mt-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
@@ -1949,113 +1689,6 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
-        )}
-      </div>
-
-          {scanMutation.isError && (
-            <div className="p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
-              Error: {String(scanMutation.error)}
-            </div>
-          )}
-
-          {scanMutation.isSuccess && (
-            <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs text-emerald-800 dark:text-emerald-300 transition-colors duration-200">
-              Found {scanMutation.data?.count || 0} best bets
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Best Bets Results */}
-      <div className="mt-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
-        <div className="px-3 py-2 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between transition-colors duration-200">
-          <div>
-            <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Best Prop Bets</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
-              Top suggestions from last scan
-              {bestBetsData?.lastScanned && (
-                <span className="ml-2">• Scanned: {formatTimeAgo(bestBetsData.lastScanned)}</span>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              addActivityLog('info', 'Refreshing best bets...')
-              refetchBestBets()
-            }}
-            disabled={bestBetsLoading}
-            className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs font-medium text-gray-900 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors duration-200"
-          >
-            {bestBetsLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-        {bestBetsLoading && (
-          <div className="flex items-center justify-center py-4">
-            <svg className="animate-spin h-4 w-4 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span className="ml-2 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">Loading best bets...</span>
-          </div>
-        )}
-        {bestBetsError && (
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg m-3 text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
-            Error loading best bets: {String(bestBetsError)}
-          </div>
-        )}
-        {!bestBetsLoading && !bestBetsError && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-xs">
-            <thead className="bg-gray-50 dark:bg-slate-700 transition-colors duration-200">
-              <tr>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Player</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Prop</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Line</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Confidence</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Hit Rate</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Trend</th>
-                <th className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 transition-colors duration-200">Recent Avg</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-slate-700 transition-colors duration-200">
-              {bestBets.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-3 py-4 text-center text-gray-500 dark:text-gray-400 transition-colors duration-200">
-                    No best bets found. Run a scan to generate suggestions.
-                  </td>
-                </tr>
-              ) : (
-                bestBets.slice(0, 30).map((bet: any, idx: number) => (
-                  <tr key={idx} className={`transition-colors duration-200 ${idx % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50 dark:bg-slate-700/50'}`}>
-                    <td className="px-3 py-1.5">
-                      <a href={`/player/${bet.playerId}`} className="text-blue-600 dark:text-blue-400 hover:underline font-medium transition-colors duration-200">
-                        {bet.playerName}
-                      </a>
-                    </td>
-                    <td className="px-3 py-1.5 text-gray-900 dark:text-slate-100 transition-colors duration-200">{bet.type}</td>
-                    <td className="px-3 py-1.5 text-gray-900 dark:text-slate-100 transition-colors duration-200">
-                      {bet.suggestion === 'over' ? 'OVER' : 'UNDER'} {bet.marketLine}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium transition-colors duration-200 ${
-                        bet.confidence >= 80 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' :
-                        bet.confidence >= 70 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' :
-                        'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-                      }`}>
-                        {bet.confidence}%
-                      </span>
-                    </td>
-                    <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400 transition-colors duration-200">{bet.hitRate}%</td>
-                    <td className="px-3 py-1.5">
-                      {bet.trend === 'up' ? '📈' : bet.trend === 'down' ? '📉' : '➡️'}
-                    </td>
-                    <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400 transition-colors duration-200">{bet.recentAvg}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
         )}
       </div>
     </div>
