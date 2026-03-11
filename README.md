@@ -88,11 +88,11 @@ cd backend && python3 verify_setup.py
 - **Enhanced Matchups**: Actual head-to-head history using ESPN team schedules
 
 ### Core Capabilities
-- **Player Prop Analysis**: AI-powered suggestions for points, rebounds, assists, 3PM, and PRA
-- **ML Predictions**: Machine learning models for confidence scoring and line prediction
+- **Player Prop Analysis**: Suggestions for PTS, REB, AST, 3PM, PRA with confidence and rationale
+- **Rationale & AI**: Optional LLM-generated explanations (OpenAI gpt-4o-mini or Ollama llama3.2); rule-based fallback when no LLM. See [Rationale and LLM](docs/rationale-and-llm.md).
 - **Over/Under Analysis**: Live game total predictions with pace adjustments
-- **Parlay Builder**: Multi-leg parlay construction with confidence calculations
-- **Bet Tracking**: Track your bets and analyze performance
+- **Parlay Builder**: Multi-leg parlays with confidence
+- **Bet Tracking**: Track bets and view performance by prop type and confidence
 
 ## Project Structure
 - backend/: FastAPI app with services for stats, features, projections, suggestions, and ESPN integration
@@ -101,16 +101,9 @@ cd backend && python3 verify_setup.py
 
 ## Documentation
 
-All documentation is located in the `docs/` directory. See [docs/README.md](docs/README.md) for a complete index.
+See [docs/README.md](docs/README.md) for the full index.
 
-**Quick Links**:
-- 📖 [Documentation Index](docs/README.md) - Overview of all guides
-- 🚀 [Deployment Guide](docs/deployment.md) - How to deploy the application
-- 📡 [API Contracts](docs/api-contracts.md) - API endpoint reference
-- 🔧 [Operations Runbook](docs/runbook.md) - Operations and troubleshooting
-- 🌐 [GitHub Pages Deployment](docs/github-pages-deployment.md) - Frontend-only deployment
-- 🎨 [Theme Setup](docs/theme-setup.md) - Sliced Pro theme configuration
-- 🏀 [ESPN API Configuration](docs/external-api-configuration.md) - ESPN data integration setup
+**Quick links:** [Deployment](docs/deployment.md) · [API Contracts](docs/api-contracts.md) · [Runbook](docs/runbook.md) · [Rationale and LLM](docs/rationale-and-llm.md)
 
 ## Disclaimer
 This app provides informational analysis only and is not financial advice.
