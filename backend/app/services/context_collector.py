@@ -707,56 +707,57 @@ class ContextCollector:
                         logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
                     except Exception:
                         continue
-                    for g in logs[:games_per_player]:
-                        gd = g.get("game_date")
-                        if not gd:
-                            continue
-                        if gd not in team_game_totals[team_id]:
-                            team_game_totals[team_id][gd] = {"pts": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0}
-                        team_game_totals[team_id][gd]["pts"] += float(g.get("pts", 0) or 0)
-                        team_game_totals[team_id][gd]["reb"] += float(g.get("reb", 0) or 0)
-                        team_game_totals[team_id][gd]["ast"] += float(g.get("ast", 0) or 0)
-                        team_game_totals[team_id][gd]["3pm"] += float(g.get("tpm", 0) or 0)
+                    try:
+                        for g in logs[:games_per_player]:
+                            gd = g.get("game_date")
+                            if not gd:
+                                continue
+                            if gd not in team_game_totals[team_id]:
+                                team_game_totals[team_id][gd] = {"pts": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0}
+                            team_game_totals[team_id][gd]["pts"] += float(g.get("pts", 0) or 0)
+                            team_game_totals[team_id][gd]["reb"] += float(g.get("reb", 0) or 0)
+                            team_game_totals[team_id][gd]["ast"] += float(g.get("ast", 0) or 0)
+                            team_game_totals[team_id][gd]["3pm"] += float(g.get("tpm", 0) or 0)
 
-                        # Defense: this game's opponent scoring = points allowed by team_id
-                        matchup = (g.get("matchup") or "").upper()
-                        opponent_abbr = None
-                        for sep in [" VS. ", " VS ", " @ ", " V "]:
-                            if sep in matchup:
-                                parts = matchup.split(sep)
-                                if len(parts) == 2:
-                                    opponent_abbr = parts[1].strip().strip(" .")
-                                    break
-                        if not opponent_abbr and team_id in team_defensive_lists:
-                            import re
-                            match = re.search(r"([A-Z]{2,4})\s+(?:VS\.?|@|V\.?)\s+([A-Z]{2,4})", matchup)
-                            if match:
-                                opponent_abbr = match.group(2).strip()
-                        if opponent_abbr:
-                            opponent_team = teams_by_abbr.get(opponent_abbr)
-                            if not opponent_team:
-                                for abbr, ot in teams_by_abbr.items():
-                                    if abbr.startswith(opponent_abbr[:2]) or opponent_abbr.startswith(abbr[:2]):
-                                        opponent_team = ot
+                            # Defense: this game's opponent scoring = points allowed by team_id
+                            matchup = (g.get("matchup") or "").upper()
+                            opponent_abbr = None
+                            for sep in [" VS. ", " VS ", " @ ", " V "]:
+                                if sep in matchup:
+                                    parts = matchup.split(sep)
+                                    if len(parts) == 2:
+                                        opponent_abbr = parts[1].strip().strip(" .")
                                         break
-                            if opponent_team:
-                                opp_tid = opponent_team.get("id")
-                                opp_players = players_by_team.get(opp_tid, [])[:2]
-                                for opp_p in opp_players:
-                                    opp_pid = opp_p.get("id")
-                                    if not opp_pid:
-                                        continue
-                                    try:
-                                        opp_logs = NBADataService.fetch_player_game_log(opp_pid, season_to_use)
-                                        same_game = next((lg for lg in opp_logs if lg.get("game_date") == gd), None)
-                                        if same_game and team_id in team_defensive_lists:
-                                            team_defensive_lists[team_id]["pts"].append(float(same_game.get("pts", 0) or 0))
-                                            team_defensive_lists[team_id]["reb"].append(float(same_game.get("reb", 0) or 0))
-                                            team_defensive_lists[team_id]["ast"].append(float(same_game.get("ast", 0) or 0))
-                                            team_defensive_lists[team_id]["3pm"].append(float(same_game.get("tpm", 0) or 0))
+                            if not opponent_abbr and team_id in team_defensive_lists:
+                                import re
+                                match = re.search(r"([A-Z]{2,4})\s+(?:VS\.?|@|V\.?)\s+([A-Z]{2,4})", matchup)
+                                if match:
+                                    opponent_abbr = match.group(2).strip()
+                            if opponent_abbr:
+                                opponent_team = teams_by_abbr.get(opponent_abbr)
+                                if not opponent_team:
+                                    for abbr, ot in teams_by_abbr.items():
+                                        if abbr.startswith(opponent_abbr[:2]) or opponent_abbr.startswith(abbr[:2]):
+                                            opponent_team = ot
                                             break
-                                    except Exception:
-                                        continue
+                                if opponent_team:
+                                    opp_tid = opponent_team.get("id")
+                                    opp_players = players_by_team.get(opp_tid, [])[:2]
+                                    for opp_p in opp_players:
+                                        opp_pid = opp_p.get("id")
+                                        if not opp_pid:
+                                            continue
+                                        try:
+                                            opp_logs = NBADataService.fetch_player_game_log(opp_pid, season_to_use)
+                                            same_game = next((lg for lg in opp_logs if lg.get("game_date") == gd), None)
+                                            if same_game and team_id in team_defensive_lists:
+                                                team_defensive_lists[team_id]["pts"].append(float(same_game.get("pts", 0) or 0))
+                                                team_defensive_lists[team_id]["reb"].append(float(same_game.get("reb", 0) or 0))
+                                                team_defensive_lists[team_id]["ast"].append(float(same_game.get("ast", 0) or 0))
+                                                team_defensive_lists[team_id]["3pm"].append(float(same_game.get("tpm", 0) or 0))
+                                                break
+                                        except Exception:
+                                            continue
                     except Exception:
                         continue
 
