@@ -181,18 +181,22 @@ export function GoodBetsDashboard() {
     refetchInterval: hasGamesToday ? 60 * 1000 : false,
     enabled: hasGamesToday,
   })
-  const liveGamesMap = useMemo(() => {
+  const { liveGamesMap, liveGamesByMatchup } = useMemo(() => {
     const map: Record<string, { home_score: number; away_score: number; quarter: number; time_remaining: string; is_final: boolean }> = {}
+    const byMatchup: Record<string, { home_score: number; away_score: number; quarter: number; time_remaining: string; is_final: boolean }> = {}
     for (const lg of liveGamesData?.games ?? []) {
-      map[String(lg.game_id)] = {
+      const entry = {
         home_score: lg.home_score,
         away_score: lg.away_score,
         quarter: lg.quarter,
         time_remaining: lg.time_remaining,
         is_final: lg.is_final,
       }
+      map[String(lg.game_id)] = entry
+      const key = `${String(lg.away_team || '').toUpperCase()}_${String(lg.home_team || '').toUpperCase()}`
+      if (key !== '_') byMatchup[key] = entry
     }
-    return map
+    return { liveGamesMap: map, liveGamesByMatchup: byMatchup }
   }, [liveGamesData])
   
   const { data: dailyData, isLoading: dailyLoading, error: dailyError, refetch: refetchDaily } = useQuery({ 
@@ -248,11 +252,11 @@ export function GoodBetsDashboard() {
   })
   const hotFormItems = (hotFormData?.items ?? []) as any[]
   
-  // Fetch league-wide stat leaders when "All" is selected
+  // Fetch league-wide stat leaders so "All" toggle has data; fetch on load so both All and Today show data
   const { data: leagueStatLeadersData, isLoading: leagueStatLeadersLoading, error: leagueStatLeadersError } = useQuery({
     queryKey: ['stat-leaders', season],
     queryFn: () => fetchStatLeaders(season),
-    enabled: !statLeadersFilterToday, // Only fetch when "All" is selected
+    enabled: true,
     staleTime: 300000, // Cache for 5 minutes
     retry: 2,
   })
@@ -679,7 +683,11 @@ export function GoodBetsDashboard() {
                 <div className="flex gap-3 min-w-max">
                   {games.map((g: any, idx: number) => {
                     const gameId = g.gameId != null ? String(g.gameId) : ''
-                    const live = liveGamesMap[gameId]
+                    let live = liveGamesMap[gameId]
+                    if (!live) {
+                      const matchupKey = `${String(g.away || '').toUpperCase()}_${String(g.home || '').toUpperCase()}`
+                      live = liveGamesByMatchup[matchupKey]
+                    }
                     const gameTime = g.gameTimeUTC ? new Date(g.gameTimeUTC).toLocaleTimeString('en-US', { 
                       hour: '2-digit', 
                       minute: '2-digit',

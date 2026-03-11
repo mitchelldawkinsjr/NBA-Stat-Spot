@@ -256,28 +256,27 @@ class LiveGameService:
                     (status_type.get("name") == "STATUS_FINAL" or period >= 4)
                 )
                 
-                # Include all games that are not final (includes scheduled and in-progress)
-                # This ensures we capture all games for today, not just live ones
-                if not is_final:
-                    live_game = LiveGame(
-                        game_id=game_id,
-                        home_team=home_team or "UNK",
-                        away_team=away_team or "UNK",
-                        home_score=home_score,
-                        away_score=away_score,
-                        quarter=period if period > 0 else 1,
-                        time_remaining=clock if clock else "12:00",
-                        is_final=is_final
-                    )
-                    live_games.append(live_game)
-                    logger.debug(
-                        "Parsed ESPN game",
-                        game_id=game_id,
-                        home=home_team,
-                        away=away_team,
-                        quarter=period,
-                        score=f"{away_score}-{home_score}"
-                    )
+                # Include all games (scheduled, in-progress, and final) so home page can show final scores
+                live_game = LiveGame(
+                    game_id=game_id,
+                    home_team=home_team or "UNK",
+                    away_team=away_team or "UNK",
+                    home_score=home_score,
+                    away_score=away_score,
+                    quarter=period if period > 0 else 1,
+                    time_remaining=clock if clock else "12:00",
+                    is_final=is_final
+                )
+                live_games.append(live_game)
+                logger.debug(
+                    "Parsed ESPN game",
+                    game_id=game_id,
+                    home=home_team,
+                    away=away_team,
+                    quarter=period,
+                    score=f"{away_score}-{home_score}",
+                    is_final=is_final
+                )
             except Exception as e:
                 logger.warning("Error parsing ESPN game", error=str(e), exc_info=True)
                 continue
