@@ -573,7 +573,7 @@ export default function PlayerProfile() {
 
   // Fetch player context with H2H data
   // Cached for 6 hours on backend, so use cache aggressively on frontend
-  const { data: playerContext } = useQuery({
+  const { data: playerContext, isLoading: playerContextLoading } = useQuery({
     queryKey: ['player-context', id, opponentTeamId, season],
     queryFn: async () => {
       if (!id || !opponentTeamId) return null
@@ -588,6 +588,8 @@ export default function PlayerProfile() {
     refetchOnWindowFocus: false, // Don't refetch when window gains focus
     refetchOnReconnect: false, // Don't refetch on reconnect
   })
+  const hasAnyDefRank = playerContext?.opponent_defense && [playerContext.opponent_defense.rank_pts, playerContext.opponent_defense.rank_reb, playerContext.opponent_defense.rank_ast, playerContext.opponent_defense.rank_3pm].some((r) => r != null)
+  const opponentDefenseEmpty = !playerContextLoading && !!opponentTeamId && playerContext != null && !hasAnyDefRank
 
   
 
@@ -987,35 +989,26 @@ export default function PlayerProfile() {
                       </div>
                       {/* Opponent Defense Rank Card */}
                       <div className="w-[180px] flex-none">
-                        <MatchupCard
-                          title="Opponent Defense Rank"
-                          stats={[
-                            { 
-                              label: 'PTS Def Rank', 
-                              value: playerContext?.opponent_defense?.rank_pts != null 
-                                ? `#${playerContext.opponent_defense.rank_pts}` 
-                                : '—' 
-                            },
-                            { 
-                              label: 'REB Def Rank', 
-                              value: playerContext?.opponent_defense?.rank_reb != null 
-                                ? `#${playerContext.opponent_defense.rank_reb}` 
-                                : '—' 
-                            },
-                            { 
-                              label: 'AST Def Rank', 
-                              value: playerContext?.opponent_defense?.rank_ast != null 
-                                ? `#${playerContext.opponent_defense.rank_ast}` 
-                                : '—' 
-                            },
-                            { 
-                              label: '3PM Def Rank', 
-                              value: playerContext?.opponent_defense?.rank_3pm != null 
-                                ? `#${playerContext.opponent_defense.rank_3pm}` 
-                                : '—' 
-                            },
-                          ]}
-                        />
+                        {playerContextLoading ? (
+                          <div className="h-[120px] rounded-lg bg-gray-100 dark:bg-slate-700 animate-pulse flex items-center justify-center">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Loading ranks…</span>
+                          </div>
+                        ) : (
+                          <>
+                            <MatchupCard
+                              title="Opponent Defense Rank"
+                              stats={[
+                                { label: 'PTS Def Rank', value: playerContext?.opponent_defense?.rank_pts != null ? `#${playerContext.opponent_defense.rank_pts}` : '—' },
+                                { label: 'REB Def Rank', value: playerContext?.opponent_defense?.rank_reb != null ? `#${playerContext.opponent_defense.rank_reb}` : '—' },
+                                { label: 'AST Def Rank', value: playerContext?.opponent_defense?.rank_ast != null ? `#${playerContext.opponent_defense.rank_ast}` : '—' },
+                                { label: '3PM Def Rank', value: playerContext?.opponent_defense?.rank_3pm != null ? `#${playerContext.opponent_defense.rank_3pm}` : '—' },
+                              ]}
+                            />
+                            {opponentDefenseEmpty && (
+                              <p className="mt-1.5 text-[10px] text-amber-600 dark:text-amber-400">Refresh defensive ranks in Admin to load.</p>
+                            )}
+                          </>
+                        )}
                       </div>
                       {/* Opponent Offense (pace / scoring context) */}
                       {(playerContext?.opponent_offense && (playerContext.opponent_offense.rank_pts != null || playerContext.opponent_offense.rank_3pm != null)) && (
