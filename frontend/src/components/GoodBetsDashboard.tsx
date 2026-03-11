@@ -10,6 +10,7 @@ import { useSnackbar } from '../context/SnackbarContext'
 import { getCache, setCache, clearCache, getTodayDate } from '../utils/cache'
 
 import { apiFetch, apiPost } from '../utils/api'
+import { getLiveGames } from '../services/overUnderService'
 
 async function fetchToday(date?: string) {
   const params = new URLSearchParams()
@@ -170,6 +171,29 @@ export function GoodBetsDashboard() {
     refetchOnWindowFocus: true, // Refetch when window gains focus
     gcTime: 0, // Don't cache - always fetch fresh
   })
+
+  const games = gamesData?.games ?? []
+  const hasGamesToday = games.length > 0
+  const { data: liveGamesData } = useQuery({
+    queryKey: ['over-under-live-games', today],
+    queryFn: getLiveGames,
+    staleTime: 60 * 1000,
+    refetchInterval: hasGamesToday ? 60 * 1000 : false,
+    enabled: hasGamesToday,
+  })
+  const liveGamesMap = useMemo(() => {
+    const map: Record<string, { home_score: number; away_score: number; quarter: number; time_remaining: string; is_final: boolean }> = {}
+    for (const lg of liveGamesData?.games ?? []) {
+      map[String(lg.game_id)] = {
+        home_score: lg.home_score,
+        away_score: lg.away_score,
+        quarter: lg.quarter,
+        time_remaining: lg.time_remaining,
+        is_final: lg.is_final,
+      }
+    }
+    return map
+  }, [liveGamesData])
   
   const { data: dailyData, isLoading: dailyLoading, error: dailyError, refetch: refetchDaily } = useQuery({ 
     queryKey: ['daily-50', today], 
@@ -333,9 +357,7 @@ export function GoodBetsDashboard() {
       setIsRefreshing(false)
     }
   }
-  
-  const games = gamesData?.games ?? []
-  
+
   // Removed debug logging - use browser dev tools if needed
 
   // Unified Top Picks — uses the new /top-picks endpoint
@@ -656,6 +678,8 @@ export function GoodBetsDashboard() {
               <div className="overflow-x-auto -mx-4 px-4 pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" style={{ scrollbarWidth: 'thin' }}>
                 <div className="flex gap-3 min-w-max">
                   {games.map((g: any, idx: number) => {
+                    const gameId = g.gameId != null ? String(g.gameId) : ''
+                    const live = liveGamesMap[gameId]
                     const gameTime = g.gameTimeUTC ? new Date(g.gameTimeUTC).toLocaleTimeString('en-US', { 
                       hour: '2-digit', 
                       minute: '2-digit',
@@ -688,24 +712,29 @@ export function GoodBetsDashboard() {
                         
                         {/* Matchup */}
                         <div className="space-y-2.5 mb-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{g.away}</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200 truncate">{g.away}</span>
+                            {live && <span className="text-sm font-bold text-gray-900 dark:text-slate-100 tabular-nums flex-shrink-0">{live.away_score}</span>}
                           </div>
                           <div className="flex items-center justify-center py-1">
                             <span className="text-xs font-medium text-gray-400 dark:text-gray-500 transition-colors duration-200">@</span>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{g.home}</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200 truncate">{g.home}</span>
+                            {live && <span className="text-sm font-bold text-gray-900 dark:text-slate-100 tabular-nums flex-shrink-0">{live.home_score}</span>}
                           </div>
                         </div>
                         
-                        {/* Time */}
+                        {/* Live quarter/time or game time */}
                         <div className="pt-3 border-t border-gray-100 dark:border-slate-700 transition-colors duration-200">
                           <div className="flex items-center gap-1.5">
-                            <svg className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 transition-colors duration-200 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 transition-colors duration-200">{gameTime}</span>
+                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 transition-colors duration-200">
+                              {live && (live.is_final ? 'Final' : (live.quarter ? `Q${live.quarter} ${live.time_remaining || ''}`.trim() : gameTime))}
+                              {!live && gameTime}
+                            </span>
                           </div>
                         </div>
                       </div>
