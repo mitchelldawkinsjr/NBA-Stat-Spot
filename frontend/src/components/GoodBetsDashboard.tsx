@@ -104,6 +104,7 @@ export function GoodBetsDashboard() {
   const { showSnackbar, updateProgress, hideSnackbar } = useSnackbar()
   const [shouldLoadTopPicks, setShouldLoadTopPicks] = useState(false)
   const [statLeadersFilterToday, setStatLeadersFilterToday] = useState(false) // Toggle for filtering by today - default to "All"
+  const [featuredFilter, setFeaturedFilter] = useState<'all' | 'hot'>('all') // Players to Watch: All today's players vs Hot form only
   const [isRefreshing, setIsRefreshing] = useState(false)
   
   // Cooldown for refresh button (20 minutes = 1200000ms, backend allows 3/hour)
@@ -418,6 +419,11 @@ export function GoodBetsDashboard() {
       .slice(0, 8)
   }, [hotFormData, today, games.length])
 
+  const featuredPlayers = useMemo(() => {
+    const list = featuredFilter === 'hot' ? hotPlayers : playersToWatch
+    return list.slice(0, 8)
+  }, [featuredFilter, hotPlayers, playersToWatch])
+
   const statLeaders = useMemo(() => {
     // If "All" is selected, use league-wide stat leaders
     if (!statLeadersFilterToday) {
@@ -586,11 +592,11 @@ export function GoodBetsDashboard() {
               </div>
             </div>
           ) : dailyError ? (
-            <p className="text-red-600 dark:text-red-400 text-center py-4">Error loading picks. Click "Refresh Data" to retry.</p>
+            <p className="text-red-600 dark:text-red-400 text-center py-2 text-sm">Error loading picks. Click "Refresh Data" to retry.</p>
           ) : games.length === 0 ? (
-            <p className="text-gray-600 dark:text-gray-400 text-center py-4 transition-colors duration-200">No games scheduled for today.</p>
+            <p className="text-gray-600 dark:text-gray-400 text-center py-2 text-sm transition-colors duration-200">No games scheduled for today.</p>
           ) : bestBets.length === 0 ? (
-            <p className="text-gray-600 dark:text-gray-400 text-center py-4 transition-colors duration-200">Picks are being generated — check back soon.</p>
+            <p className="text-gray-600 dark:text-gray-400 text-center py-2 text-sm transition-colors duration-200">Picks are being generated — check back soon.</p>
           ) : (
             <SuggestionCards suggestions={bestBets} horizontal={true} />
           )}
@@ -731,10 +737,24 @@ export function GoodBetsDashboard() {
                 <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading pick…</span>
               </div>
             ) : games.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center transition-colors duration-200">No games today.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2 text-center transition-colors duration-200">No games today.</p>
             ) : !pickOfTheDay ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center transition-colors duration-200">No pick available for today. Try refreshing daily props in Admin.</p>
-            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2 text-center transition-colors duration-200">No pick available for today. Try refreshing daily props in Admin.</p>
+            ) : (() => {
+              const firstTopPick = bestBets.length > 0 ? bestBets[0] : null
+              const isSameAsFirstTopPick = firstTopPick && firstTopPick.playerId === pickOfTheDay.playerId && String(firstTopPick.type || '').toUpperCase() === String(pickOfTheDay.type || '').toUpperCase()
+              if (isSameAsFirstTopPick) {
+                return (
+                  <a href={`/player/${pickOfTheDay.playerId}`} className="block py-2 px-3 rounded-lg bg-white dark:bg-slate-800/80 border border-violet-200 dark:border-violet-800/50 hover:border-violet-400 dark:hover:border-violet-600 transition-colors duration-200 text-sm">
+                    <span className="font-semibold text-violet-700 dark:text-violet-300">Today&apos;s spotlight:</span>{' '}
+                    <span className="font-bold text-gray-900 dark:text-slate-100">{pickOfTheDay.playerName}</span>{' '}
+                    {pickOfTheDay.type} {pickOfTheDay.marketLine != null ? Number(pickOfTheDay.marketLine) : '—'}{' '}
+                    <span className={pickOfTheDay.suggestion === 'over' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'} {String(pickOfTheDay.suggestion).toUpperCase()}</span>
+                    {pickOfTheDay.confidence != null && <span className="ml-1.5 font-bold text-violet-700 dark:text-violet-300">— {Math.round(Number(pickOfTheDay.confidence))}% confidence</span>}
+                  </a>
+                )
+              }
+              return (
               <a
                 href={`/player/${pickOfTheDay.playerId}`}
                 className="block p-4 rounded-xl bg-white dark:bg-slate-800/80 border border-violet-200 dark:border-violet-800/50 hover:border-violet-400 dark:hover:border-violet-600 hover:shadow-lg transition-all duration-200"
@@ -764,180 +784,110 @@ export function GoodBetsDashboard() {
                   View full analysis →
                 </div>
               </a>
-            )}
+              )
+            })()}
           </div>
 
-          {/* Hot players — same tag concept as player profile (HOT form) */}
-          <div className="p-3 sm:p-4 border border-amber-200 dark:border-amber-800/50 rounded-lg bg-amber-50/30 dark:bg-amber-900/10 shadow-sm transition-colors duration-200">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg" aria-hidden>🔥</span>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Hot players</h3>
+          {/* Players to Watch — All today's players or Hot form only; hide when no games */}
+          {games.length > 0 && (
+          <div className={`p-3 sm:p-4 border rounded-lg shadow-sm transition-colors duration-200 ${featuredFilter === 'hot' ? 'border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-900/10' : 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800'}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Players to Watch</h3>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold transition-colors ${featuredFilter === 'all' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>All</span>
+                <button
+                  type="button"
+                  onClick={() => setFeaturedFilter(featuredFilter === 'all' ? 'hot' : 'all')}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 ${featuredFilter === 'hot' ? 'bg-amber-500 dark:bg-amber-600' : 'bg-gray-400 dark:bg-gray-500'}`}
+                  role="switch"
+                  aria-checked={featuredFilter === 'hot'}
+                  aria-label="Filter by hot form"
+                >
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${featuredFilter === 'hot' ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+                <span className={`text-xs font-bold transition-colors ${featuredFilter === 'hot' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>Hot form</span>
+              </div>
             </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 transition-colors duration-200">
-              Players in hot form (recent &gt; season) with high-confidence props today — same tag as on player page
-            </p>
-            {hotFormLoading ? (
+            {(featuredFilter === 'hot' ? hotFormLoading : dailyLoading) ? (
               <div className="flex items-center justify-center py-6">
-                <svg className="animate-spin h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg className="animate-spin h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">Loading…</span>
-              </div>
-            ) : games.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 py-2 transition-colors duration-200">No games today.</p>
-            ) : hotPlayers.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 py-2 transition-colors duration-200">No hot-form players for today.</p>
-            ) : (
-              <div className="overflow-x-auto -mx-4 px-4">
-                <div className="flex gap-3 min-w-max">
-                  {hotPlayers.map((p) => {
-                    const topConfidence = Math.round(p.highlight?.confidence ?? 0)
-                    const hasTopProp = topConfidence > 0
-                    return (
-                      <a
-                        key={p.id}
-                        href={`/player/${p.id}`}
-                        className={`flex-shrink-0 w-[160px] sm:w-[200px] rounded-xl border p-2.5 sm:p-3 hover:shadow-md transition-colors duration-200 ${hasTopProp ? 'border-amber-300 dark:border-amber-700/50 bg-amber-50/50 dark:bg-amber-900/20' : 'border-amber-200 dark:border-amber-800/30 bg-white dark:bg-slate-800/80'}`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 truncate transition-colors duration-200">{p.name}</div>
-                            {hasTopProp && (
-                              <div className="mt-1 flex items-center gap-1.5">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-bold shadow-sm">
-                                  HOT
-                                </span>
-                                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 transition-colors duration-200">{topConfidence}%</span>
-                              </div>
-                            )}
-                            {hasTopProp && (
-                              <div className="mt-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">
-                                {p.highlight?.type} {p.highlight?.marketLine ?? p.highlight?.fairLine ?? '—'}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {p.tags.map((t, i) => (
-                            <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 text-[11px] font-medium transition-colors duration-200">{t}</span>
-                          ))}
-                        </div>
-                        {!hasTopProp && (
-                          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">Hot form</div>
-                        )}
-                      </a>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Players to Watch */}
-          <div className="p-3 sm:p-4 border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm transition-colors duration-200">
-            <h3 className="text-base sm:text-lg font-semibold mb-3 text-gray-800 dark:text-slate-100 transition-colors duration-200">Players to Watch</h3>
-            {dailyLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-8 h-8 border-4 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full animate-spin transition-colors duration-200"></div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">Loading players…</p>
-                </div>
-              </div>
-            ) : games.length === 0 ? (
-              <p className="text-gray-600 dark:text-gray-400 transition-colors duration-200">No games scheduled for today.</p>
-            ) : playersToWatch.length === 0 ? (
-              <p className="text-gray-600 dark:text-gray-400 transition-colors duration-200">No players to watch for today's games.</p>
-            ) : (
-              <div className="overflow-x-auto -mx-4 px-4">
-                <div className="flex gap-3 min-w-max">
-                  {playersToWatch.map((p) => {
-                    const topConfidence = Math.round(p.highlight?.confidence ?? 0)
-                    const hasTopProp = topConfidence > 0
-                    return (
-                      <a key={p.id} href={`/player/${p.id}`} className={`flex-shrink-0 w-[160px] sm:w-[200px] rounded-xl border p-2.5 sm:p-3 hover:shadow-sm transition ${hasTopProp ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200 bg-gray-50'}`}>
-                        <div className="flex items-start gap-2">
-                          <PlayerAvatar playerId={p.id} playerName={p.name} size="medium" className="flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-gray-900 truncate">{p.name}</div>
-                            {hasTopProp && (
-                              <div className="mt-1 flex items-center gap-1.5">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-[10px] font-bold shadow-sm">
-                                  ⭐ TOP PROP
-                                </span>
-                                <span className="text-xs font-semibold text-blue-700">{topConfidence}%</span>
-                              </div>
-                            )}
-                            {hasTopProp && (
-                              <div className="mt-1.5 text-xs font-medium text-gray-700">
-                                {p.highlight?.type} {p.highlight?.marketLine ?? p.highlight?.fairLine ?? '—'}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {p.tags.map((t, i) => (
-                            <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[11px] font-medium">{t}</span>
-                          ))}
-                        </div>
-                        {!hasTopProp && (
-                          <div className="mt-2 text-xs text-gray-500">No top prop available</div>
-                        )}
-                      </a>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Hot form high-confidence props */}
-          <div className="p-3 sm:p-4 border border-amber-200 dark:border-amber-800/50 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 shadow-sm transition-colors duration-200">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg" aria-hidden>🔥</span>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Hot form · High confidence</h3>
-            </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 transition-colors duration-200">
-              Props from players in good form (recent &gt; season) with 70%+ confidence
-            </p>
-            {hotFormLoading ? (
-              <div className="flex items-center justify-center py-6">
-                <svg className="animate-spin h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span className="ml-2 text-sm text-gray-600">Loading…</span>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading…</span>
               </div>
             ) : games.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400 py-2">No games today.</p>
-            ) : hotFormItems.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">No hot-form high-confidence props for today.</p>
+            ) : featuredPlayers.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">{featuredFilter === 'hot' ? 'No hot-form players for today.' : 'No players to watch for today\'s games.'}</p>
             ) : (
-              <ul className="space-y-2 max-h-64 overflow-y-auto">
-                {hotFormItems.slice(0, 15).map((item: any, idx: number) => (
-                  <li key={`${item.playerId}-${item.type}-${idx}`}>
-                    <a
-                      href={`/player/${item.playerId}`}
-                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white dark:bg-slate-800/80 border border-amber-100 dark:border-amber-800/30 hover:border-amber-300 dark:hover:border-amber-600/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <PlayerAvatar playerId={item.playerId} playerName={item.playerName} size="small" />
-                        <div className="min-w-0">
-                          <span className="font-medium text-gray-900 dark:text-slate-100 truncate block">{item.playerName}</span>
-                          <span className="text-xs text-gray-600 dark:text-gray-400">
-                            {item.type} {item.marketLine ?? item.fairLine ?? '—'} {item.suggestion === 'over' ? 'OVER' : 'UNDER'}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="flex-shrink-0 text-sm font-bold text-amber-700 dark:text-amber-400">
-                        {Math.round(item.confidence ?? 0)}%
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <div className="overflow-x-auto -mx-4 px-4">
+                  <div className="flex gap-3 min-w-max">
+                    {featuredPlayers.map((p) => {
+                      const topConfidence = Math.round(p.highlight?.confidence ?? 0)
+                      const hasTopProp = topConfidence > 0
+                      const isHot = featuredFilter === 'hot'
+                      return (
+                        <a
+                          key={p.id}
+                          href={`/player/${p.id}`}
+                          className={`flex-shrink-0 w-[160px] sm:w-[200px] rounded-xl border p-2.5 sm:p-3 hover:shadow-md transition-colors duration-200 flex flex-col ${
+                            isHot
+                              ? hasTopProp ? 'border-amber-300 dark:border-amber-700/50 bg-amber-50/50 dark:bg-amber-900/20' : 'border-amber-200 dark:border-amber-800/30 bg-white dark:bg-slate-800/80'
+                              : hasTopProp ? 'border-blue-300 dark:border-blue-700/50 bg-blue-50/30 dark:bg-blue-900/20' : 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-800/80'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <PlayerAvatar playerId={p.id} playerName={p.name} size="medium" className="flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 truncate">{p.name}</div>
+                              {hasTopProp && (
+                                <div className="mt-1 flex items-center gap-1.5">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-white text-[10px] font-bold shadow-sm ${isHot ? 'bg-gradient-to-r from-amber-400 to-orange-500' : 'bg-gradient-to-r from-yellow-400 to-orange-500'}`}>
+                                    {isHot ? 'HOT' : '⭐ TOP PROP'}
+                                  </span>
+                                  <span className={`text-xs font-semibold ${isHot ? 'text-amber-700 dark:text-amber-400' : 'text-blue-700 dark:text-blue-400'}`}>{topConfidence}%</span>
+                                </div>
+                              )}
+                              {hasTopProp && (
+                                <div className="mt-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
+                                  {p.highlight?.type} {p.highlight?.marketLine ?? p.highlight?.fairLine ?? '—'}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {p.tags.map((t, i) => (
+                              <span key={i} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${isHot ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200'}`}>{t}</span>
+                            ))}
+                          </div>
+                          {!hasTopProp && <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">{isHot ? 'Hot form' : 'No top prop'}</div>}
+                        </a>
+                      )
+                    })}
+                  </div>
+                </div>
+                {featuredFilter === 'hot' && hotFormItems.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-amber-200/50 dark:border-amber-800/30">
+                    <p className="text-[10px] sm:text-xs font-semibold text-amber-800 dark:text-amber-200 mb-2">Today&apos;s hot-form props</p>
+                    <ul className="space-y-1.5">
+                      {hotFormItems.slice(0, 5).map((item: any, idx: number) => (
+                        <li key={`${item.playerId}-${item.type}-${idx}`}>
+                          <a href={`/player/${item.playerId}`} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-lg bg-white/80 dark:bg-slate-800/80 border border-amber-100 dark:border-amber-800/30 hover:border-amber-300 dark:hover:border-amber-600/50 transition-colors text-sm">
+                            <span className="font-medium text-gray-900 dark:text-slate-100 truncate">{item.playerName}</span>
+                            <span className="text-xs text-gray-600 dark:text-gray-400 shrink-0">{item.type} {item.marketLine ?? item.fairLine ?? '—'} {item.suggestion === 'over' ? 'O' : 'U'}</span>
+                            <span className="text-xs font-bold text-amber-700 dark:text-amber-400 shrink-0">{Math.round(item.confidence ?? 0)}%</span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
             )}
           </div>
+          )}
 
           {/* Daily Props Panel */}
           <DailyPropsPanel />
@@ -984,7 +934,7 @@ export function GoodBetsDashboard() {
             ) : leagueStatLeadersError && !statLeadersFilterToday ? (
               <p className="text-xs text-red-600 dark:text-red-400">Error loading stat leaders. Please try again.</p>
             ) : (statLeadersFilterToday && !gamesLoading && games.length === 0) ? (
-              <p className="text-gray-600 dark:text-gray-400">No games scheduled for today.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">No games today.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {(['PTS','AST','REB','3PM'] as const).map((cat) => {
