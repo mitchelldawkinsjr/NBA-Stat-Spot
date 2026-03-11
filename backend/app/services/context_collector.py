@@ -545,6 +545,8 @@ class ContextCollector:
             
             # Cache for 24 hours
             cache.set(cache_key, defensive_ranks, ttl=86400)
+            # Also cache raw averages for matchup advantage score computation
+            cache.set(f"defensive_avgs:{season_to_use}:24h", team_averages, ttl=86400)
             
             logger.info("Defensive ranks calculation complete", teams_ranked=len(defensive_ranks))
             return defensive_ranks
@@ -831,6 +833,238 @@ class ContextCollector:
         except Exception as e:
             logger.warning("Team ranks from player stats fallback failed", season=season, error=str(e))
             return {}, {}
+
+    @staticmethod
+    def get_defensive_averages(season: Optional[str] = None) -> Dict[int, Dict[str, float]]:
+        """Return raw per-team defensive averages (avg stats allowed per game). Populated as a side-effect of _calculate_defensive_ranks."""
+        cache = get_cache_service()
+        season_to_use = season or "2025-26"
+        cached = cache.get(f"defensive_avgs:{season_to_use}:24h")
+        if cached is not None:
+            return _normalize_rank_keys(cached)
+        # Trigger ranks calculation which populates the averages cache
+        ContextCollector._calculate_defensive_ranks(season_to_use)
+        cached = cache.get(f"defensive_avgs:{season_to_use}:24h")
+        if cached is not None:
+            return _normalize_rank_keys(cached)
+        return {}
+
+    @staticmethod
+    def _calculate_pace_ranks(season: Optional[str] = None) -> Dict[int, Dict[str, Any]]:
+        """
+        Calculate pace (possessions per game) for each team.
+        Formula: Possessions ≈ FGA + 0.44·FTA + TOV − OREB (summed per game across team players).
+        Returns {team_id: {"possessions": float, "pace_rank": int}} — rank 1 = fastest pace.
+        Cached 24h.
+        """
+        try:
+            cache = get_cache_service()
+            season_to_use = season or "2025-26"
+            cache_key = f"pace_ranks:{season_to_use}:24h"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return _normalize_rank_keys(cached)
+
+            teams = NBADataService.fetch_all_teams()
+            if not teams:
+                return {}
+
+            players_per_team = 5
+            games_per_player = 20
+            all_players = NBADataService.fetch_all_players_including_rookies()
+
+            players_by_team: Dict[int, List[Dict[str, Any]]] = {}
+            for p in all_players:
+                tid = p.get("team_id")
+                if tid:
+                    players_by_team.setdefault(tid, [])
+                    if len(players_by_team[tid]) < players_per_team:
+                        players_by_team[tid].append(p)
+
+            # game_date -> {fga, fta, tov, oreb} totals across team players
+            team_game_poss: Dict[int, Dict[str, Dict[str, float]]] = {}
+            for t in teams:
+                tid = t.get("id")
+                if tid:
+                    team_game_poss[tid] = {}
+
+            for team_id, team_players in players_by_team.items():
+                if team_id not in team_game_poss:
+                    continue
+                for player in team_players:
+                    pid = player.get("id")
+                    if not pid:
+                        continue
+                    try:
+                        logs = NBADataService.fetch_player_game_log(pid, season_to_use)
+                    except Exception:
+                        continue
+                    for g in logs[:games_per_player]:
+                        gd = g.get("game_date")
+                        if not gd:
+                            continue
+                        if gd not in team_game_poss[team_id]:
+                            team_game_poss[team_id][gd] = {"fga": 0.0, "fta": 0.0, "tov": 0.0, "oreb": 0.0}
+                        team_game_poss[team_id][gd]["fga"] += float(g.get("fga", 0) or 0)
+                        team_game_poss[team_id][gd]["fta"] += float(g.get("fta", 0) or 0)
+                        team_game_poss[team_id][gd]["tov"] += float(g.get("tov", 0) or 0)
+                        team_game_poss[team_id][gd]["oreb"] += float(g.get("oreb", 0) or 0)
+
+            team_avg_poss: Dict[int, float] = {}
+            for team_id, games_map in team_game_poss.items():
+                if not games_map:
+                    continue
+                poss_per_game = []
+                for _, stats in games_map.items():
+                    poss = stats["fga"] + 0.44 * stats["fta"] + stats["tov"] - stats["oreb"]
+                    if poss > 0:
+                        poss_per_game.append(poss)
+                if poss_per_game:
+                    team_avg_poss[team_id] = sum(poss_per_game) / len(poss_per_game)
+
+            # rank: highest pace = rank 1 (fastest)
+            ranked = sorted(team_avg_poss.items(), key=lambda x: -x[1])
+            result: Dict[int, Dict[str, Any]] = {}
+            for rank, (tid, poss) in enumerate(ranked, start=1):
+                result[tid] = {"possessions": round(poss, 1), "pace_rank": rank}
+
+            cache.set(cache_key, result, ttl=86400)
+            logger.info("Pace ranks calculation complete", teams_ranked=len(result))
+            return result
+        except Exception as e:
+            logger.warning("Error calculating pace ranks", season=season, error=str(e))
+            return {}
+
+    @staticmethod
+    def _calculate_position_defensive_ranks(season: Optional[str] = None) -> Dict[str, Dict[int, Dict[str, int]]]:
+        """
+        Rank all teams by stats allowed per player position (PG, SG, SF, PF, C).
+        Returns {position: {team_id: {pts: rank, reb: rank, ast: rank, 3pm: rank}}}
+        Rank 1 = best defense (allows fewest) for that position/stat.
+        Cached 24h.
+        """
+        POSITIONS = ["PG", "SG", "SF", "PF", "C"]
+        try:
+            cache = get_cache_service()
+            season_to_use = season or "2025-26"
+            cache_key = f"position_def_ranks:{season_to_use}:24h"
+            cached = cache.get(cache_key)
+            if cached is not None:
+                # Normalize team_id keys to int per position
+                return {pos: _normalize_rank_keys(v) for pos, v in cached.items()}
+
+            teams = NBADataService.fetch_all_teams()
+            if not teams:
+                return {}
+
+            teams_by_abbr = {t.get("abbreviation", "").upper(): t for t in teams if t.get("abbreviation")}
+
+            # position -> opponent_team_id -> {pts: [], reb: [], ast: [], 3pm: []}
+            pos_def_stats: Dict[str, Dict[int, Dict[str, List[float]]]] = {
+                pos: {} for pos in POSITIONS
+            }
+
+            all_players = NBADataService.fetch_all_players_including_rookies()
+            players_per_team = 5
+            games_per_player = 20
+
+            players_by_team: Dict[int, List[Dict[str, Any]]] = {}
+            for p in all_players:
+                tid = p.get("team_id")
+                if tid:
+                    players_by_team.setdefault(tid, [])
+                    if len(players_by_team[tid]) < players_per_team:
+                        players_by_team[tid].append(p)
+
+            import re as _re
+
+            def _get_opponent_id(matchup: str) -> Optional[int]:
+                """Parse opponent team abbreviation from matchup string and return team_id."""
+                if not matchup:
+                    return None
+                mu = matchup.upper().strip()
+                m = _re.search(r'([A-Z]{2,4})\s+(?:VS\.?|@|V\.?)\s+([A-Z]{2,4})', mu)
+                if m:
+                    opp_abbr = m.group(2).strip(" .")
+                    team = teams_by_abbr.get(opp_abbr)
+                    if team:
+                        return team.get("id")
+                return None
+
+            for team_id, team_players in players_by_team.items():
+                for player in team_players:
+                    pid = player.get("id")
+                    raw_pos = (player.get("position") or "").upper().strip()
+                    # Normalize to one of the 5 positions
+                    if raw_pos in ("G", "PG", "GUARD"):
+                        position = "PG"
+                    elif raw_pos in ("SG", "SHOOTING GUARD"):
+                        position = "SG"
+                    elif raw_pos in ("SF", "SMALL FORWARD", "F", "FORWARD", "G-F", "F-G"):
+                        position = "SF"
+                    elif raw_pos in ("PF", "POWER FORWARD", "F-C", "C-F"):
+                        position = "PF"
+                    elif raw_pos in ("C", "CENTER"):
+                        position = "C"
+                    else:
+                        continue  # skip players with unknown position
+
+                    if not pid:
+                        continue
+                    try:
+                        logs = NBADataService.fetch_player_game_log(pid, season_to_use)
+                    except Exception:
+                        continue
+
+                    for g in logs[:games_per_player]:
+                        opp_id = _get_opponent_id(g.get("matchup", ""))
+                        if not opp_id:
+                            continue
+                        if opp_id not in pos_def_stats[position]:
+                            pos_def_stats[position][opp_id] = {"pts": [], "reb": [], "ast": [], "3pm": []}
+                        pos_def_stats[position][opp_id]["pts"].append(float(g.get("pts", 0) or 0))
+                        pos_def_stats[position][opp_id]["reb"].append(float(g.get("reb", 0) or 0))
+                        pos_def_stats[position][opp_id]["ast"].append(float(g.get("ast", 0) or 0))
+                        pos_def_stats[position][opp_id]["3pm"].append(float(g.get("tpm", 0) or 0))
+
+            result: Dict[str, Dict[int, Dict[str, int]]] = {}
+            for pos in POSITIONS:
+                team_avgs: Dict[int, Dict[str, float]] = {}
+                for tid, stats in pos_def_stats[pos].items():
+                    if not stats["pts"]:
+                        continue
+                    n = len(stats["pts"])
+                    team_avgs[tid] = {
+                        "pts": sum(stats["pts"]) / n,
+                        "reb": sum(stats["reb"]) / n,
+                        "ast": sum(stats["ast"]) / n,
+                        "3pm": sum(stats["3pm"]) / n,
+                    }
+                if not team_avgs:
+                    result[pos] = {}
+                    continue
+                pts_ranked = sorted(team_avgs.items(), key=lambda x: x[1]["pts"])
+                reb_ranked = sorted(team_avgs.items(), key=lambda x: x[1]["reb"])
+                ast_ranked = sorted(team_avgs.items(), key=lambda x: x[1]["ast"])
+                pm3_ranked = sorted(team_avgs.items(), key=lambda x: x[1]["3pm"])
+                pos_ranks: Dict[int, Dict[str, int]] = {}
+                for rank, (tid, _) in enumerate(pts_ranked, start=1):
+                    pos_ranks.setdefault(tid, {})["pts"] = rank
+                for rank, (tid, _) in enumerate(reb_ranked, start=1):
+                    pos_ranks.setdefault(tid, {})["reb"] = rank
+                for rank, (tid, _) in enumerate(ast_ranked, start=1):
+                    pos_ranks.setdefault(tid, {})["ast"] = rank
+                for rank, (tid, _) in enumerate(pm3_ranked, start=1):
+                    pos_ranks.setdefault(tid, {})["3pm"] = rank
+                result[pos] = pos_ranks
+
+            cache.set(cache_key, result, ttl=86400)
+            logger.info("Position defensive ranks complete", positions=list(result.keys()),
+                        sample_pg_teams=len(result.get("PG", {})))
+            return result
+        except Exception as e:
+            logger.warning("Error calculating position defensive ranks", season=season, error=str(e))
+            return {}
 
     @staticmethod
     def get_team_performance(team_id: int, games: int = 10, season: Optional[str] = None) -> Dict[str, Any]:

@@ -276,6 +276,69 @@ export function BetTracker() {
           </div>
         </div>
       )}
+
+      {/* Breakdown by Prop Type + Confidence */}
+      {stats && stats.overall.total > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          {/* By Prop Type */}
+          {Object.keys(stats.by_prop_type || {}).length > 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 sm:p-4 transition-colors duration-200">
+              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 transition-colors duration-200">Win Rate by Prop Type</div>
+              <div className="space-y-2">
+                {Object.entries(stats.by_prop_type).map(([type, data]) => {
+                  const pct = data.win_rate
+                  const barColor = pct >= 60 ? 'bg-green-500' : pct >= 50 ? 'bg-amber-500' : 'bg-red-400'
+                  return (
+                    <div key={type}>
+                      <div className="flex justify-between items-center mb-0.5">
+                        <span className="text-xs font-medium text-gray-700 dark:text-slate-300 w-10 transition-colors duration-200">{type}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">{data.won}W/{data.total}G</span>
+                        <span className={`text-xs font-bold w-12 text-right ${pct >= 60 ? 'text-green-600 dark:text-green-400' : pct >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'} transition-colors duration-200`}>
+                          {pct.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 transition-colors duration-200">
+                        <div className={`${barColor} h-1.5 rounded-full transition-all duration-300`} style={{ width: `${Math.min(100, pct)}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* By Confidence */}
+          {stats.by_confidence && (
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 sm:p-4 transition-colors duration-200">
+              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 transition-colors duration-200">System Accuracy by Confidence</div>
+              <div className="space-y-2">
+                {(['high', 'medium', 'low'] as const).map(level => {
+                  const data = stats.by_confidence[level]
+                  if (!data || data.total === 0) return null
+                  const pct = data.win_rate
+                  const labelColor = level === 'high' ? 'text-green-700 dark:text-green-400' : level === 'medium' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'
+                  const barColor = level === 'high' ? 'bg-green-500' : level === 'medium' ? 'bg-amber-500' : 'bg-gray-400'
+                  const label = level === 'high' ? 'High (≥70%)' : level === 'medium' ? 'Medium (50–69%)' : 'Low (<50%)'
+                  return (
+                    <div key={level}>
+                      <div className="flex justify-between items-center mb-0.5">
+                        <span className={`text-xs font-medium transition-colors duration-200 ${labelColor}`}>{label}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">{data.won}W/{data.total}G</span>
+                        <span className={`text-xs font-bold w-12 text-right ${pct >= 60 ? 'text-green-600 dark:text-green-400' : pct >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'} transition-colors duration-200`}>
+                          {pct.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 transition-colors duration-200">
+                        <div className={`${barColor} h-1.5 rounded-full transition-all duration-300`} style={{ width: `${Math.min(100, pct)}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Create Bet Form */}
       {showForm && (

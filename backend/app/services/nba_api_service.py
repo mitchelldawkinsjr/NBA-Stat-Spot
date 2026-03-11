@@ -531,6 +531,12 @@ class NBADataService:
                         "ast": float(row.get("AST", 0) or 0),
                         "tpm": float(row.get("FG3M", 0) or 0),
                         "minutes": minutes,
+                        "fga": float(row.get("FGA", 0) or 0),
+                        "fta": float(row.get("FTA", 0) or 0),
+                        "tov": float(row.get("TOV", 0) or 0),
+                        "oreb": float(row.get("OREB", 0) or 0),
+                        "stl": float(row.get("STL", 0) or 0),
+                        "blk": float(row.get("BLK", 0) or 0),
                     })
                 
                 # Log summary of parsed minutes

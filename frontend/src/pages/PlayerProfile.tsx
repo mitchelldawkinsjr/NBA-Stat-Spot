@@ -591,6 +591,38 @@ export default function PlayerProfile() {
   const hasAnyDefRank = playerContext?.opponent_defense && [playerContext.opponent_defense.rank_pts, playerContext.opponent_defense.rank_reb, playerContext.opponent_defense.rank_ast, playerContext.opponent_defense.rank_3pm].some((r) => r != null)
   const opponentDefenseEmpty = !playerContextLoading && !!opponentTeamId && playerContext != null && !hasAnyDefRank
 
+  // Fetch opponent pace rank for game context
+  const { data: teamRanksData } = useQuery({
+    queryKey: ['team-stats-ranks', season],
+    queryFn: async () => {
+      const res = await apiFetch(`api/v1/teams/team-stats/ranks?season=${encodeURIComponent(season || '2025-26')}`)
+      if (!res.ok) return null
+      return res.json()
+    },
+    enabled: !!opponentTeamId,
+    staleTime: 24 * 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  })
+  const opponentPaceRank = useMemo(() => {
+    if (!teamRanksData?.items || !opponentTeamId) return null
+    const item = teamRanksData.items.find((t: { id: number }) => Number(t.id) === Number(opponentTeamId))
+    return item ? { pace_rank: item.pace_rank, possessions: item.possessions_per_game } : null
+  }, [teamRanksData, opponentTeamId])
+
+  // Fetch streak data (consecutive games above season avg)
+  const { data: streakData } = useQuery({
+    queryKey: ['player-streaks', id, season],
+    queryFn: async () => {
+      if (!id) return null
+      const res = await apiFetch(`api/v1/players/${id}/streaks?season=${encodeURIComponent(season || '2025-26')}`)
+      if (!res.ok) return null
+      return res.json()
+    },
+    enabled: !!id,
+    staleTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  })
+
   
 
   return (
@@ -1056,9 +1088,69 @@ export default function PlayerProfile() {
                               ].filter(Boolean).join(' — ') || 'Healthy',
                               valueColor: playerContext?.is_injured ? 'text-red-600' : 'text-green-600'
                             },
+                            ...(opponentPaceRank?.pace_rank != null ? [{
+                              label: 'Opp Pace',
+                              value: `#${opponentPaceRank.pace_rank}${opponentPaceRank.possessions != null ? ` (${opponentPaceRank.possessions.toFixed(0)} poss)` : ''}`,
+                              valueColor: opponentPaceRank.pace_rank <= 5 ? 'text-orange-600 dark:text-orange-400' : opponentPaceRank.pace_rank >= 26 ? 'text-blue-600 dark:text-blue-400' : undefined,
+                            }] : []),
                           ]}
                         />
                       </div>
+                      {/* Matchup Advantage Score Card */}
+                      {playerContext?.matchup_advantage && Object.keys(playerContext.matchup_advantage).length > 0 && (
+                        <div className="w-[180px] flex-none">
+                          <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-3 transition-colors duration-200">
+                            <div className="font-semibold text-gray-700 dark:text-slate-200 mb-2 text-xs transition-colors duration-200">Matchup Advantage</div>
+                            <div className="text-[10px] text-gray-400 dark:text-gray-500 mb-2 transition-colors duration-200">Player avg − opp allowed</div>
+                            {(['pts', 'reb', 'ast', '3pm'] as const).map(stat => {
+                              const val = playerContext.matchup_advantage[stat]
+                              if (val == null) return null
+                              const isPos = val > 0.5
+                              const isNeg = val < -0.5
+                              const color = isPos ? 'text-green-600 dark:text-green-400' : isNeg ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
+                              const label = stat === '3pm' ? '3PM' : stat.toUpperCase()
+                              return (
+                                <div key={stat} className="flex justify-between items-center py-0.5">
+                                  <span className="text-xs text-gray-600 dark:text-slate-400 transition-colors duration-200">{label}</span>
+                                  <span className={`text-xs font-bold transition-colors duration-200 ${color}`}>
+                                    {val > 0 ? '+' : ''}{val.toFixed(1)}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hot/Cold Streak Card */}
+                      {streakData?.streaks && Object.keys(streakData.streaks).length > 0 && (
+                        <div className="w-[180px] flex-none">
+                          <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-3 transition-colors duration-200">
+                            <div className="font-semibold text-gray-700 dark:text-slate-200 mb-2 text-xs transition-colors duration-200">Streaks vs Season Avg</div>
+                            {(['pts', 'reb', 'ast', 'tpm'] as const).map(stat => {
+                              const s = streakData.streaks[stat]
+                              if (!s) return null
+                              const isHot = s.hot
+                              const isCold = s.cold
+                              const streak = isHot ? s.streak_over : isCold ? s.streak_under : 0
+                              const label = stat === 'tpm' ? '3PM' : stat.toUpperCase()
+                              return (
+                                <div key={stat} className="flex justify-between items-center py-0.5">
+                                  <span className="text-xs text-gray-600 dark:text-slate-400 transition-colors duration-200">{label}</span>
+                                  {isHot ? (
+                                    <span className="text-xs font-bold text-orange-500 dark:text-orange-400 transition-colors duration-200">🔥 {streak}G</span>
+                                  ) : isCold ? (
+                                    <span className="text-xs font-bold text-blue-500 dark:text-blue-400 transition-colors duration-200">❄️ {streak}G</span>
+                                  ) : (
+                                    <span className="text-xs text-gray-400 dark:text-gray-500 transition-colors duration-200">{s.recent5_avg.toFixed(1)} avg</span>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Usage Trend Card */}
                       {(() => {
                         const usageRecent = avg(recentN.map(g=> (g.pts + g.ast + g.reb)))

@@ -201,6 +201,33 @@ def fetch_player_game_log_espn(
                         tpm = _parse_three_from_fg_string(str(stat_map[three_key]))
                     minutes = _parse_minutes(stat_map.get("minutes"))
 
+                    def _safe_int(v: Any) -> int:
+                        if v is None or v == "":
+                            return 0
+                        try:
+                            return int(v)
+                        except (ValueError, TypeError):
+                            return 0
+
+                    fg_key = "fieldGoalsMade-fieldGoalsAttempted"
+                    ft_key = "freeThrowsMade-freeThrowsAttempted"
+                    fg_str = str(stat_map.get(fg_key) or "0-0")
+                    ft_str = str(stat_map.get(ft_key) or "0-0")
+                    fg_parts = fg_str.split("-")
+                    ft_parts = ft_str.split("-")
+                    try:
+                        fga = int(fg_parts[1])
+                    except (ValueError, TypeError, IndexError):
+                        fga = 0
+                    try:
+                        fta = int(ft_parts[1])
+                    except (ValueError, TypeError, IndexError):
+                        fta = 0
+                    tov = _safe_int(stat_map.get("turnovers"))
+                    oreb = _safe_int(stat_map.get("offensiveRebounds"))
+                    stl = _safe_int(stat_map.get("steals"))
+                    blk = _safe_int(stat_map.get("blocks"))
+
                     opp_abbr = home_away.get("away") if team_ha == "home" else home_away.get("home")
                     matchup = f"{team_abbr} vs. {opp_abbr}" if team_ha == "home" else f"{team_abbr} @ {opp_abbr}"
                     if not opp_abbr:
@@ -215,6 +242,12 @@ def fetch_player_game_log_espn(
                         "ast": ast,
                         "tpm": tpm,
                         "minutes": minutes,
+                        "fga": fga,
+                        "fta": fta,
+                        "tov": tov,
+                        "oreb": oreb,
+                        "stl": stl,
+                        "blk": blk,
                     })
                     break
                 if len(log_entries) and log_entries[-1].get("game_id") == str(event_id):

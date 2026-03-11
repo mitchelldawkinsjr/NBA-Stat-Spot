@@ -49,6 +49,8 @@ type TeamStatsRanks = {
   off_rank_reb: number | null
   off_rank_ast: number | null
   off_rank_3pm: number | null
+  pace_rank: number | null
+  possessions_per_game: number | null
 }
 
 export default function TeamProfile() {
@@ -119,6 +121,8 @@ export default function TeamProfile() {
             off_rank_reb: item.off_rank_reb ?? null,
             off_rank_ast: item.off_rank_ast ?? null,
             off_rank_3pm: item.off_rank_3pm ?? null,
+            pace_rank: item.pace_rank ?? null,
+            possessions_per_game: item.possessions_per_game ?? null,
           })
         }
       } catch {
@@ -285,6 +289,33 @@ export default function TeamProfile() {
             </div>
           </div>
 
+          {/* Pace Card */}
+          {(teamStats.pace_rank != null || teamStats.possessions_per_game != null) && (
+            <div className="mb-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">Pace of Play</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 transition-colors duration-200">Possessions per game — rank 1 = fastest pace</p>
+              <div className="flex items-center gap-6">
+                <div>
+                  <div className="text-3xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">
+                    {teamStats.possessions_per_game != null ? teamStats.possessions_per_game.toFixed(1) : '—'}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 transition-colors duration-200">Possessions/game</div>
+                </div>
+                <div>
+                  <div className={`text-3xl font-bold transition-colors duration-200 ${teamStats.pace_rank != null && teamStats.pace_rank <= 5 ? 'text-orange-500 dark:text-orange-400' : teamStats.pace_rank != null && teamStats.pace_rank >= 26 ? 'text-blue-500 dark:text-blue-400' : 'text-gray-900 dark:text-slate-100'}`}>
+                    {teamStats.pace_rank != null ? `#${teamStats.pace_rank}` : '—'}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 transition-colors duration-200">Pace rank</div>
+                </div>
+                {teamStats.pace_rank != null && (
+                  <div className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors duration-200 ${teamStats.pace_rank <= 5 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : teamStats.pace_rank <= 15 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                    {teamStats.pace_rank <= 5 ? '🔥 Fast pace — favors counting stats' : teamStats.pace_rank <= 15 ? 'Average pace' : '🐢 Slow pace — fewer possessions'}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Insight bullets from ranks */}
           {(() => {
             const d = teamStats
@@ -295,6 +326,8 @@ export default function TeamProfile() {
             if (d.def_rank_reb != null && d.def_rank_reb <= 8) insights.push(`Strong on the glass defensively (#${d.def_rank_reb})`)
             if (d.off_rank_pts != null && d.off_rank_pts <= 5) insights.push(`Top-tier scoring offense (#${d.off_rank_pts})`)
             if (d.off_rank_pts != null && d.off_rank_pts >= 25) insights.push(`Low-scoring offense (#${d.off_rank_pts})`)
+            if (d.pace_rank != null && d.pace_rank <= 5) insights.push(`Top-5 fastest pace — boosts all counting stats`)
+            if (d.pace_rank != null && d.pace_rank >= 26) insights.push(`Bottom-5 pace — fewer possessions, consider unders`)
             if (insights.length === 0) return null
             return (
               <div className="mb-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 ring-1 ring-slate-200 dark:ring-slate-600">

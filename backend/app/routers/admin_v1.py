@@ -16,6 +16,7 @@ from ..services.game_status_monitor import GameStatusMonitor
 from ..services.cache_service import get_cache_service
 from ..services.external_api_rate_limiter import get_rate_limiter
 from ..services.context_collector import ContextCollector
+from ..services.game_prediction_service import get_game_prediction_service
 from ..core.rate_limiter import limiter
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin_v1"])
@@ -584,6 +585,42 @@ def refresh_offensive_ranks(
         return {"status": "error", "message": str(e)}
 
 
+@router.post("/refresh/pace-ranks")
+@limiter.limit("5/hour")
+def refresh_pace_ranks(
+    request: Request,
+    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+):
+    """Pre-compute team pace (possessions per game) ranks for all teams and cache for 24h."""
+    try:
+        ranks = ContextCollector._calculate_pace_ranks(season or "2025-26")
+        return {
+            "status": "success",
+            "teamsRanked": len(ranks),
+            "message": f"Cached pace ranks for {len(ranks)} teams (24h)"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/refresh/position-defense-ranks")
+@limiter.limit("5/hour")
+def refresh_position_defense_ranks(
+    request: Request,
+    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+):
+    """Pre-compute position-based defensive ranks (PG/SG/SF/PF/C) for all teams and cache for 24h."""
+    try:
+        ranks = ContextCollector._calculate_position_defensive_ranks(season or "2025-26")
+        return {
+            "status": "success",
+            "positions": list(ranks.keys()),
+            "message": f"Cached position defense ranks for {len(ranks)} positions (24h)"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @router.post("/refresh/all")
 @limiter.limit("10/hour")
 def refresh_all(request: Request):
@@ -679,6 +716,14 @@ def refresh_all(request: Request):
     except Exception as e:
         results["offensiveRanks"] = {"status": "error", "message": str(e)}
 
+    # Game predictions (Today's Games Predictions section)
+    try:
+        pred_svc = get_game_prediction_service()
+        preds = pred_svc.get_todays_predictions(date.today())
+        results["gamePredictions"] = {"status": "success", "count": len(preds)}
+    except Exception as e:
+        results["gamePredictions"] = {"status": "error", "message": str(e)}
+
     return {
         "status": "success",
         "results": results,
@@ -762,6 +807,13 @@ def warm_dashboard(request: Request):
         results["statLeaders"] = "ok"
     except Exception as e:
         results["statLeaders"] = str(e)
+    # Game predictions (Today's Games Predictions section)
+    try:
+        pred_svc = get_game_prediction_service()
+        preds = pred_svc.get_todays_predictions(date.today())
+        results["gamePredictions"] = len(preds)
+    except Exception as e:
+        results["gamePredictions"] = str(e)
     return {"status": "success", "date": today_str, "results": results}
 
 

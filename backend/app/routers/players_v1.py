@@ -392,6 +392,42 @@ def trends(
     avg5 = StatsCalculator.calculate_rolling_average(last, stat_type, 5)
     return {"stat": stat_type, "avg5": avg5, "avg10": avg10, "items": last}
 
+
+@router.get(
+    "/{player_id}/streaks",
+    summary="Get player streak data vs season averages",
+    description="Returns how many consecutive games the player has exceeded their season average for PTS, REB, AST, and 3PM.",
+    tags=["players_v1"]
+)
+def get_player_streaks(
+    player_id: int = Path(..., description="NBA player ID", example=2544),
+    season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26")
+):
+    """Return consecutive-game streak data for PTS, REB, AST, 3PM vs season average."""
+    season_to_use = season or "2025-26"
+    logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
+    if len(logs) < 3:
+        return {"player_id": player_id, "streaks": {}}
+
+    stats = ["pts", "reb", "ast", "tpm"]
+    result: Dict[str, Any] = {}
+    for stat in stats:
+        season_avg = StatsCalculator.calculate_rolling_average(logs, stat, len(logs))
+        if season_avg <= 0:
+            continue
+        streak_over = StatsCalculator.calculate_streak(logs, stat, season_avg, "over")
+        streak_under = StatsCalculator.calculate_streak(logs, stat, season_avg, "under")
+        recent5_avg = StatsCalculator.calculate_rolling_average(logs, stat, 5)
+        result[stat] = {
+            "season_avg": round(season_avg, 1),
+            "recent5_avg": round(recent5_avg, 1),
+            "streak_over": streak_over,   # consecutive games ABOVE season avg
+            "streak_under": streak_under, # consecutive games BELOW season avg
+            "hot": streak_over >= 3,
+            "cold": streak_under >= 3,
+        }
+    return {"player_id": player_id, "games_analyzed": len(logs), "streaks": result}
+
 @router.get(
     "/{player_id}/context",
     summary="Get player context for a specific game/opponent",
@@ -466,6 +502,28 @@ def get_player_context(
             except Exception:
                 pass
 
+        # Matchup advantage score: player season avg − opponent's avg allowed
+        matchup_advantage: Dict[str, Any] = {}
+        try:
+            logs = NBADataService.fetch_player_game_log(player_id, season or "2025-26")
+            if logs and context.opponent_team_id:
+                def_avgs = ContextCollector.get_defensive_averages(season or "2025-26")
+                opp_avgs = def_avgs.get(int(context.opponent_team_id)) or {}
+                n = len(logs)
+                if n >= 5 and opp_avgs:
+                    player_pts = sum(float(g.get("pts", 0) or 0) for g in logs) / n
+                    player_reb = sum(float(g.get("reb", 0) or 0) for g in logs) / n
+                    player_ast = sum(float(g.get("ast", 0) or 0) for g in logs) / n
+                    player_3pm = sum(float(g.get("tpm", 0) or 0) for g in logs) / n
+                    matchup_advantage = {
+                        "pts": round(player_pts - opp_avgs.get("pts", player_pts), 2),
+                        "reb": round(player_reb - opp_avgs.get("reb", player_reb), 2),
+                        "ast": round(player_ast - opp_avgs.get("ast", player_ast), 2),
+                        "3pm": round(player_3pm - opp_avgs.get("3pm", player_3pm), 2),
+                    }
+        except Exception:
+            pass
+
         # Return context data
         return {
             "player_id": player_id,
@@ -485,6 +543,7 @@ def get_player_context(
             },
             "opponent_defense": opponent_defense,
             "opponent_offense": opponent_offense,
+            "matchup_advantage": matchup_advantage,
             "team_performance": {
                 "win_rate": context.team_win_rate,
                 "conference_rank": context.team_conference_rank,

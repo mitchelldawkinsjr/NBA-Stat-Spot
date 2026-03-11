@@ -69,6 +69,7 @@ def get_team_stats_ranks(
             if not off_ranks and off_fb:
                 off_ranks = off_fb
                 logger.info("Using team ranks from player-stats fallback for offense", season=season_str)
+        pace_ranks = ContextCollector._calculate_pace_ranks(season_str)
         items = []
         for t in teams:
             team_id = t.get("id")
@@ -77,6 +78,7 @@ def get_team_stats_ranks(
             tid = int(team_id)
             d = def_ranks.get(tid) or {}
             o = off_ranks.get(tid) or {}
+            p = pace_ranks.get(tid) or {}
             items.append({
                 "id": team_id,
                 "abbreviation": t.get("abbreviation"),
@@ -89,6 +91,8 @@ def get_team_stats_ranks(
                 "off_rank_reb": o.get("reb"),
                 "off_rank_ast": o.get("ast"),
                 "off_rank_3pm": o.get("3pm"),
+                "pace_rank": p.get("pace_rank"),
+                "possessions_per_game": p.get("possessions"),
             })
         return {"season": season or "2025-26", "items": items}
     except Exception as e:
@@ -97,6 +101,41 @@ def get_team_stats_ranks(
             status_code=503,
             detail="Team stats temporarily unavailable. Try again shortly.",
         )
+
+
+@router.get(
+    "/position-defense/ranks",
+    summary="Get position-based defensive rankings",
+    description="Returns how each team defends each position (PG/SG/SF/PF/C) across PTS, REB, AST, 3PM. Rank 1 = best defense (allows fewest).",
+    response_description="Per-position defensive ranks keyed by position then team ID",
+    tags=["teams_v1"]
+)
+def get_position_defense_ranks(
+    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+):
+    """Get position-based defensive rankings for all teams."""
+    try:
+        season_str = season or "2025-26"
+        pos_ranks = ContextCollector._calculate_position_defensive_ranks(season_str)
+        teams = NBADataService.fetch_all_teams() or []
+        team_lookup = {t.get("id"): t for t in teams if t.get("id")}
+        result = {}
+        for pos, ranks in pos_ranks.items():
+            result[pos] = []
+            for team_id, r in ranks.items():
+                team = team_lookup.get(int(team_id)) or {}
+                result[pos].append({
+                    "team_id": int(team_id),
+                    "abbreviation": team.get("abbreviation"),
+                    "def_rank_pts": r.get("pts"),
+                    "def_rank_reb": r.get("reb"),
+                    "def_rank_ast": r.get("ast"),
+                    "def_rank_3pm": r.get("3pm"),
+                })
+        return {"season": season_str, "positions": result}
+    except Exception as e:
+        logger.error("position-defense ranks failed", error=str(e), exc_info=True)
+        raise HTTPException(status_code=503, detail="Position defense ranks temporarily unavailable.")
 
 
 @router.get(

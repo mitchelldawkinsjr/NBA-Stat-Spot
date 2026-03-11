@@ -129,6 +129,20 @@ async function refreshDefensiveRanks(season?: string) {
   return apiPost(endpoint)
 }
 
+async function refreshPaceRanks(season?: string) {
+  const endpoint = season
+    ? `/api/v1/admin/refresh/pace-ranks?season=${encodeURIComponent(season)}`
+    : '/api/v1/admin/refresh/pace-ranks'
+  return apiPost(endpoint)
+}
+
+async function refreshPositionDefenseRanks(season?: string) {
+  const endpoint = season
+    ? `/api/v1/admin/refresh/position-defense-ranks?season=${encodeURIComponent(season)}`
+    : '/api/v1/admin/refresh/position-defense-ranks'
+  return apiPost(endpoint)
+}
+
 async function clearTodaysGamesCache() {
   return apiPost('/api/v1/admin/cache/clear/todays-games')
 }
@@ -572,6 +586,34 @@ export default function AdminDashboard() {
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Defensive ranks refresh failed', error.message)
+    }
+  })
+
+  const refreshPaceRanksMutation = useMutation({
+    mutationFn: () => refreshPaceRanks(scanParams.season),
+    onMutate: () => {
+      addActivityLog('info', 'Refreshing pace ranks cache...', `Season: ${scanParams.season}`)
+    },
+    onSuccess: (data: { teamsRanked?: number }) => {
+      addActivityLog('success', 'Pace ranks refreshed', `${data?.teamsRanked ?? 0} teams cached (24h)`)
+      refetchCacheStatus()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Pace ranks refresh failed', error.message)
+    }
+  })
+
+  const refreshPositionDefenseMutation = useMutation({
+    mutationFn: () => refreshPositionDefenseRanks(scanParams.season),
+    onMutate: () => {
+      addActivityLog('info', 'Refreshing position defense ranks...', `Season: ${scanParams.season}`)
+    },
+    onSuccess: (data: { positions?: string[] }) => {
+      addActivityLog('success', 'Position defense ranks refreshed', `Positions: ${(data?.positions ?? []).join(', ')}`)
+      refetchCacheStatus()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Position defense ranks refresh failed', error.message)
     }
   })
 
@@ -1631,6 +1673,20 @@ export default function AdminDashboard() {
             className="px-3 py-1.5 bg-sky-100 dark:bg-sky-900/30 hover:bg-sky-200 dark:hover:bg-sky-900/50 text-sky-900 dark:text-sky-300 text-xs font-medium rounded-lg disabled:opacity-50 border border-sky-300 dark:border-sky-700 transition-colors duration-200"
           >
             {refreshDefensiveRanksMutation.isPending ? 'Refreshing...' : 'Refresh defensive ranks'}
+          </button>
+          <button
+            onClick={() => refreshPaceRanksMutation.mutate()}
+            disabled={refreshPaceRanksMutation.isPending}
+            className="px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/50 text-orange-900 dark:text-orange-300 text-xs font-medium rounded-lg disabled:opacity-50 border border-orange-300 dark:border-orange-700 transition-colors duration-200"
+          >
+            {refreshPaceRanksMutation.isPending ? 'Refreshing...' : 'Refresh pace ranks'}
+          </button>
+          <button
+            onClick={() => refreshPositionDefenseMutation.mutate()}
+            disabled={refreshPositionDefenseMutation.isPending}
+            className="px-3 py-1.5 bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/50 text-violet-900 dark:text-violet-300 text-xs font-medium rounded-lg disabled:opacity-50 border border-violet-300 dark:border-violet-700 transition-colors duration-200"
+          >
+            {refreshPositionDefenseMutation.isPending ? 'Refreshing...' : 'Refresh position defense ranks'}
           </button>
         </div>
       </div>
