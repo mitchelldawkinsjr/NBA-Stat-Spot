@@ -749,7 +749,7 @@ export function GoodBetsDashboard() {
                     <span className="font-semibold text-violet-700 dark:text-violet-300">Today&apos;s spotlight:</span>{' '}
                     <span className="font-bold text-gray-900 dark:text-slate-100">{pickOfTheDay.playerName}</span>{' '}
                     {pickOfTheDay.type} {pickOfTheDay.marketLine != null ? Number(pickOfTheDay.marketLine) : '—'}{' '}
-                    <span className={pickOfTheDay.suggestion === 'over' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'} {String(pickOfTheDay.suggestion).toUpperCase()}</span>
+                    <span className={pickOfTheDay.suggestion === 'over' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>{String(pickOfTheDay.suggestion).toUpperCase()}</span>
                     {pickOfTheDay.confidence != null && <span className="ml-1.5 font-bold text-violet-700 dark:text-violet-300">— {Math.round(Number(pickOfTheDay.confidence))}% confidence</span>}
                   </a>
                 )
