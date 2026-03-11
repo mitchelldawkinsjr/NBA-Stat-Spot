@@ -11,14 +11,20 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 const THEME_STORAGE_KEY = 'nba-stat-spot-theme'
 
+function getSystemTheme(): Theme {
+  if (typeof window === 'undefined') return 'light'
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
-    // Initialize from localStorage or default to 'dark'
+    // If user has a stored preference, use it; otherwise respect system preference
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null
-      return stored || 'dark'
+      if (stored === 'dark' || stored === 'light') return stored
+      return getSystemTheme()
     }
-    return 'dark'
+    return 'light'
   })
 
   useEffect(() => {
@@ -37,6 +43,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
 
+  // Toggle applies to document.documentElement: classList.add/remove('dark')
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light')
   }

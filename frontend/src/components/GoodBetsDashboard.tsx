@@ -661,12 +661,12 @@ export function GoodBetsDashboard() {
                       minute: '2-digit',
                       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
                     }) : 'TBD'
-                    const statusColor = g.status === 'FINAL' ? 'bg-gray-100 text-gray-700 border-gray-300' :
-                                       g.status === 'LIVE' ? 'bg-red-100 text-red-700 border-red-300' :
-                                       'bg-blue-100 text-blue-700 border-blue-300'
-                    const cardBorder = g.status === 'LIVE' ? 'border-red-300 ring-1 ring-red-200' :
-                                      g.status === 'FINAL' ? 'border-gray-300' :
-                                      'border-gray-200'
+                    const statusColor = g.status === 'FINAL' ? 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600' :
+                                       g.status === 'LIVE' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700' :
+                                       'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700'
+                    const cardBorder = g.status === 'LIVE' ? 'border-red-300 dark:border-red-700 ring-1 ring-red-200 dark:ring-red-800/50' :
+                                      g.status === 'FINAL' ? 'border-gray-300 dark:border-slate-600' :
+                                      'border-gray-200 dark:border-slate-700'
                     
                     return (
                       <div 
@@ -681,7 +681,7 @@ export function GoodBetsDashboard() {
                           {g.status === 'LIVE' && (
                             <div className="flex items-center gap-1">
                               <span className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></span>
-                              <span className="text-[10px] font-semibold text-red-600">LIVE</span>
+                              <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">LIVE</span>
                             </div>
                           )}
                         </div>

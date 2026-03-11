@@ -130,3 +130,7 @@ html[data-mode="dark"] body {
 .section-card {
   border: 1px solid var(--panel-border, #cbd5e1);
 }
+
+/* Reusable pattern for cards: use Tailwind classes
+   bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+   For subtle panels: bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 */

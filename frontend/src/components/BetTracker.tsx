@@ -435,20 +435,20 @@ export function BetTracker() {
       )}
       
       {isLoading && (
-        <div className="bg-white p-4 rounded-lg shadow-sm ring-1 ring-gray-100">
-          <div className="text-gray-500">Loading bets...</div>
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
+          <div className="text-gray-500 dark:text-gray-400">Loading bets...</div>
         </div>
       )}
       {!isLoading && bets.length === 0 && !betsError && (
         <div className="text-center py-12">
           <div className="max-w-md mx-auto">
             <div className="mb-4">
-              <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No bets tracked yet</h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2 transition-colors duration-200">No bets tracked yet</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 transition-colors duration-200">
               Start tracking your bets to see your performance and system accuracy over time.
             </p>
             <button
@@ -843,14 +843,14 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
   
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative" onClick={(e) => e.stopPropagation()}>
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
-          <h3 className="text-lg font-semibold text-gray-900">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative transition-colors duration-200" onClick={(e) => e.stopPropagation()}>
+        <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between sticky top-0 bg-white dark:bg-slate-800 z-10 transition-colors duration-200">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
             {betType === 'parlay' ? 'Record New Parlay' : 'Record New Bet'}
           </h3>
           <button 
             onClick={onClose} 
-            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors"
+            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full p-1 transition-colors"
             type="button"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -860,7 +860,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
         </div>
 
         {/* Bet Type Toggle */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 dark:border-slate-700 transition-colors duration-200">
           <div className="flex gap-2">
             <button
               type="button"
@@ -868,7 +868,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
               className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 betType === 'single'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
               }`}
             >
               Single Bet
@@ -879,7 +879,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
               className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 betType === 'parlay'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
               }`}
             >
               Parlay
@@ -892,7 +892,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
             <>
               {/* Player Name with Autocomplete */}
               <div className="relative">
-                <label className="block text-xs font-medium text-gray-700 mb-1">Player Name *</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Player Name *</label>
                 <input
                   type="text"
                   value={playerSearchQuery || formData.player_name}
@@ -904,20 +904,20 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
                     if (playerSearchQuery.length >= 2) setShowSuggestions(true)
                   }}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 transition-colors duration-200"
                   placeholder="Search for player..."
                 />
                 {showSuggestions && playerSuggestions.length > 0 && (
-                  <div className="absolute z-[150] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-[150] w-full mt-1 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto transition-colors duration-200">
                     {isSearching && (
-                      <div className="px-3 py-2 text-sm text-gray-500">Searching...</div>
+                      <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Searching...</div>
                     )}
                     {playerSuggestions.map((player) => (
                       <button
                         key={player.id}
                         type="button"
                         onClick={() => handlePlayerSelect(player)}
-                        className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm text-gray-900 transition-colors"
+                        className="w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-slate-700 text-sm text-gray-900 dark:text-slate-100 transition-colors"
                       >
                         {player.name}
                       </button>
@@ -928,41 +928,41 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
 
               {/* Player ID (auto-filled) */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Player ID *</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Player ID *</label>
                 <input
                   type="number"
                   value={formData.player_id}
                   onChange={(e) => setFormData({ ...formData, player_id: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-900"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-slate-100 transition-colors duration-200"
                   readOnly={!!formData.player_id}
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Prop Type</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Prop Type</label>
               <select
                 value={formData.prop_type}
                 onChange={(e) => setFormData({ ...formData, prop_type: e.target.value })}
-                className="w-full px-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                className="w-full px-3 pr-10 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 transition-colors duration-200"
               >
-                <option className="text-gray-900">PTS</option>
-                <option className="text-gray-900">REB</option>
-                <option className="text-gray-900">AST</option>
-                <option className="text-gray-900">3PM</option>
-                <option className="text-gray-900">PRA</option>
+                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">PTS</option>
+                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">REB</option>
+                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">AST</option>
+                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">3PM</option>
+                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">PRA</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Direction</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Direction</label>
               <select
                 value={formData.direction}
                 onChange={(e) => setFormData({ ...formData, direction: e.target.value })}
-                className="w-full px-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                className="w-full px-3 pr-10 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 transition-colors duration-200"
               >
-                <option className="text-gray-900">over</option>
-                <option className="text-gray-900">under</option>
+                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">over</option>
+                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">under</option>
               </select>
             </div>
           </div>

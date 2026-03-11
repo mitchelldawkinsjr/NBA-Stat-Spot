@@ -5,11 +5,16 @@
     <link rel="icon" type="image/png" href="%BASE_URL%nba-ss-icon.png" />
     <link rel="apple-touch-icon" href="%BASE_URL%nba-ss-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Prevent flash of light mode: apply dark class before first paint -->
+    <!-- Prevent flash: apply theme before first paint (localStorage else system preference) -->
     <script>
       (function() {
         var stored = localStorage.getItem('nba-stat-spot-theme');
-        if (!stored || stored === 'dark') {
+        if (stored === 'dark' || stored === 'light') {
+          if (stored === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-mode', 'dark');
+          }
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
           document.documentElement.classList.add('dark');
           document.documentElement.setAttribute('data-mode', 'dark');
         }

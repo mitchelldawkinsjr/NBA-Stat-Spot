@@ -18,9 +18,9 @@ function RecommendationBadge({ recommendation, confidence }: { recommendation: s
   }
 
   const getConfidenceColor = () => {
-    if (confidence === 'HIGH') return 'text-green-300'
-    if (confidence === 'MEDIUM') return 'text-yellow-300'
-    return 'text-gray-300'
+    if (confidence === 'HIGH') return 'text-green-300 dark:text-green-400'
+    if (confidence === 'MEDIUM') return 'text-yellow-300 dark:text-amber-400'
+    return 'text-gray-300 dark:text-gray-400'
   }
 
   return (
