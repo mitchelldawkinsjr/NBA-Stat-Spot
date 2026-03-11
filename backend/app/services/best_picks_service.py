@@ -1,14 +1,13 @@
 """
 Best Picks Service — unified "Top Picks of the Day" for the homepage.
 
-Merges the logic of DailyPropsService (broad scan) and HighHitRateService
-(line-range search) into a single pipeline that:
-  1. Finds every player playing today.
-  2. For each player × stat, searches half-point lines to maximise hit rate.
-  3. Scores each pick with the multi-factor confidence formula.
-  4. Auto-selects over/under direction.
-  5. Tiers picks: Lock / Strong / Lean.
-  6. Guarantees the section is never empty when games exist.
+Pipeline:
+  1. Find every player playing today.
+  2. For each player × stat, generate a realistic sportsbook-style line using
+     season average, recent form (5–10 games), and opponent defensive strength.
+  3. Evaluate over/under vs that line; score with multi-factor confidence.
+  4. Output: player, stat category, generated line, prediction (Over/Under), confidence.
+  5. Tiers: Lock / Strong / Lean.
 """
 from __future__ import annotations
 
@@ -24,6 +23,8 @@ from .stats_calculator import StatsCalculator
 
 STAT_TYPES = ["pts", "reb", "ast", "tpm"]
 DISPLAY = {"pts": "PTS", "reb": "REB", "ast": "AST", "tpm": "3PM", "pra": "PRA"}
+# Map stat to defensive rank key (opponent def rank 1 = best defense)
+DEF_RANK_KEY = {"pts": "pts", "reb": "reb", "ast": "ast", "tpm": "3pm", "pra": "pts"}
 
 TIER_LOCK = 78
 TIER_STRONG = 62
@@ -57,14 +58,52 @@ def _avg_minutes(logs: List[Dict]) -> float:
     return sum(mins) / len(mins) if mins else 0.0
 
 
+def _generate_sportsbook_line(
+    logs: List[Dict],
+    stat: str,
+    n_recent: int = 10,
+    opponent_def_rank: Optional[int] = None,
+) -> float:
+    """
+    Generate a realistic prop line (sportsbook-style) using:
+    - Player season/rolling average as baseline
+    - Recent form (last 5–10 games) adjustment
+    - Opponent defensive strength (rank 1–30; 1 = best D → slightly lower line)
+    Returns half-point line (e.g. 24.5, 7.0).
+    """
+    if not logs:
+        return 0.0
+    baseline = StatsCalculator.calculate_rolling_average(logs, stat, n_games=min(10, len(logs)))
+    recent_n = min(5, len(logs))
+    recent_avg = StatsCalculator.calculate_rolling_average(logs[-recent_n:], stat, n_games=recent_n)
+    form_adj = (recent_avg - baseline) * 0.35
+    rank = opponent_def_rank if opponent_def_rank is not None else 15
+    matchup_adj = (rank - 15) / 20.0
+    raw = baseline + form_adj + matchup_adj
+    line = round(raw * 2) / 2.0
+    if stat == "tpm":
+        line = max(0.0, line)
+    else:
+        line = max(0.5, line)
+    return line
+
+
+def _opp_def_score(rank: Optional[int]) -> float:
+    """Convert opponent def rank (1=best) to 0–1 score for confidence (higher = easier matchup)."""
+    if rank is None:
+        return 0.5
+    return max(0.0, min(1.0, (31 - rank) / 30.0))
+
+
 def _scan_player(
     player_id: int,
     player_name: str,
     season: str,
     target_date: str,
     n_recent: int = 10,
+    opponent_def_ranks: Optional[Dict[str, int]] = None,
 ) -> List[Dict[str, Any]]:
-    """Return the best pick per stat-type for one player. Uses line search when possible; falls back to average-based picks."""
+    """Return one pick per stat: realistic line (sportsbook-style), then over/under prediction and confidence."""
     try:
         logs = NBADataService.fetch_player_game_log(player_id, season)
         if not logs or len(logs) < 3:
@@ -75,80 +114,28 @@ def _scan_player(
     except Exception:
         return []
 
-    results: List[Dict[str, Any]] = []
+    ranks = opponent_def_ranks or {}
     all_stats = STAT_TYPES + ["pra"]
-    # Only run line search when we have enough games; otherwise we'll use average-based only
-    min_games_for_line_search = 5
+    results: List[Dict[str, Any]] = []
+    min_games = 5
 
     for stat in all_stats:
         try:
-            if len(logs) < min_games_for_line_search:
+            if len(logs) < min_games:
                 continue
-            for direction in ("over", "under"):
-                line, hr = PropBetEngine.find_best_line(logs, stat, direction, n_recent)
-                if hr < 0.55:
-                    continue
-
-                confidence = PropBetEngine.multi_factor_confidence(
-                    logs, stat, line, direction
-                )
-                form = StatsCalculator.calculate_recent_form(logs, stat)
-                consistency = StatsCalculator.calculate_consistency(logs, stat, n_games=n_recent)
-                streak = StatsCalculator.calculate_streak(logs, stat, line, direction)
-
-                rationale = PropBetEngine.build_rationale_text(
-                    hr, direction, line, form["trend"], consistency, streak, min(len(logs), n_recent)
-                )
-
-                results.append(
-                    {
-                        "type": DISPLAY.get(stat, stat.upper()),
-                        "playerId": player_id,
-                        "playerName": player_name,
-                        "marketLine": line,
-                        "fairLine": PropBetEngine.determine_line_value(logs, stat),
-                        "confidence": confidence,
-                        "suggestion": direction,
-                        "hitRate": round(hr * 100, 1),
-                        "sampleSize": min(len(logs), n_recent),
-                        "streak": streak,
-                        "consistency": round(consistency, 2),
-                        "tier": _tier_label(confidence),
-                        "rationale": rationale,
-                        "gameDate": target_date,
-                        "stats": {
-                            "hit_rate": hr,
-                            "recent": form,
-                            "consistency": round(consistency, 2),
-                            "streak": streak,
-                        },
-                    }
-                )
-        except Exception:
-            continue
-
-    # Keep only the single best pick per stat (highest confidence)
-    best_per_stat: Dict[str, Dict] = {}
-    for r in results:
-        key = r["type"]
-        if key not in best_per_stat or r["confidence"] > best_per_stat[key]["confidence"]:
-            best_per_stat[key] = r
-
-    # Average-based fallback: when no line met 0.55 hit rate, use season average as the line
-    # so we still show picks (props typically move around averages)
-    for stat in all_stats:
-        key = DISPLAY.get(stat, stat.upper())
-        if key in best_per_stat:
-            continue
-        try:
-            line = PropBetEngine.determine_line_value(logs, stat)
+            rk_key = DEF_RANK_KEY.get(stat, "pts")
+            opp_rank = ranks.get(rk_key)
+            line = _generate_sportsbook_line(logs, stat, n_recent, opp_rank)
             recent = logs[-n_recent:] if n_recent else logs
             hr_over = StatsCalculator.calculate_hit_rate(recent, line, stat, "over")
             hr_under = StatsCalculator.calculate_hit_rate(recent, line, stat, "under")
             direction = "over" if hr_over >= hr_under else "under"
             hr = hr_over if direction == "over" else hr_under
 
-            confidence = PropBetEngine.multi_factor_confidence(logs, stat, line, direction)
+            opp_score = _opp_def_score(opp_rank)
+            confidence = PropBetEngine.multi_factor_confidence(
+                logs, stat, line, direction, opp_def_score=opp_score
+            )
             form = StatsCalculator.calculate_recent_form(logs, stat)
             consistency = StatsCalculator.calculate_consistency(logs, stat, n_games=n_recent)
             streak = StatsCalculator.calculate_streak(logs, stat, line, direction)
@@ -156,32 +143,40 @@ def _scan_player(
             rationale = PropBetEngine.build_rationale_text(
                 hr, direction, line, form["trend"], consistency, streak, min(len(logs), n_recent)
             )
-            rationale = "Based on season average. " + rationale
 
-            best_per_stat[key] = {
-                "type": key,
-                "playerId": player_id,
-                "playerName": player_name,
-                "marketLine": line,
-                "fairLine": line,
-                "confidence": confidence,
-                "suggestion": direction,
-                "hitRate": round(hr * 100, 1),
-                "sampleSize": min(len(logs), n_recent),
-                "streak": streak,
-                "consistency": round(consistency, 2),
-                "tier": _tier_label(confidence),
-                "rationale": rationale,
-                "gameDate": target_date,
-                "stats": {
-                    "hit_rate": hr,
-                    "recent": form,
-                    "consistency": round(consistency, 2),
+            key = DISPLAY.get(stat, stat.upper())
+            results.append(
+                {
+                    "type": key,
+                    "playerId": player_id,
+                    "playerName": player_name,
+                    "marketLine": line,
+                    "fairLine": line,
+                    "confidence": confidence,
+                    "suggestion": direction,
+                    "hitRate": round(hr * 100, 1),
+                    "sampleSize": min(len(logs), n_recent),
                     "streak": streak,
-                },
-            }
+                    "consistency": round(consistency, 2),
+                    "tier": _tier_label(confidence),
+                    "rationale": rationale,
+                    "gameDate": target_date,
+                    "stats": {
+                        "hit_rate": hr,
+                        "recent": form,
+                        "consistency": round(consistency, 2),
+                        "streak": streak,
+                    },
+                }
+            )
         except Exception:
             continue
+
+    best_per_stat: Dict[str, Dict] = {}
+    for r in results:
+        key = r["type"]
+        if key not in best_per_stat or r["confidence"] > best_per_stat[key]["confidence"]:
+            best_per_stat[key] = r
 
     return list(best_per_stat.values())
 
@@ -209,17 +204,36 @@ class BestPicksService:
             }
 
         team_abbrs = set()
+        opponent_by_abbr: Dict[str, str] = {}
         for g in games:
-            if g.get("home"):
-                team_abbrs.add(g["home"])
-            if g.get("away"):
-                team_abbrs.add(g["away"])
+            h, a = g.get("home"), g.get("away")
+            if h:
+                team_abbrs.add(h)
+            if a:
+                team_abbrs.add(a)
+            if h and a:
+                opponent_by_abbr[h] = a
+                opponent_by_abbr[a] = h
 
         teams = NBADataService.fetch_all_teams() or []
         abbr_to_id = {t.get("abbreviation"): t.get("id") for t in teams if t.get("abbreviation")}
+        id_to_abbr = {t.get("id"): t.get("abbreviation") for t in teams if t.get("id") and t.get("abbreviation")}
         team_ids = {abbr_to_id[a] for a in team_abbrs if a in abbr_to_id and abbr_to_id[a]}
 
         from .team_player_service import TeamPlayerService
+        from .context_collector import ContextCollector
+
+        def_ranks = ContextCollector._calculate_defensive_ranks(season) or {}
+        team_id_to_opp_ranks: Dict[int, Dict[str, int]] = {}
+        for tid in team_ids:
+            tid_n = int(tid) if tid is not None else None
+            if tid_n is None:
+                continue
+            abbr = id_to_abbr.get(tid_n)
+            opp_abbr = opponent_by_abbr.get(abbr) if abbr else None
+            opp_id = abbr_to_id.get(opp_abbr) if opp_abbr else None
+            if opp_id is not None:
+                team_id_to_opp_ranks[tid_n] = def_ranks.get(int(opp_id), {})
 
         team_ids_int = {TeamPlayerService.normalize_team_id(t) for t in team_ids}
         team_ids_int.discard(None)
@@ -239,7 +253,9 @@ class BestPicksService:
             pname = player.get("full_name", "Unknown")
             if not pid:
                 return []
-            return _scan_player(pid, pname, season, target_date)
+            t_id = TeamPlayerService.normalize_team_id(player.get("team_id"))
+            opp_ranks = team_id_to_opp_ranks.get(t_id) if t_id is not None else None
+            return _scan_player(pid, pname, season, target_date, opponent_def_ranks=opp_ranks)
 
         with ThreadPoolExecutor(max_workers=12) as pool:
             futures = {pool.submit(_process, p): p for p in todays_players}

@@ -96,10 +96,12 @@ export function SuggestionCards({ suggestions, horizontal = false }: { suggestio
 
         {/* Stats grid */}
         <div className="space-y-0.5 text-[10px] text-gray-700 dark:text-gray-300 transition-colors duration-200">
-          {s.marketLine != null && (
+          {(s.marketLine != null && s.marketLine !== '') && (
             <div className="flex justify-between items-center">
-              <span className="text-gray-500 dark:text-gray-400">Line:</span>
-              <span className="font-bold text-gray-900 dark:text-slate-100">{s.marketLine}</span>
+              <span className="text-gray-500 dark:text-gray-400">{s.type} line:</span>
+              <span className="font-bold text-gray-900 dark:text-slate-100">
+                {typeof s.marketLine === 'number' ? (Number.isInteger(s.marketLine) ? s.marketLine : s.marketLine.toFixed(1)) : s.marketLine}
+              </span>
             </div>
           )}
           {s.confidence != null && (
@@ -181,7 +183,7 @@ export function SuggestionCards({ suggestions, horizontal = false }: { suggestio
 
   if (horizontal) {
     return (
-      <div className="overflow-x-auto -mx-2.5 px-2.5 pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" style={{ scrollbarWidth: 'thin' }}>
+      <div className="w-full max-w-full overflow-x-auto -mx-2.5 px-2.5 pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" style={{ scrollbarWidth: 'thin' }}>
         <div className="flex gap-2.5 min-w-max">
           {suggestions.map((s: SuggestionItem, idx: number) => (
             <div key={idx} className="flex-none w-48 sm:w-56 p-2.5 sm:p-3 border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-all duration-200">

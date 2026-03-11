@@ -2,7 +2,6 @@ import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { QuickPropLab } from './QuickPropLab'
-import { DailyPropsPanel } from './DailyPropsPanel'
 import { SuggestionCards } from './SuggestionCards'
 import { PlayerAvatar } from './PlayerAvatar'
 import { PlayerNewsSection } from './PlayerNewsSection'
@@ -122,7 +121,7 @@ export function GoodBetsDashboard() {
   const { showSnackbar, updateProgress, hideSnackbar } = useSnackbar()
   const [shouldLoadTopPicks, setShouldLoadTopPicks] = useState(false)
   const [statLeadersFilterToday, setStatLeadersFilterToday] = useState(false) // Toggle for filtering by today - default to "All"
-  const [featuredFilter, setFeaturedFilter] = useState<'all' | 'hot'>('all') // Players to Watch: All today's players vs Hot form only
+  const [featuredFilter, setFeaturedFilter] = useState<'all' | 'hot'>('hot') // Players to Watch: default Hot form; All = today's players from daily props
   const [isRefreshing, setIsRefreshing] = useState(false)
   
   // Cooldown for refresh button (20 minutes = 1200000ms, backend allows 3/hour)
@@ -358,7 +357,7 @@ export function GoodBetsDashboard() {
       // Step 4: Refetch all data sources
       const tasks = [
         { name: 'Games', fn: () => refetchGames() },
-        { name: 'Daily Props', fn: () => refetchDaily() },
+        { name: 'Data', fn: () => refetchDaily() },
         { name: 'Top Picks', fn: () => shouldLoadTopPicks ? refetchTopPicks() : Promise.resolve() },
       ]
 
@@ -428,22 +427,23 @@ export function GoodBetsDashboard() {
   }, [topPicks, dailyData, today, games.length])
 
   const playersToWatch = useMemo(() => {
-    // Only show players if there are games today
-    if (games.length === 0) {
-      return []
-    }
+    if (games.length === 0) return []
     const items = (dailyData?.items ?? []) as any[]
-    // Strict filter: only show props with gameDate matching today
-    const todayItems = items.filter((item) => {
+    if (!items.length) return []
+    const normalizeDate = (d: string | null | undefined) => (!d ? null : d.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? d)
+    const todayNorm = normalizeDate(today) || today
+    // Prefer items with gameDate matching today; if none match, use all items when we have games today (API may omit date)
+    let todayItems = items.filter((item) => {
       const itemDate = item.gameDate || item.game_date
-      // Must have a date and it must match today
-      return itemDate && (itemDate === today || itemDate.startsWith(today))
+      if (!itemDate) return false
+      const norm = normalizeDate(itemDate)
+      return norm === todayNorm || itemDate === today || String(itemDate).startsWith(today)
     })
+    if (todayItems.length === 0 && items.length > 0) todayItems = items
     const byPlayer = new Map<number, { id: number; name: string; tags: string[]; highlight: any; confidence: number }>()
     for (const s of todayItems) {
       if (!s.playerId) continue
       const entry = byPlayer.get(s.playerId) || { id: s.playerId, name: s.playerName || 'Player', tags: [] as string[], highlight: s, confidence: s.confidence ?? 0 }
-      // Update highlight if this prop has higher confidence
       if ((s.confidence ?? 0) > entry.confidence) {
         entry.highlight = s
         entry.confidence = s.confidence ?? 0
@@ -452,10 +452,9 @@ export function GoodBetsDashboard() {
       if ((s.confidence ?? 0) >= 65 && !entry.tags.includes('📈 Trending')) entry.tags.push('📈 Trending')
       byPlayer.set(s.playerId, entry)
     }
-    // Sort by confidence (highest first) so top props appear on the left
     return Array.from(byPlayer.values())
       .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
-      .slice(0, 6)
+      .slice(0, 8)
   }, [dailyData, today, games.length])
 
   // Hot players: from hot-form-only props (same tag logic as Players to Watch, backend isHot filter)
@@ -489,85 +488,63 @@ export function GoodBetsDashboard() {
   }, [featuredFilter, hotPlayers, playersToWatch])
 
   const statLeaders = useMemo(() => {
-    // If "All" is selected, use league-wide stat leaders
+    const empty = { PTS: [] as any[], AST: [] as any[], REB: [] as any[], '3PM': [] as any[] }
+    // "All" = league-wide stat leaders (cached from admin refresh)
     if (!statLeadersFilterToday) {
-      if (leagueStatLeadersData?.items) {
-        const leaders = leagueStatLeadersData.items
-        return {
-          PTS: (leaders.PTS || []).map((l: any) => ({
-            playerId: l.playerId,
-            playerName: l.playerName || 'Unknown',
-            fairLine: l.value,
-            marketLine: l.value,
-          })),
-          AST: (leaders.AST || []).map((l: any) => ({
-            playerId: l.playerId,
-            playerName: l.playerName || 'Unknown',
-            fairLine: l.value,
-            marketLine: l.value,
-          })),
-          REB: (leaders.REB || []).map((l: any) => ({
-            playerId: l.playerId,
-            playerName: l.playerName || 'Unknown',
-            fairLine: l.value,
-            marketLine: l.value,
-          })),
-          '3PM': (leaders['3PM'] || []).map((l: any) => ({
-            playerId: l.playerId,
-            playerName: l.playerName || 'Unknown',
-            fairLine: l.value,
-            marketLine: l.value,
-          })),
-        }
+      const raw = leagueStatLeadersData?.items
+      if (!raw || typeof raw !== 'object') return empty
+      return {
+        PTS: (raw.PTS || []).map((l: any) => ({
+          playerId: l.playerId,
+          playerName: l.playerName || 'Unknown',
+          fairLine: l.value,
+          marketLine: l.value,
+        })),
+        AST: (raw.AST || []).map((l: any) => ({
+          playerId: l.playerId,
+          playerName: l.playerName || 'Unknown',
+          fairLine: l.value,
+          marketLine: l.value,
+        })),
+        REB: (raw.REB || []).map((l: any) => ({
+          playerId: l.playerId,
+          playerName: l.playerName || 'Unknown',
+          fairLine: l.value,
+          marketLine: l.value,
+        })),
+        '3PM': (raw['3PM'] || []).map((l: any) => ({
+          playerId: l.playerId,
+          playerName: l.playerName || 'Unknown',
+          fairLine: l.value,
+          marketLine: l.value,
+        })),
       }
-      // If still loading or no data, return empty
-      return { PTS: [], AST: [], REB: [], '3PM': [] }
     }
-    
-    // If "Today" is selected, use daily props data
+    // "Today" = top props per category from today's daily props
     const items = (dailyData?.items ?? []) as any[]
-    if (!items || items.length === 0) {
-      return { PTS: [], AST: [], REB: [], '3PM': [] }
-    }
-    
-    // Filter: only include items with gameDate matching today
+    if (!items.length) return empty
     const normalizeDate = (dateStr: string | null | undefined): string | null => {
       if (!dateStr) return null
-      const match = dateStr.match(/(\d{4}-\d{2}-\d{2})/)
-      return match ? match[1] : null
+      const m = String(dateStr).match(/(\d{4}-\d{2}-\d{2})/)
+      return m ? m[1] : null
     }
-    
-    const todayNormalized = normalizeDate(today) || today
+    const todayNorm = normalizeDate(today) || today
     const filteredItems = items.filter((item: any) => {
       const itemDate = item.gameDate || item.game_date
-      if (itemDate) {
-        const normalizedItemDate = normalizeDate(itemDate)
-        if (normalizedItemDate) {
-          return normalizedItemDate === todayNormalized
-        }
-        return itemDate === today || itemDate.startsWith(today)
-      }
-      return false
+      if (!itemDate) return false
+      const norm = normalizeDate(itemDate)
+      return norm === todayNorm || itemDate === today || String(itemDate).startsWith(today)
     })
-    
-    const cats = ['PTS','AST','REB','3PM'] as const
+    const useItems = filteredItems.length > 0 ? filteredItems : items
+    const cats = ['PTS', 'AST', 'REB', '3PM'] as const
     const out: Record<string, any[]> = {}
-    cats.forEach(c => {
-      const categoryItems = filteredItems
-        .filter((it: any) => {
-          const itemType = String(it.type || '').toUpperCase()
-          return itemType === c
-        })
-        .filter((it: any) => {
-          return it.playerId && it.playerName && (it.fairLine != null || it.marketLine != null)
-        })
-        .sort((a: any, b: any) => {
-          const aValue = a.fairLine ?? a.marketLine ?? 0
-          const bValue = b.fairLine ?? b.marketLine ?? 0
-          return bValue - aValue
-        })
+    cats.forEach((c) => {
+      const list = useItems
+        .filter((it: any) => String(it.type || '').toUpperCase() === c)
+        .filter((it: any) => it.playerId && it.playerName && (it.fairLine != null || it.marketLine != null))
+        .sort((a: any, b: any) => (b.fairLine ?? b.marketLine ?? 0) - (a.fairLine ?? a.marketLine ?? 0))
         .slice(0, 3)
-      out[c] = categoryItems
+      out[c] = list
     })
     return out
   }, [dailyData, today, statLeadersFilterToday, games.length, leagueStatLeadersData])
@@ -605,7 +582,7 @@ export function GoodBetsDashboard() {
               <p className="text-sm font-medium text-red-800">Error loading data</p>
               <p className="text-xs text-red-600 mt-1">
                 {gamesError && 'Failed to load games. '}
-                {dailyError && 'Failed to load daily props. '}
+                {dailyError && 'Failed to load data. '}
                 Click "Refresh Data" to try again.
               </p>
             </div>
@@ -619,14 +596,31 @@ export function GoodBetsDashboard() {
         </div>
       )}
 
-      {/* Top Picks of the Day — unified section */}
+      {/* News — first row: NBA news, injuries, game-related developments */}
       <div className="overflow-hidden rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm mb-3 transition-colors duration-200">
+        <div className="px-2 sm:px-2.5 py-1 sm:py-1.5 border-b border-gray-200 dark:border-slate-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 transition-colors duration-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
+            <div>
+              <h3 className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">NBA News &amp; Updates</h3>
+              <p className="text-[9px] sm:text-[10px] text-gray-600 dark:text-gray-400 transition-colors duration-200">
+                Latest news, injury updates, and game-related developments that could affect player performance or prop outcomes
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="p-1 sm:p-1.5 md:p-2">
+          <PlayerNewsSection />
+        </div>
+      </div>
+
+      {/* Top Picks of the Day — unified section */}
+      <div className="rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm mb-3 transition-colors duration-200">
         <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 border-b border-gray-200 dark:border-slate-700 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 transition-colors duration-200">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
             <div>
               <h3 className="text-sm sm:text-base font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Top Picks of the Day</h3>
               <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">
-                High-probability props — scored by hit rate, consistency, trend &amp; volume
+                Realistic lines from matchup &amp; form · Over/Under prediction and confidence
               </p>
             </div>
             {bestBets.length > 0 && (
@@ -644,7 +638,7 @@ export function GoodBetsDashboard() {
             )}
           </div>
         </div>
-        <div className="p-2 sm:p-2.5">
+        <div className="p-2 sm:p-2.5 overflow-x-auto">
           {(topPicksLoading || (dailyLoading && topPicks.length === 0)) ? (
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
@@ -666,23 +660,6 @@ export function GoodBetsDashboard() {
           )}
         </div>
       </div>
-
-      {/* Player News - Horizontal Scrolling */}
-      <div className="overflow-hidden rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm mb-3 transition-colors duration-200">
-          <div className="px-2 sm:px-2.5 py-1 sm:py-1.5 border-b border-gray-200 dark:border-slate-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 transition-colors duration-200">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
-            <div>
-              <h3 className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Player News</h3>
-              <p className="text-[9px] sm:text-[10px] text-gray-600 dark:text-gray-400 transition-colors duration-200">Latest NBA news and updates</p>
-            </div>
-          </div>
-        </div>
-        <div className="p-1 sm:p-1.5 md:p-2">
-          <PlayerNewsSection />
-        </div>
-      </div>
-
-      {/* Old High Hit Rate section removed — merged into Top Picks above */}
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -937,15 +914,15 @@ export function GoodBetsDashboard() {
                 <span className={`text-xs font-bold transition-colors ${featuredFilter === 'all' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>All</span>
                 <button
                   type="button"
-                  onClick={() => setFeaturedFilter(featuredFilter === 'all' ? 'hot' : 'all')}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 shadow-inner ${
+                  onClick={() => setFeaturedFilter((prev) => (prev === 'hot' ? 'all' : 'hot'))}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 shadow-inner ${
                     featuredFilter === 'hot'
                       ? 'bg-amber-500 dark:bg-amber-500 ring-2 ring-amber-400/60 dark:ring-amber-400/40'
                       : 'bg-slate-400 dark:bg-slate-600 ring-2 ring-slate-300/80 dark:ring-slate-500/60'
                   }`}
                   role="switch"
                   aria-checked={featuredFilter === 'hot'}
-                  aria-label="Filter by hot form"
+                  aria-label="Hot form or all players"
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-2 ring-slate-200/80 dark:ring-slate-400/80 transition-transform duration-200 ${featuredFilter === 'hot' ? 'translate-x-6' : 'translate-x-0.5'}`} />
                 </button>
@@ -1033,8 +1010,6 @@ export function GoodBetsDashboard() {
           </div>
           )}
 
-          {/* Daily Props Panel */}
-          <DailyPropsPanel />
         </div>
 
         {/* Right column */}
@@ -1052,15 +1027,16 @@ export function GoodBetsDashboard() {
                   All
                 </span>
                 <button
-                  onClick={() => setStatLeadersFilterToday(!statLeadersFilterToday)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 shadow-inner ${
+                  type="button"
+                  onClick={() => setStatLeadersFilterToday((prev) => !prev)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 shadow-inner ${
                     statLeadersFilterToday
                       ? 'bg-blue-600 dark:bg-blue-500 ring-2 ring-blue-400/60 dark:ring-blue-400/40'
                       : 'bg-slate-400 dark:bg-slate-600 ring-2 ring-slate-300/80 dark:ring-slate-500/60'
                   }`}
                   role="switch"
                   aria-checked={statLeadersFilterToday}
-                  aria-label="Filter by today's games"
+                  aria-label="Stat leaders: All or Today"
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-2 ring-slate-200/80 dark:ring-slate-400/80 transition-transform duration-200 ${
@@ -1073,7 +1049,7 @@ export function GoodBetsDashboard() {
                 </span>
               </div>
             </div>
-            {(dailyLoading || (leagueStatLeadersLoading && !statLeadersFilterToday)) ? (
+            {(statLeadersFilterToday ? dailyLoading : leagueStatLeadersLoading) ? (
               <p className="text-gray-600 dark:text-gray-400">Loading…</p>
             ) : leagueStatLeadersError && !statLeadersFilterToday ? (
               <p className="text-xs text-red-600 dark:text-red-400">Error loading stat leaders. Please try again.</p>
