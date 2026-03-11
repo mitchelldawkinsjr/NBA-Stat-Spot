@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { PlayerSearch } from './PlayerSearch'
@@ -17,28 +17,46 @@ export function QuickPropLab() {
   const [season, setSeason] = useState<string>(globalSeason)
   const [lastN, setLastN] = useState<number | ''>('')
   const [home, setHome] = useState<'any'|'home'|'away'>('any')
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<{ suggestions?: Array<{ type: string }> } | null>(null)
+  const [runError, setRunError] = useState<string | null>(null)
 
   const canRun = !!player?.id && line !== ''
 
   const run = useMutation({
     mutationFn: async () => {
-      if (!player?.id) return null
-      const body: any = {
+      if (!player?.id) return { suggestions: [] }
+      setRunError(null)
+      const body = {
         playerId: player.id,
         season: season || undefined,
         lastN: lastN || undefined,
         home: home === 'any' ? undefined : home,
         marketLines: { [propType]: Number(line) },
       }
-      return apiPost('api/v1/props/player', body)
+      return apiPost<{ suggestions?: Array<{ type: string }> }>('/api/v1/props/player', body)
     },
-    onSuccess: (data) => setResult(data)
+    onSuccess: (data) => {
+      setResult(data ?? { suggestions: [] })
+      setRunError(null)
+    },
+    onError: (err: Error & { response?: { status: number } }) => {
+      setResult(null)
+      const status = err?.response?.status
+      if (status === 429) {
+        setRunError('Too many requests. Please wait a minute and try again.')
+      } else {
+        setRunError(err?.message || 'Request failed. Check your connection and try again.')
+      }
+    },
   })
+
+  useEffect(() => {
+    if (!player?.id) setResult(null)
+  }, [player?.id])
 
   const suggestions = useMemo(() => {
     const items = result?.suggestions || []
-    return items.filter((s: any) => s.type === propType)
+    return items.filter((s) => s.type === propType)
   }, [result, propType])
 
   return (
@@ -153,6 +171,20 @@ export function QuickPropLab() {
           <span className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">Enter your book's line to see analysis</span>
         </div>
 
+        {/* Error from API */}
+        {runError && (
+          <div className="pt-3 border-t border-gray-200 dark:border-slate-700">
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">{runError}</p>
+            <button
+              type="button"
+              onClick={() => setRunError(null)}
+              className="mt-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Results */}
         {suggestions.length > 0 && (
           <div className="pt-3 border-t border-gray-200 dark:border-slate-700 transition-colors duration-200">
@@ -160,7 +192,7 @@ export function QuickPropLab() {
               <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">Analysis Result</h4>
               <SuggestionCards suggestions={suggestions} />
             </div>
-            {player && (
+            {player?.id ? (
               <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 transition-colors duration-200">
                 <Link
                   to={`/player/${player.id}`}
@@ -172,11 +204,19 @@ export function QuickPropLab() {
                   View {player.name}'s Profile
                 </Link>
               </div>
-            )}
+            ) : null}
           </div>
         )}
-        
-        {!canRun && !run.isPending && suggestions.length === 0 && (
+
+        {/* Ran successfully but no suggestion (e.g. not enough data) */}
+        {result != null && !run.isPending && suggestions.length === 0 && !runError && (
+          <div className="pt-3 border-t border-gray-200 dark:border-slate-700 text-center py-3 text-sm text-amber-700 dark:text-amber-300">
+            No suggestion for this line—player may not have enough data or didn&apos;t meet minimum minutes.
+          </div>
+        )}
+
+        {/* Idle empty state */}
+        {!canRun && !run.isPending && result == null && !runError && (
           <div className="text-center py-4 text-sm text-gray-400 dark:text-gray-500 transition-colors duration-200">
             Select a player and enter a line to test
           </div>

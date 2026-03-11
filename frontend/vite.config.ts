@@ -7,7 +7,8 @@ import { join } from 'path'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   // Vite proxy target for local development - proxies /api requests to local backend
-  const apiTarget = env.VITE_API_TARGET || 'http://localhost:8001'
+  // Default 8007 matches backend .env.example and docker-compose.prod.yml
+  const apiTarget = env.VITE_API_TARGET || 'http://localhost:8007'
   
   // Check if we're building for GitHub Pages
   // If VITE_GITHUB_PAGES is set, use the repo name as base path
@@ -63,7 +64,7 @@ export default defineConfig(({ mode }) => {
         "/api": {
           target: apiTarget,
           changeOrigin: true,
-          // Proxies /api/* requests to local backend at localhost:8001 in dev mode
+          // Proxies /api/* requests to local backend (default localhost:8007) in dev
         },
       },
     },

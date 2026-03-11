@@ -634,11 +634,11 @@ export function GoodBetsDashboard() {
             </div>
             {gamesLoading ? (
               <div className="flex items-center justify-center py-8">
-                <svg className="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span className="ml-2 text-sm text-gray-600">Loading games…</span>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading games…</span>
               </div>
             ) : gamesError ? (
               <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
@@ -648,9 +648,9 @@ export function GoodBetsDashboard() {
                 )}
               </div>
             ) : games.length === 0 ? (
-              <div className="p-6 text-center bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-gray-600 font-medium">No games scheduled</p>
-                <p className="text-xs mt-1 text-gray-500">Date: {today}</p>
+              <div className="p-6 text-center bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 transition-colors duration-200">
+                <p className="text-gray-600 dark:text-gray-300 font-medium">No games scheduled</p>
+                <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">Date: {today}</p>
               </div>
             ) : (
               <div className="overflow-x-auto -mx-4 px-4 pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" style={{ scrollbarWidth: 'thin' }}>
@@ -798,12 +798,16 @@ export function GoodBetsDashboard() {
                 <button
                   type="button"
                   onClick={() => setFeaturedFilter(featuredFilter === 'all' ? 'hot' : 'all')}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 ${featuredFilter === 'hot' ? 'bg-amber-500 dark:bg-amber-600' : 'bg-gray-400 dark:bg-gray-500'}`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 shadow-inner ${
+                    featuredFilter === 'hot'
+                      ? 'bg-amber-500 dark:bg-amber-500 ring-2 ring-amber-400/60 dark:ring-amber-400/40'
+                      : 'bg-slate-400 dark:bg-slate-600 ring-2 ring-slate-300/80 dark:ring-slate-500/60'
+                  }`}
                   role="switch"
                   aria-checked={featuredFilter === 'hot'}
                   aria-label="Filter by hot form"
                 >
-                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${featuredFilter === 'hot' ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-2 ring-slate-200/80 dark:ring-slate-400/80 transition-transform duration-200 ${featuredFilter === 'hot' ? 'translate-x-6' : 'translate-x-0.5'}`} />
                 </button>
                 <span className={`text-xs font-bold transition-colors ${featuredFilter === 'hot' ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>Hot form</span>
               </div>
@@ -909,18 +913,18 @@ export function GoodBetsDashboard() {
                 </span>
                 <button
                   onClick={() => setStatLeadersFilterToday(!statLeadersFilterToday)}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 ${
-                    statLeadersFilterToday 
-                      ? 'bg-blue-600 dark:bg-blue-500' 
-                      : 'bg-gray-400 dark:bg-gray-500'
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 shadow-inner ${
+                    statLeadersFilterToday
+                      ? 'bg-blue-600 dark:bg-blue-500 ring-2 ring-blue-400/60 dark:ring-blue-400/40'
+                      : 'bg-slate-400 dark:bg-slate-600 ring-2 ring-slate-300/80 dark:ring-slate-500/60'
                   }`}
                   role="switch"
                   aria-checked={statLeadersFilterToday}
                   aria-label="Filter by today's games"
                 >
                   <span
-                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                      statLeadersFilterToday ? 'translate-x-5' : 'translate-x-0.5'
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-2 ring-slate-200/80 dark:ring-slate-400/80 transition-transform duration-200 ${
+                      statLeadersFilterToday ? 'translate-x-6' : 'translate-x-0.5'
                     }`}
                   />
                 </button>

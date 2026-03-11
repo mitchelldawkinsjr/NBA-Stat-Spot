@@ -37,12 +37,18 @@ const getApiBaseUrl = (): string => {
     return 'https://nba-stat-spot.360web.cloud'
   }
   
-  // In development, use empty string to leverage Vite proxy to localhost:8001
-  // This requires the local backend to be running on http://localhost:8001
+  // In development, use empty string to leverage Vite proxy (default localhost:8007)
   return ''
 }
 
 export const API_BASE_URL = getApiBaseUrl()
+
+/** Human-readable API base for debugging (e.g. in Admin). */
+export function getApiBaseDisplay(): string {
+  if (API_BASE_URL) return API_BASE_URL
+  if (typeof window !== 'undefined') return `${window.location.origin} (proxied or same-origin)`
+  return '(same-origin)'
+}
 
 const FALLBACK_API_BASE = 'https://nba-stat-spot.360web.cloud'
 

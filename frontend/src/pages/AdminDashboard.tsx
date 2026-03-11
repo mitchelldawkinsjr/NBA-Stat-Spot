@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiGet, apiPost } from '../utils/api'
+import { apiGet, apiPost, getApiBaseDisplay } from '../utils/api'
 
 async function fetchHealth() {
   return apiGet('/api/v1/admin/health')
@@ -689,8 +689,31 @@ export default function AdminDashboard() {
     <div className="container mx-auto px-2 sm:px-3 md:px-4 max-w-7xl">
       <div className="mt-2">
         <h1 className="text-lg md:text-xl font-bold tracking-tight text-gray-900 dark:text-slate-100 transition-colors duration-200">Admin Dashboard</h1>
-        <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">Monitor system health, data consistency, and refresh cached services.</p>
+        <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
+          Monitor system health, data consistency, and refresh cached services.
+          <span className="ml-1 text-gray-500 dark:text-gray-500">API: {getApiBaseDisplay()}</span>
+        </p>
       </div>
+
+      {/* Connection error banner */}
+      {healthError && !healthLoading && (
+        <div className="mt-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
+          <p className="text-sm font-medium text-red-800 dark:text-red-200">Cannot reach backend</p>
+          <p className="mt-1 text-xs text-red-700 dark:text-red-300">
+            Requests are sent to: <code className="bg-red-100 dark:bg-red-900/40 px-1 rounded">{getApiBaseDisplay()}</code>
+          </p>
+          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+            Ensure the backend is running (e.g. <code className="bg-red-100 dark:bg-red-900/40 px-1 rounded">PORT=8007</code>), and in dev that Vite proxy target matches it.
+          </p>
+          <button
+            type="button"
+            onClick={() => refetchHealth()}
+            className="mt-2 px-3 py-1.5 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700"
+          >
+            Retry connection
+          </button>
+        </div>
+      )}
 
       {/* System Health & Data Consistency */}
       <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
