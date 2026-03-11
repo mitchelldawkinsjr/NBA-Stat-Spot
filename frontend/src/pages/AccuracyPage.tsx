@@ -1,0 +1,258 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { apiFetch } from '../utils/api'
+
+type GameRecord = {
+  date: string
+  game_id: string
+  matchup: string
+  predicted_winner: string
+  actual_winner: string
+  home_score: number
+  away_score: number
+  correct: boolean
+}
+
+type PickRecord = {
+  date: string
+  player_name: string
+  stat_type: string
+  line_value: number
+  suggestion: string
+  actual_value: number | null
+  hit: boolean | null
+  push: boolean | null
+  confidence: number | null
+}
+
+type AccuracyResponse = {
+  from_date: string
+  to_date: string
+  game_predictions: {
+    total: number
+    correct: number
+    accuracy_pct: number | null
+    records: GameRecord[]
+  }
+  pick_of_the_day: {
+    total: number
+    hits: number
+    misses: number
+    pushes: number
+    hit_rate_pct: number | null
+    records: PickRecord[]
+  }
+}
+
+export default function AccuracyPage() {
+  const [data, setData] = useState<AccuracyResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [days, setDays] = useState(30)
+
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await apiFetch(`api/v1/accuracy/history?days=${days}`)
+        if (cancelled) return
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          setError((body as { detail?: string }).detail || 'Failed to load accuracy history')
+          return
+        }
+        const json = await res.json()
+        setData(json)
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Error loading accuracy')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [days])
+
+  return (
+    <div className="container mx-auto px-3 md:px-4 max-w-5xl pb-8">
+      <nav className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+        <Link to="/" className="hover:text-gray-700 dark:hover:text-gray-300">Home</Link>
+        <span className="mx-1">/</span>
+        <span className="text-gray-700 dark:text-gray-300 font-medium">Prediction accuracy</span>
+      </nav>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100">
+          Prediction accuracy
+        </h1>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600 dark:text-gray-400">Last</label>
+          <select
+            value={days}
+            onChange={(e) => setDays(Number(e.target.value))}
+            className="rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value={7}>7 days</option>
+            <option value={30}>30 days</option>
+            <option value={90}>90 days</option>
+          </select>
+        </div>
+      </div>
+
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Game winner predictions and AI pick of the day are recorded when generated; results are settled after games complete. Run &quot;Settle accuracy&quot; in Admin to update.
+      </p>
+
+      {loading && (
+        <div className="mt-6 text-center py-8 text-gray-500 dark:text-gray-400">Loading…</div>
+      )}
+      {error && (
+        <div className="mt-6 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 text-red-700 dark:text-red-300">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && data && (
+        <>
+          {/* Summary cards */}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Game predictions</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Predicted winner vs actual winner</p>
+              {data.game_predictions.total === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No settled games in this range.</p>
+              ) : (
+                <>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-gray-900 dark:text-slate-100">
+                      {data.game_predictions.accuracy_pct ?? 0}%
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {data.game_predictions.correct} / {data.game_predictions.total} correct
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">AI pick of the day</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Over/under vs actual stat (pushes excluded from rate)</p>
+              {data.pick_of_the_day.total === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No settled picks in this range.</p>
+              ) : (
+                <>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-gray-900 dark:text-slate-100">
+                      {data.pick_of_the_day.hit_rate_pct ?? 0}%
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {data.pick_of_the_day.hits}W – {data.pick_of_the_day.misses}L
+                      {data.pick_of_the_day.pushes > 0 && ` (${data.pick_of_the_day.pushes} push)`}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Game prediction history table */}
+          <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Game prediction history</h2>
+            {data.game_predictions.records.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">No records.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs sm:text-sm text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-slate-700">
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Date</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Matchup</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Predicted</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Actual</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-right">Score</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-center">Hit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.game_predictions.records.map((r, i) => (
+                      <tr key={`${r.date}-${r.game_id}-${i}`} className="border-t border-gray-100 dark:border-slate-700">
+                        <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{r.date}</td>
+                        <td className="py-1.5 px-2 font-medium text-gray-900 dark:text-slate-100">{r.matchup}</td>
+                        <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{r.predicted_winner}</td>
+                        <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{r.actual_winner}</td>
+                        <td className="py-1.5 px-2 text-right text-gray-600 dark:text-gray-400">{r.home_score}–{r.away_score}</td>
+                        <td className="py-1.5 px-2 text-center">
+                          {r.correct ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Yes</span>
+                          ) : (
+                            <span className="text-rose-600 dark:text-rose-400 font-semibold">No</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {/* Pick of the day history table */}
+          <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">AI pick of the day history</h2>
+            {data.pick_of_the_day.records.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">No records.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs sm:text-sm text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-slate-700">
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Date</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Player</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Prop</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Line</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Actual</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-center">Hit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.pick_of_the_day.records.map((r, i) => (
+                      <tr key={`${r.date}-${r.player_name}-${i}`} className="border-t border-gray-100 dark:border-slate-700">
+                        <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{r.date}</td>
+                        <td className="py-1.5 px-2 font-medium text-gray-900 dark:text-slate-100">{r.player_name}</td>
+                        <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{r.stat_type} {r.suggestion}</td>
+                        <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{r.line_value}</td>
+                        <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{r.actual_value ?? '—'}</td>
+                        <td className="py-1.5 px-2 text-center">
+                          {r.push ? (
+                            <span className="text-amber-600 dark:text-amber-400 font-semibold">Push</span>
+                          ) : r.hit ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Yes</span>
+                          ) : r.hit === false ? (
+                            <span className="text-rose-600 dark:text-rose-400 font-semibold">No</span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">
+        <p>Run <strong>Settle accuracy</strong> in Admin (for a past date) to fill actual results from completed games. Default settle date is yesterday.</p>
+      </div>
+      <div className="mt-4">
+        <Link to="/admin" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Go to Admin</Link>
+        <span className="mx-2">·</span>
+        <Link to="/" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Back to Dashboard</Link>
+      </div>
+    </div>
+  )
+}

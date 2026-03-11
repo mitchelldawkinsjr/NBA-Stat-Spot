@@ -1,6 +1,15 @@
 """
 Game Prediction Service - Evaluates today's NBA games and predicts likely winner.
 Uses team-level metrics (def/off ranks, pace, PPG), matchup advantages, and LLM for explanations.
+
+Cache (24h TTL):
+  - game_predictions:{date}  → list of predictions for that date (from ESPN scoreboard + def/off ranks + team stats)
+  - game_prediction_detail:{game_id}  → full detail for one game
+Warm: /admin/warm-dashboard calls get_todays_predictions(). Clear: POST /admin/cache/clear/game-predictions.
+
+Data sources: ESPN scoreboard (games), ContextCollector def/off ranks, TeamStatsService (ppg/pace from NBA API or
+league defaults 112.5/100.0). When pace is default we overlay ContextCollector._calculate_pace_ranks() so predictions
+use computed possessions when available.
 """
 
 from __future__ import annotations
@@ -169,6 +178,19 @@ class GamePredictionService:
                 away_ppg = getattr(away_stats, "ppg", 112.5) or 112.5
                 home_pace = getattr(home_stats, "pace", 100.0) or 100.0
                 away_pace = getattr(away_stats, "pace", 100.0) or 100.0
+                # If NBA API returned default pace (100), use our computed pace from game logs when available
+                try:
+                    pace_ranks = ContextCollector._calculate_pace_ranks(season)
+                    if home_id and (home_pace is None or home_pace == 100.0):
+                        p = pace_ranks.get(home_id, {})
+                        if p.get("possessions"):
+                            home_pace = float(p["possessions"])
+                    if away_id and (away_pace is None or away_pace == 100.0):
+                        p = pace_ranks.get(away_id, {})
+                        if p.get("possessions"):
+                            away_pace = float(p["possessions"])
+                except Exception:
+                    pass
 
                 prob_home = _win_probability_from_ranks(
                     home_off.get("pts"), home_def.get("pts"),
@@ -224,6 +246,11 @@ class GamePredictionService:
                 continue
 
         self.cache.set(cache_key, predictions, ttl=86400)
+        try:
+            from .accuracy_tracking_service import record_game_predictions
+            record_game_predictions(target_date, predictions)
+        except Exception as e:
+            logger.debug("record_game_predictions failed", date=target_date.isoformat(), error=str(e))
         return predictions
 
     def get_game_prediction_detail(self, game_id: str, target_date: Optional[date] = None) -> Optional[Dict[str, Any]]:

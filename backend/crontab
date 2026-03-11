@@ -20,8 +20,8 @@
 # 6:15 AM EST — Best bets scan
 15 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/scan/best-bets?min_confidence=65&limit=50" --max-time 300 || echo "Failed: best-bets"
 
-# 6:20 AM EST — Top Picks of the Day (unified lock/strong/lean)
-20 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/top-picks?limit=20" --max-time 600 || echo "Failed: top-picks"
+# 6:20 AM EST — Top Picks of the Day (strong/lock only, fewer picks)
+20 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/top-picks?limit=12&min_confidence=62" --max-time 600 || echo "Failed: top-picks"
 
 # 6:25 AM EST — Stat leaders (Players to Watch section when "All" selected)
 25 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/stat-leaders" --max-time 300 || echo "Failed: stat-leaders"

@@ -7,7 +7,7 @@ import os
 load_dotenv()
 
 from .database import Base, engine
-from .models import user_bets, user_parlays, player_context, market_context, ai_features, app_settings  # Import models so tables are created
+from .models import user_bets, user_parlays, player_context, market_context, ai_features, app_settings  # Import models so tables are created (prediction_accuracy via __init__)
 from .services.cache_service import CacheEntry  # Import cache model so table is created
 from .routers.props_v1 import router as props_v1_router
 from .routers.players_v1 import router as players_v1_router
@@ -19,6 +19,7 @@ from .routers.parlays_v1 import router as parlays_v1_router
 from .routers import over_under_v1
 from .routers import espn_v1
 from .routers import games_enhanced_v1
+from .routers import accuracy_v1
 
 
 app = FastAPI(
@@ -195,3 +196,4 @@ app.include_router(parlays_v1_router)
 app.include_router(over_under_v1.router)
 app.include_router(espn_v1.router)
 app.include_router(games_enhanced_v1.router)
+app.include_router(accuracy_v1.router)

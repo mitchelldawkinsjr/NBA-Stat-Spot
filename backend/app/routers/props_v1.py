@@ -869,7 +869,8 @@ def high_hit_rate_props(
 def top_picks(
     date: Optional[str] = Query(None, description="Date YYYY-MM-DD, defaults to today"),
     season: Optional[str] = Query(None, description="Season string e.g. 2025-26"),
-    limit: int = Query(20, description="Max results", ge=1),
+    limit: int = Query(12, description="Max results", ge=1),
+    min_confidence: float = Query(62.0, description="Minimum confidence (62+ = strong/lock only)"),
     refresh: bool = Query(False, description="If true, skip cache and refetch (use when cached result is empty)"),
 ):
     from datetime import datetime as _dt
@@ -887,7 +888,7 @@ def top_picks(
             if games:
                 try:
                     _cache.delete(cache_key)
-                    result = BestPicksService.get_top_picks(date=date, season=season, limit=limit)
+                    result = BestPicksService.get_top_picks(date=date, season=season, limit=limit, min_confidence=min_confidence)
                     if result.get("items"):
                         _cache.set(cache_key, result, ttl=86400)
                     result["cached"] = False
@@ -901,7 +902,7 @@ def top_picks(
             items = items[:limit]
         return {**cached, "items": items, "returned": len(items), "cached": True}
 
-    result = BestPicksService.get_top_picks(date=date, season=season, limit=limit)
+    result = BestPicksService.get_top_picks(date=date, season=season, limit=limit, min_confidence=min_confidence)
 
     if result.get("items"):
         try:

@@ -8,6 +8,7 @@ import ExplorePage from './pages/ExplorePage'
 import AdminDashboard from './pages/AdminDashboard'
 import OverUnderPage from './pages/OverUnderPage'
 import GamePredictionPage from './pages/GamePredictionPage'
+import AccuracyPage from './pages/AccuracyPage'
 import SliceProLayout from './layouts/SliceProLayout'
 import { SnackbarProvider } from './context/SnackbarContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -29,6 +30,7 @@ function App() {
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/over-under" element={<OverUnderPage />} />
               <Route path="/game/:gameId" element={<GamePredictionPage />} />
+              <Route path="/accuracy" element={<AccuracyPage />} />
               {/* Back-compat alias */}
               <Route path="/suggest" element={<ExplorePage />} />
             </Routes>

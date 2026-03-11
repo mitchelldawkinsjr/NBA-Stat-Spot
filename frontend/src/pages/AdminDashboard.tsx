@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiGet, apiPost, getApiBaseDisplay } from '../utils/api'
 
@@ -145,6 +146,15 @@ async function refreshPositionDefenseRanks(season?: string) {
 
 async function clearTodaysGamesCache() {
   return apiPost('/api/v1/admin/cache/clear/todays-games')
+}
+
+async function clearGamePredictionsCache() {
+  return apiPost('/api/v1/admin/cache/clear/game-predictions')
+}
+
+async function settleAccuracy(settleDate?: string) {
+  const q = settleDate ? `?settle_date=${encodeURIComponent(settleDate)}` : ''
+  return apiPost(`/api/v1/admin/settle-accuracy${q}`)
 }
 
 async function cacheCleanup() {
@@ -633,6 +643,44 @@ export default function AdminDashboard() {
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Clear today\'s games cache failed', error.message)
+    }
+  })
+
+  const clearGamePredictionsCacheMutation = useMutation({
+    mutationFn: clearGamePredictionsCache,
+    onMutate: () => {
+      addActivityLog('info', 'Clearing game predictions cache...')
+    },
+    onSuccess: (data: { game_predictions_cleared?: number; game_prediction_detail_cleared?: number }) => {
+      addActivityLog(
+        'success',
+        'Game predictions cache cleared',
+        `List: ${data?.game_predictions_cleared ?? 0}, Detail: ${data?.game_prediction_detail_cleared ?? 0}. Next request will rebuild with current ranks/stats.`
+      )
+      refetchCacheStatus()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Clear game predictions cache failed', error.message)
+    }
+  })
+
+  const settleAccuracyMutation = useMutation({
+    mutationFn: () => settleAccuracy(),
+    onMutate: () => {
+      addActivityLog('info', 'Settling prediction accuracy for yesterday...')
+    },
+    onSuccess: (data: { status?: string; result?: any }) => {
+      const r = data?.result
+      const gp = r?.game_predictions
+      const pick = r?.pick_of_the_day
+      addActivityLog(
+        'success',
+        'Accuracy settled',
+        `Games: ${gp?.settled ?? 0} settled, ${gp?.not_found ?? 0} not found. Pick: ${pick?.settled ? 'settled' : pick?.reason ?? '—'}`
+      )
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Settle accuracy failed', error.message)
     }
   })
 
@@ -1530,6 +1578,14 @@ export default function AdminDashboard() {
                   {clearTodaysGamesCacheMutation.isPending ? 'Clearing...' : 'Clear Today\'s Games'}
                 </button>
                 <button
+                  onClick={() => clearGamePredictionsCacheMutation.mutate()}
+                  disabled={clearGamePredictionsCacheMutation.isPending}
+                  className="px-3 py-2 text-xs bg-sky-100 dark:bg-sky-900/30 hover:bg-sky-200 dark:hover:bg-sky-900/50 text-sky-900 dark:text-sky-300 rounded disabled:opacity-50 border border-sky-300 dark:border-sky-700 transition-colors duration-200"
+                  title="Clear game predictions cache so next load uses current def/off ranks and team stats"
+                >
+                  {clearGamePredictionsCacheMutation.isPending ? 'Clearing...' : 'Clear Game Predictions'}
+                </button>
+                <button
                   onClick={() => cacheCleanupMutation.mutate()}
                   disabled={cacheCleanupMutation.isPending}
                   className="px-3 py-2 text-xs bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 rounded disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
@@ -1553,9 +1609,24 @@ export default function AdminDashboard() {
                 >
                   {refreshTopPicksMutation.isPending ? 'Refreshing...' : 'Refresh Top Picks'}
                 </button>
+                <button
+                  onClick={() => settleAccuracyMutation.mutate()}
+                  disabled={settleAccuracyMutation.isPending}
+                  className="px-3 py-2 text-xs bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-900 dark:text-emerald-300 rounded disabled:opacity-50 border border-emerald-300 dark:border-emerald-700 transition-colors duration-200"
+                  title="Settle game predictions and AI pick of the day for yesterday (fill actual results)"
+                >
+                  {settleAccuracyMutation.isPending ? 'Settling...' : 'Settle accuracy'}
+                </button>
+                <Link
+                  to="/accuracy"
+                  className="px-3 py-2 text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 rounded border border-slate-300 dark:border-slate-600 transition-colors duration-200 inline-block text-center"
+                  title="View prediction and pick-of-the-day accuracy history"
+                >
+                  View accuracy
+                </Link>
               </div>
 
-              {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearHighHitRateCacheMutation.isSuccess || clearBestBetsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess || clearTodaysGamesCacheMutation.isSuccess || cacheCleanupMutation.isSuccess || refreshStatLeadersMutation.isSuccess || refreshTopPicksMutation.isSuccess) && (
+              {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearHighHitRateCacheMutation.isSuccess || clearBestBetsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess || clearTodaysGamesCacheMutation.isSuccess || clearGamePredictionsCacheMutation.isSuccess || cacheCleanupMutation.isSuccess || refreshStatLeadersMutation.isSuccess || refreshTopPicksMutation.isSuccess) && (
                 <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
                   Cache cleared / refreshed successfully. Next request will use updated data.
                 </div>

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, Depends, Request
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..services.prop_scanner import PropScannerService
@@ -443,10 +443,14 @@ def refresh_high_hit_rate(
 
 @router.post("/refresh/top-picks")
 @limiter.limit("5/hour")
-def refresh_top_picks(request: Request, limit: int = Query(20)):
-    """Regenerate the unified top-picks cache."""
+def refresh_top_picks(
+    request: Request,
+    limit: int = Query(12, description="Max picks to cache"),
+    min_confidence: float = Query(62.0, description="Minimum confidence (62+ = strong/lock only)"),
+):
+    """Regenerate the unified top-picks cache. Uses higher confidence by default for fewer, stronger picks."""
     try:
-        result = BestPicksService.get_top_picks(limit=limit)
+        result = BestPicksService.get_top_picks(limit=limit, min_confidence=min_confidence)
         target = result.get("date", date.today().isoformat())
         _cache.set(f"top_picks:{target}", result, ttl=86400)
         return {
@@ -682,7 +686,7 @@ def refresh_all(request: Request):
 
     # Refresh unified top picks
     try:
-        top_picks_result = BestPicksService.get_top_picks(limit=20)
+        top_picks_result = BestPicksService.get_top_picks(limit=12, min_confidence=62.0)
         target = top_picks_result.get("date", date.today().isoformat())
         _cache.set(f"top_picks:{target}", top_picks_result, ttl=86400)
         results["topPicks"] = {
@@ -751,7 +755,7 @@ def warm_dashboard(request: Request):
     # Top picks
     if not _cache.get(f"top_picks:{today_str}"):
         try:
-            r = BestPicksService.get_top_picks(date=today_str, limit=20)
+            r = BestPicksService.get_top_picks(date=today_str, limit=12, min_confidence=62.0)
             _cache.set(f"top_picks:{today_str}", r, ttl=86400)
             results["topPicks"] = len(r.get("items", []))
         except Exception as e:
@@ -780,6 +784,11 @@ def warm_dashboard(request: Request):
                     "mlAvailable": items[0].get("mlAvailable"),
                 }
                 _cache.set(f"pick_of_the_day:{today_str}", pick, ttl=86400)
+                try:
+                    from ..services.accuracy_tracking_service import record_pick_of_the_day
+                    record_pick_of_the_day(date.today(), pick)
+                except Exception:
+                    pass
                 results["pickOfTheDay"] = 1
             else:
                 results["pickOfTheDay"] = 0
@@ -872,6 +881,39 @@ def clear_todays_games_cache():
         }
     finally:
         db.close()
+
+
+@router.post("/cache/clear/game-predictions")
+def clear_game_predictions_cache():
+    """Clear game predictions list and detail caches. Next request to /games/predictions will rebuild from live ESPN scoreboard, def/off ranks, and team stats."""
+    db = next(get_db())
+    try:
+        n = _cache.clear_pattern("game_predictions%", db=db)
+        m = _cache.clear_pattern("game_prediction_detail%", db=db)
+        return {
+            "status": "success",
+            "message": "Game predictions cache cleared; next request will rebuild with current data.",
+            "game_predictions_cleared": n,
+            "game_prediction_detail_cleared": m
+        }
+    finally:
+        db.close()
+
+
+@router.post("/settle-accuracy")
+def settle_accuracy(
+    settle_date: Optional[str] = Query(None, description="Date to settle YYYY-MM-DD (default: yesterday)"),
+    season: Optional[str] = Query("2025-26", description="Season for player game logs when settling pick of the day"),
+):
+    """Settle game prediction and AI pick-of-the-day accuracy for a date (e.g. run daily after games complete)."""
+    from ..services.accuracy_tracking_service import settle_all_for_date
+    target = date.fromisoformat(settle_date) if settle_date else (date.today() - timedelta(days=1))
+    try:
+        result = settle_all_for_date(target, season=season)
+        return {"status": "success", "result": result}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 
 @router.post("/cache/clear/teams")
 def clear_teams_cache():

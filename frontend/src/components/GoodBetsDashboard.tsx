@@ -77,7 +77,7 @@ async function fetchHotFormProps(date?: string, minConfidence = 70) {
 
 async function fetchTopPicks(date?: string) {
   const targetDate = date || getTodayDate()
-  const cacheKey = 'top-picks-20'
+  const cacheKey = 'top-picks'
   
   const cached = getCache(cacheKey, targetDate)
   if (cached) {
@@ -85,7 +85,8 @@ async function fetchTopPicks(date?: string) {
   }
   
   const params = new URLSearchParams()
-  params.append('limit', '20')
+  params.append('limit', '12')
+  params.append('min_confidence', '62')
   if (date) params.append('date', date)
   const endpoint = `api/v1/props/top-picks?${params.toString()}`
   const res = await apiFetch(endpoint)
@@ -343,7 +344,7 @@ export function GoodBetsDashboard() {
 
       // Step 2: Clear local storage cache for today
       clearCache('daily-props-50', today)
-      clearCache('top-picks-20', today)
+      clearCache('top-picks', today)
       updateProgress(40)
 
       // Step 3: Invalidate React Query cache

@@ -186,7 +186,8 @@ class BestPicksService:
     def get_top_picks(
         date: Optional[str] = None,
         season: Optional[str] = None,
-        limit: int = 20,
+        limit: int = 12,
+        min_confidence: float = 62.0,
     ) -> Dict[str, Any]:
         season = season or "2025-26"
         target_date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -268,6 +269,9 @@ class BestPicksService:
                 except Exception:
                     continue
 
+        # Filter to higher-confidence picks only (strong+ by default; 62+ = strong/lock)
+        all_picks = [p for p in all_picks if (p.get("confidence") or 0) >= min_confidence]
+
         # Sort by confidence descending, then hit rate
         all_picks.sort(
             key=lambda x: (x.get("confidence", 0), x.get("hitRate", 0)),
@@ -293,4 +297,5 @@ class BestPicksService:
             "returned": len(top),
             "date": target_date,
             "season": season,
+            "min_confidence": min_confidence,
         }

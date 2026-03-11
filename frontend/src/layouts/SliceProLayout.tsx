@@ -13,6 +13,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
     { to: '/parlay', label: 'Parlay' },
     { to: '/bets', label: 'Bet Tracker' },
     { to: '/over-under', label: 'Over/Under' },
+    { to: '/accuracy', label: 'Accuracy' },
     { to: '/admin', label: 'Admin' },
   ]
 
