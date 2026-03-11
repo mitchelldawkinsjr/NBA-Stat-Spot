@@ -92,6 +92,13 @@ class BaseLLMService(ABC):
         rationale += factors_text
         return rationale
     
+    def generate_from_prompt(self, prompt: str, max_tokens: int = 300) -> Optional[str]:
+        """
+        Generate text from a single user prompt (optional; for game predictions, etc.).
+        Default returns None; subclasses can override to support raw completion.
+        """
+        return None
+
     @abstractmethod
     def health_check(self) -> Dict[str, Any]:
         """

@@ -89,7 +89,22 @@ class OpenAIService(BaseLLMService):
         except Exception as e:
             print(f"Error generating rationale with OpenAI: {e}")
             raise
-    
+
+    def generate_from_prompt(self, prompt: str, max_tokens: int = 300) -> Optional[str]:
+        """Generate text from a single user prompt."""
+        if not self._available:
+            return None
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.6,
+                max_tokens=max_tokens,
+            )
+            return (response.choices[0].message.content or "").strip()
+        except Exception:
+            return None
+
     def _get_system_prompt(self) -> str:
         """Get system prompt for rationale generation"""
         return """You are an expert NBA betting analyst. Generate concise, data-driven rationales for prop bet recommendations.

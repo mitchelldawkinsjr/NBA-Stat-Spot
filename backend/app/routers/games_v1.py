@@ -4,6 +4,7 @@ from datetime import date, timedelta, datetime
 import structlog
 from ..services.live_game_service import LiveGameService
 from ..services.espn_api_service import get_espn_service
+from ..services.game_prediction_service import get_game_prediction_service
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/v1/games", tags=["games_v1"])
@@ -113,6 +114,61 @@ def upcoming(
     except Exception as e:
         logger.error("Failed to fetch upcoming games", days=days, error=str(e))
         return {"games": []}
+
+@router.get(
+    "/predictions",
+    summary="Get today's game predictions",
+    description="Get predicted winner, win probability, and key advantage summary for each game on the given date.",
+    response_description="List of game predictions",
+    tags=["games_v1"],
+)
+def get_predictions(
+    date_param: Optional[str] = Query(None, description="Date YYYY-MM-DD. Default: today.", alias="date"),
+):
+    """Return predictions for all games on the given date."""
+    target_date = date.today()
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = date.today()
+    try:
+        svc = get_game_prediction_service()
+        predictions = svc.get_todays_predictions(target_date)
+        return {"date": target_date.isoformat(), "predictions": predictions}
+    except Exception as e:
+        logger.error("Failed to fetch game predictions", date=target_date.isoformat(), error=str(e))
+        return {"date": target_date.isoformat(), "predictions": [], "error": str(e)}
+
+
+@router.get(
+    "/predictions/{game_id}",
+    summary="Get game prediction detail",
+    description="Get full prediction and outlook for a single game (for game detail page).",
+    response_description="Game prediction detail with outlook and comparison stats",
+    tags=["games_v1"],
+)
+def get_prediction_detail(
+    game_id: str = Path(..., description="ESPN game ID"),
+    date_param: Optional[str] = Query(None, description="Date YYYY-MM-DD. Default: today.", alias="date"),
+):
+    """Return detailed prediction for one game."""
+    target_date = date.today()
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = date.today()
+    try:
+        svc = get_game_prediction_service()
+        detail = svc.get_game_prediction_detail(game_id, target_date)
+        if detail is None:
+            return {"gameId": game_id, "error": "Game not found or no prediction available"}
+        return detail
+    except Exception as e:
+        logger.error("Failed to fetch game prediction detail", game_id=game_id, error=str(e))
+        return {"gameId": game_id, "error": str(e)}
+
 
 @router.get(
     "/{game_id}",

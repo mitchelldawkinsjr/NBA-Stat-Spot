@@ -243,6 +243,18 @@ class RationaleGenerator:
             live_line, recommendation, confidence, key_factors, game_context
         )
     
+    def _generate_simple(self, prompt: str, max_tokens: int = 300) -> Optional[str]:
+        """Generate a short text from a single prompt using the first available LLM. Returns None if unavailable."""
+        for service in self.services:
+            try:
+                if service.is_available() and hasattr(service, "generate_from_prompt"):
+                    out = service.generate_from_prompt(prompt, max_tokens=max_tokens)
+                    if out:
+                        return out
+            except Exception:
+                continue
+        return None
+
     def is_available(self) -> bool:
         """Check if any LLM service is available"""
         return len(self.services) > 0

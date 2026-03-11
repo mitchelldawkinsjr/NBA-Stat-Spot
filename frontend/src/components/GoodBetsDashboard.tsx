@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { QuickPropLab } from './QuickPropLab'
 import { DailyPropsPanel } from './DailyPropsPanel'
@@ -11,6 +12,21 @@ import { getCache, setCache, clearCache, getTodayDate } from '../utils/cache'
 
 import { apiFetch, apiPost } from '../utils/api'
 import { getLiveGames } from '../services/overUnderService'
+
+/** ESPN team logo (500px). Use uppercase abbreviation. */
+function teamLogoUrl(abbr: string): string {
+  const a = (abbr || '').trim().toUpperCase()
+  return a ? `https://a.espncdn.com/i/teamlogos/nba/500/${a}.png` : ''
+}
+
+async function fetchPredictions(date?: string) {
+  const params = new URLSearchParams()
+  if (date) params.append('date', date)
+  const endpoint = `api/v1/games/predictions${params.toString() ? '?' + params.toString() : ''}`
+  const res = await apiFetch(endpoint)
+  if (!res.ok) throw new Error('Failed to load predictions')
+  return res.json()
+}
 
 async function fetchToday(date?: string) {
   const params = new URLSearchParams()
@@ -100,6 +116,7 @@ async function fetchPickOfTheDay(date?: string) {
 }
 
 export function GoodBetsDashboard() {
+  const navigate = useNavigate()
   const { season } = useSeason()
   const queryClient = useQueryClient()
   const { showSnackbar, updateProgress, hideSnackbar } = useSnackbar()
@@ -241,6 +258,27 @@ export function GoodBetsDashboard() {
     gcTime: 24 * 60 * 60 * 1000,
   })
   const pickOfTheDay = pickOfTheDayData?.pick ?? null
+
+  const { data: predictionsData, isLoading: predictionsLoading } = useQuery({
+    queryKey: ['games-predictions', today],
+    queryFn: () => fetchPredictions(today),
+    enabled: games.length > 0,
+    staleTime: 15 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  })
+  const predictions = (predictionsData?.predictions ?? []) as Array<{
+    gameId: string
+    home: string
+    away: string
+    home_full_name?: string
+    away_full_name?: string
+    predicted_winner: string
+    predicted_winner_name?: string
+    win_probability_home: number
+    win_probability_away: number
+    key_advantage_summary?: string
+    outlook_summary?: string
+  }>
 
   // Hot form + high confidence props (players in good form, min 70% confidence)
   const { data: hotFormData, isLoading: hotFormLoading } = useQuery({
@@ -757,6 +795,66 @@ export function GoodBetsDashboard() {
               </div>
             )}
           </div>
+
+          {/* Today's Games Predictions */}
+          {games.length > 0 && (
+          <div className="p-3 sm:p-4 border border-emerald-200 dark:border-emerald-800/50 rounded-lg bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20 shadow-sm transition-colors duration-200">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Today&apos;s Games Predictions</h3>
+              {predictions.length > 0 && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">{predictions.length} prediction{predictions.length !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+            {predictionsLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <svg className="animate-spin h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading predictions…</span>
+              </div>
+            ) : predictions.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-3 text-center">No predictions for today. Predictions run once per day.</p>
+            ) : (
+              <div className="overflow-x-auto -mx-4 px-4 pb-2 scrollbar-thin" style={{ scrollbarWidth: 'thin' }}>
+                <div className="flex gap-3 min-w-max">
+                  {predictions.map((p: any) => {
+                    const winPct = p.predicted_winner === p.home ? p.win_probability_home : p.win_probability_away
+                    return (
+                      <button
+                        key={p.gameId}
+                        type="button"
+                        onClick={() => navigate(`/game/${p.gameId}`)}
+                        className="flex-none w-52 sm:w-56 text-left bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-sm hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-700 transition-all duration-200 p-3 sm:p-4"
+                      >
+                        <div className="flex items-center justify-center gap-4 mb-3">
+                          <img src={teamLogoUrl(p.away)} alt={p.away} className="h-10 w-10 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                          <span className="text-xs font-medium text-gray-400 dark:text-gray-500">@</span>
+                          <img src={teamLogoUrl(p.home)} alt={p.home} className="h-10 w-10 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                        </div>
+                        <p className="text-sm font-bold text-gray-900 dark:text-slate-100 mb-1">
+                          {p.away_full_name || p.away} vs {p.home_full_name || p.home}
+                        </p>
+                        <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
+                          Predicted winner: {p.predicted_winner_name || p.predicted_winner}
+                        </p>
+                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                          Win probability: {Math.round(Number(winPct))}%
+                        </p>
+                        {p.key_advantage_summary && (
+                          <p className="text-[11px] text-gray-600 dark:text-gray-400 line-clamp-2">
+                            Key advantage: {p.key_advantage_summary}
+                          </p>
+                        )}
+                        <p className="mt-2 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">View analysis →</p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+          )}
 
           {/* AI Pick of the Day — single best bet from today's props */}
           <div className="p-3 sm:p-4 border-2 border-violet-200 dark:border-violet-800/50 rounded-xl bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-950/30 dark:to-indigo-950/20 shadow-md transition-colors duration-200">

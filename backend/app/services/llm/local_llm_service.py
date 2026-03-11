@@ -144,7 +144,26 @@ class LocalLLMService(BaseLLMService):
             logger = structlog.get_logger()
             logger.error("Error generating rationale with local LLM", error=str(e))
             raise
-    
+
+    def generate_from_prompt(self, prompt: str, max_tokens: int = 300) -> Optional[str]:
+        """Generate text from a single user prompt."""
+        if not self._available:
+            return None
+        try:
+            if self.provider == "ollama":
+                response = self._ollama_client.generate(
+                    model=self.model_name,
+                    prompt=prompt,
+                    options={"temperature": 0.6, "num_predict": max_tokens},
+                )
+                return (response.response if hasattr(response, "response") else response.get("response", "") or "").strip()
+            if self.provider == "llamacpp" and self._model:
+                out = self._model(prompt, max_tokens=max_tokens, temperature=0.6, stop=["\n\n"])
+                return (out["choices"][0]["text"] or "").strip()
+        except Exception:
+            pass
+        return None
+
     def _build_prompt(
         self,
         player_name: str,
