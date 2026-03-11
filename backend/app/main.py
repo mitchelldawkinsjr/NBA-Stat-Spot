@@ -147,21 +147,16 @@ from .core.rate_limiter import limiter, rate_limit_handler
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
-# CORS configuration
-from .core.config import get_cors_origins
+# CORS configuration: never use allow_origins=["*"] with allow_credentials=True (browser blocks it)
+from .core.config import get_cors_origins, _CORS_SAFE_ORIGINS
 import structlog
 
 logger = structlog.get_logger()
 allowed_origins = get_cors_origins()
-
-if allowed_origins == ["*"]:
-    logger.info("CORS: Allowing all origins (development mode)")
-elif not allowed_origins:
-    logger.warning("CORS: No origins configured - API may be inaccessible. Set CORS_ORIGINS environment variable.")
-    # Fallback to all origins if empty (shouldn't happen in production)
-    allowed_origins = ["*"]
-else:
-    logger.info("CORS: Allowing configured origins", origins=allowed_origins)
+if not allowed_origins:
+    logger.warning("CORS: No origins from config; using safe list so credentials work.")
+    allowed_origins = list(_CORS_SAFE_ORIGINS)
+logger.info("CORS: Allowing origins", origins=allowed_origins[:5], count=len(allowed_origins))
 
 app.add_middleware(
     CORSMiddleware,
