@@ -174,23 +174,34 @@ class GamePredictionService:
 
                 home_stats = self._team_stats.get_team_stats(home_abbr)
                 away_stats = self._team_stats.get_team_stats(away_abbr)
-                home_ppg = getattr(home_stats, "ppg", 112.5) or 112.5
-                away_ppg = getattr(away_stats, "ppg", 112.5) or 112.5
-                home_pace = getattr(home_stats, "pace", 100.0) or 100.0
-                away_pace = getattr(away_stats, "pace", 100.0) or 100.0
-                # If NBA API returned default pace (100), use our computed pace from game logs when available
+                default_ppg = 112.5
+                default_pace = 100.0
+                home_ppg = getattr(home_stats, "ppg", default_ppg) or default_ppg
+                away_ppg = getattr(away_stats, "ppg", default_ppg) or default_ppg
+                home_pace = getattr(home_stats, "pace", default_pace) or default_pace
+                away_pace = getattr(away_stats, "pace", default_pace) or default_pace
+                # When NBA API returns defaults, use our game-log-based PPG and pace so team comparison shows real data
                 try:
                     pace_ranks = ContextCollector._calculate_pace_ranks(season)
-                    if home_id and (home_pace is None or home_pace == 100.0):
+                    if home_id and (home_pace is None or home_pace == default_pace):
                         p = pace_ranks.get(home_id, {})
                         if p.get("possessions"):
                             home_pace = float(p["possessions"])
-                    if away_id and (away_pace is None or away_pace == 100.0):
+                    if away_id and (away_pace is None or away_pace == default_pace):
                         p = pace_ranks.get(away_id, {})
                         if p.get("possessions"):
                             away_pace = float(p["possessions"])
                 except Exception:
                     pass
+                if home_ppg == default_ppg or away_ppg == default_ppg:
+                    try:
+                        team_ppg_from_logs = ContextCollector._get_team_ppg_from_player_logs(season)
+                        if home_id and home_ppg == default_ppg and home_id in team_ppg_from_logs:
+                            home_ppg = team_ppg_from_logs[home_id]
+                        if away_id and away_ppg == default_ppg and away_id in team_ppg_from_logs:
+                            away_ppg = team_ppg_from_logs[away_id]
+                    except Exception:
+                        pass
 
                 prob_home = _win_probability_from_ranks(
                     home_off.get("pts"), home_def.get("pts"),

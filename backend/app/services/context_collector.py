@@ -851,6 +851,69 @@ class ContextCollector:
             return {}, {}
 
     @staticmethod
+    def _get_team_ppg_from_player_logs(season: Optional[str] = None) -> Dict[int, float]:
+        """
+        Compute each team's PPG from player game logs (sum team pts per game, then average).
+        Used when TeamStatsService returns default 112.5 so game prediction page shows real data.
+        Returns {team_id: ppg}. Cached 24h.
+        """
+        try:
+            cache = get_cache_service()
+            season_to_use = season or "2025-26"
+            cache_key = f"team_ppg_from_logs:{season_to_use}:24h"
+            cached = cache.get(cache_key)
+            if cached is not None and isinstance(cached, dict):
+                return {int(k): float(v) for k, v in cached.items() if v is not None and isinstance(v, (int, float))}
+            teams = NBADataService.fetch_all_teams()
+            if not teams:
+                return {}
+            team_game_pts: Dict[int, List[float]] = {}
+            for t in teams:
+                tid = t.get("id")
+                if tid:
+                    team_game_pts[tid] = []
+            players_per_team = 6
+            games_per_player = 25
+            all_players = NBADataService.fetch_all_players_including_rookies()
+            players_by_team: Dict[int, List[Dict[str, Any]]] = {}
+            for p in all_players:
+                team_id = p.get("team_id")
+                if team_id:
+                    players_by_team.setdefault(team_id, [])
+                    if len(players_by_team[team_id]) < players_per_team:
+                        players_by_team[team_id].append(p)
+            for team_id, team_players in players_by_team.items():
+                if team_id not in team_game_pts:
+                    continue
+                per_game: Dict[str, float] = {}
+                for player in team_players:
+                    pid = player.get("id")
+                    if not pid:
+                        continue
+                    try:
+                        logs = NBADataService.fetch_player_game_log(pid, season_to_use)
+                    except Exception:
+                        continue
+                    for g in logs[:games_per_player]:
+                        gd = g.get("game_date")
+                        if not gd:
+                            continue
+                        per_game[gd] = per_game.get(gd, 0.0) + float(g.get("pts", 0) or 0)
+                for pts in per_game.values():
+                    if pts > 0:
+                        team_game_pts[team_id].append(pts)
+            result: Dict[int, float] = {}
+            for team_id, pts_list in team_game_pts.items():
+                if pts_list:
+                    result[team_id] = round(sum(pts_list) / len(pts_list), 1)
+            cache.set(cache_key, result, ttl=86400)
+            logger.info("Team PPG from logs computed", season=season_to_use, teams_with_ppg=len(result))
+            return result
+        except Exception as e:
+            logger.warning("Team PPG from logs failed", season=season, error=str(e))
+            return {}
+
+    @staticmethod
     def get_defensive_averages(season: Optional[str] = None) -> Dict[int, Dict[str, float]]:
         """Return raw per-team defensive averages (avg stats allowed per game). Populated as a side-effect of _calculate_defensive_ranks."""
         cache = get_cache_service()
