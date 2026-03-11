@@ -8,5 +8,70 @@
     "full_name": "KJ Simpson",
     "nba_id": 1642354,
     "team_abbr": "DEN"
+  },
+  {
+    "full_name": "Zaccharie Risacher",
+    "nba_id": 1642258,
+    "team_abbr": "ATL"
+  },
+  {
+    "full_name": "Alex Sarr",
+    "nba_id": 1642259,
+    "team_abbr": "WAS"
+  },
+  {
+    "full_name": "Reed Sheppard",
+    "nba_id": 1642263,
+    "team_abbr": "HOU"
+  },
+  {
+    "full_name": "Stephon Castle",
+    "nba_id": 1642264,
+    "team_abbr": "SAS"
+  },
+  {
+    "full_name": "Donovan Clingan",
+    "nba_id": 1642270,
+    "team_abbr": "POR"
+  },
+  {
+    "full_name": "Dalton Knecht",
+    "nba_id": 1642261,
+    "team_abbr": "LAL"
+  },
+  {
+    "full_name": "Rayj Dennis",
+    "nba_id": 1642484,
+    "team_abbr": "ATL"
+  },
+  {
+    "full_name": "Asa Newell",
+    "nba_id": 1642854,
+    "team_abbr": "ATL"
+  },
+  {
+    "full_name": "Matas Buzelis",
+    "nba_id": 1641824,
+    "team_abbr": "CHI"
+  },
+  {
+    "full_name": "Tidjane Salaun",
+    "nba_id": 1642275,
+    "team_abbr": "CHA"
+  },
+  {
+    "full_name": "Zach Edey",
+    "nba_id": 1641744,
+    "team_abbr": "MEM"
+  },
+  {
+    "full_name": "Devin Carter",
+    "nba_id": 1642269,
+    "team_abbr": "SAC"
+  },
+  {
+    "full_name": "Bronny James",
+    "nba_id": 1642355,
+    "team_abbr": "LAL"
   }
 ]

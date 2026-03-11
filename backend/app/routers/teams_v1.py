@@ -74,8 +74,9 @@ def get_team_stats_ranks(
             team_id = t.get("id")
             if team_id is None:
                 continue
-            d = def_ranks.get(team_id) or {}
-            o = off_ranks.get(team_id) or {}
+            tid = int(team_id)
+            d = def_ranks.get(tid) or {}
+            o = off_ranks.get(tid) or {}
             items.append({
                 "id": team_id,
                 "abbreviation": t.get("abbreviation"),

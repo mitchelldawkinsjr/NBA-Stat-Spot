@@ -21,6 +21,13 @@ import threading
 
 logger = structlog.get_logger()
 
+
+def _normalize_rank_keys(ranks: Dict[Any, Dict[str, int]]) -> Dict[int, Dict[str, int]]:
+    """Ensure rank dict keys are int (JSON round-trip turns them into strings)."""
+    if not ranks:
+        return {}
+    return {int(k): v for k, v in ranks.items()}
+
 # Minutes threshold: treat as "did not play" if minutes is 0 or missing (DNP)
 MIN_MINUTES_PLAYED_THRESHOLD = 0.5
 # If most recent game or last 2 games have no minutes, infer possible injury
@@ -248,10 +255,10 @@ class ContextCollector:
             season_to_use = season or "2025-26"
             cache_key = f"defensive_ranks:{season_to_use}:24h"
             
-            # Check cache first
+            # Check cache first (JSON round-trip may have string keys; normalize to int)
             cached_ranks = cache.get(cache_key)
             if cached_ranks is not None:
-                return cached_ranks
+                return _normalize_rank_keys(cached_ranks)
             
             # Get all teams
             teams = NBADataService.fetch_all_teams()
@@ -558,7 +565,7 @@ class ContextCollector:
             cache_key = f"offensive_ranks:{season_to_use}:24h"
             cached = cache.get(cache_key)
             if cached is not None:
-                return cached
+                return _normalize_rank_keys(cached)
 
             teams = NBADataService.fetch_all_teams()
             if not teams:
@@ -664,7 +671,7 @@ class ContextCollector:
             cache_key = f"team_ranks_from_players_fallback:{season_to_use}:24h"
             cached = cache.get(cache_key)
             if cached is not None:
-                return cached.get("def", {}), cached.get("off", {})
+                return _normalize_rank_keys(cached.get("def", {})), _normalize_rank_keys(cached.get("off", {}))
 
             teams = NBADataService.fetch_all_teams()
             if not teams:

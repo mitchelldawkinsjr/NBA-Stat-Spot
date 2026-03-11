@@ -685,6 +685,86 @@ def refresh_all(request: Request):
         "refreshedAt": datetime.now().isoformat()
     }
 
+
+@router.post("/warm-dashboard")
+@limiter.limit("10/hour")
+def warm_dashboard(request: Request):
+    """Warm all caches used by the homepage: Top Picks, AI Pick of the Day, Players to Watch, Hot form, Hot players.
+    Safe to call from 6am cron after refresh jobs; fills any missing caches so dashboard sections load."""
+    today_str = date.today().isoformat()
+    results = {}
+    # Daily props (base for pick-of-the-day and filtering)
+    if not _get_daily_props_cache(today_str):
+        try:
+            r = DailyPropsService.get_top_props_for_date(date=today_str, season="2025-26", min_confidence=50.0, limit=100)
+            _set_daily_props_cache(r, target_date=today_str, ttl=86400)
+            results["dailyProps"] = len(r.get("items", []))
+        except Exception as e:
+            results["dailyProps"] = str(e)
+    else:
+        results["dailyProps"] = "cached"
+    # Top picks
+    if not _cache.get(f"top_picks:{today_str}"):
+        try:
+            r = BestPicksService.get_top_picks(date=today_str, limit=20)
+            _cache.set(f"top_picks:{today_str}", r, ttl=86400)
+            results["topPicks"] = len(r.get("items", []))
+        except Exception as e:
+            results["topPicks"] = str(e)
+    else:
+        results["topPicks"] = "cached"
+    # Pick of the day (derive from daily props)
+    if not _cache.get(f"pick_of_the_day:{today_str}"):
+        try:
+            items = (_get_daily_props_cache(today_str) or {}).get("items", [])
+            items = [i for i in items if (i.get("gameDate") or i.get("game_date") or "").startswith(today_str[:10])]
+            if items:
+                items.sort(key=lambda x: (x.get("confidence") or 0), reverse=True)
+                pick = {
+                    "playerId": items[0].get("playerId"),
+                    "playerName": items[0].get("playerName"),
+                    "type": items[0].get("type"),
+                    "marketLine": items[0].get("marketLine") or items[0].get("fairLine"),
+                    "fairLine": items[0].get("fairLine"),
+                    "suggestion": items[0].get("suggestion", "over"),
+                    "confidence": items[0].get("confidence"),
+                    "rationale": items[0].get("rationale"),
+                    "gameDate": items[0].get("gameDate") or items[0].get("game_date"),
+                    "confidenceSource": items[0].get("confidenceSource"),
+                    "rationaleSource": items[0].get("rationaleSource"),
+                    "mlAvailable": items[0].get("mlAvailable"),
+                }
+                _cache.set(f"pick_of_the_day:{today_str}", pick, ttl=86400)
+                results["pickOfTheDay"] = 1
+            else:
+                results["pickOfTheDay"] = 0
+        except Exception as e:
+            results["pickOfTheDay"] = str(e)
+    else:
+        results["pickOfTheDay"] = "cached"
+    # Hot form (high confidence, hot form only)
+    if not _cache.get(f"hot_form:{today_str}"):
+        try:
+            r = DailyPropsService.get_top_props_for_date(
+                date=today_str, season="2025-26", min_confidence=70.0, limit=50, hot_form_only=True
+            )
+            items = r.get("items", [])
+            if items:
+                _cache.set(f"hot_form:{today_str}", {"items": items, "date": today_str}, ttl=86400)
+            results["hotForm"] = len(items)
+        except Exception as e:
+            results["hotForm"] = str(e)
+    else:
+        results["hotForm"] = "cached"
+    # Stat leaders (Players to Watch)
+    try:
+        _compute_and_cache_stat_leaders()
+        results["statLeaders"] = "ok"
+    except Exception as e:
+        results["statLeaders"] = str(e)
+    return {"status": "success", "date": today_str, "results": results}
+
+
 @router.post("/cache/clear")
 def clear_cache():
     """Clear all caches"""

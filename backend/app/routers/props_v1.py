@@ -305,8 +305,21 @@ def daily_props(
     else:
         target_date_str = datetime.now().strftime("%Y-%m-%d")
     
-    # When filtering by hot form we need fresh data (isHot computed per player); skip cache
+    # Hot form: use daily cache so 6am cron can prefill; fallback to live fetch
     if hot_form_only:
+        cache = get_cache_service()
+        hot_form_key = f"hot_form:{target_date_str}"
+        cached_hot = cache.get(hot_form_key)
+        if cached_hot is not None:
+            items = cached_hot.get("items", [])
+            if limit and limit > 0:
+                items = items[:limit]
+            return {
+                "items": items,
+                "total": len(items),
+                "cached": True,
+                "hotFormOnly": True,
+            }
         try:
             fetch_limit = limit if limit and limit > 0 else 200
             result = DailyPropsService.get_top_props_for_date(
@@ -318,6 +331,11 @@ def daily_props(
                 hot_form_only=True,
             )
             items = result.get("items", [])
+            if items:
+                try:
+                    cache.set(hot_form_key, {"items": items, "date": target_date_str}, ttl=86400)
+                except Exception:
+                    pass
             if limit and limit > 0:
                 items = items[:limit]
             return {
