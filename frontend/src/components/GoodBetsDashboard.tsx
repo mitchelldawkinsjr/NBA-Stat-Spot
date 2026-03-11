@@ -691,6 +691,11 @@ export function GoodBetsDashboard() {
                     const cardBorder = g.status === 'LIVE' ? 'border-red-300 dark:border-red-700 ring-1 ring-red-200 dark:ring-red-800/50' :
                                       g.status === 'FINAL' ? 'border-gray-300 dark:border-slate-600' :
                                       'border-gray-200 dark:border-slate-700'
+                    const badgeLabel = g.status === 'FINAL'
+                      ? 'Final'
+                      : g.status === 'LIVE'
+                        ? (live && !live.is_final && live.quarter ? `Q${live.quarter} ${(live.time_remaining || '').trim()}`.trim() || 'In progress' : 'In progress')
+                        : (gameTime !== 'TBD' ? gameTime : 'Upcoming')
                     
                     return (
                       <div 
@@ -699,13 +704,13 @@ export function GoodBetsDashboard() {
                       >
                         {/* Status Badge */}
                         <div className="flex items-center justify-between mb-3">
-                          <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${statusColor}`}>
-                            {g.status || 'SCHEDULED'}
+                          <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider border ${statusColor}`}>
+                            {badgeLabel}
                           </span>
                           {g.status === 'LIVE' && (
                             <div className="flex items-center gap-1">
-                              <span className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></span>
-                              <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">LIVE</span>
+                              <span className="h-2 w-2 bg-red-500 rounded-full animate-pulse" aria-hidden />
+                              <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">Live</span>
                             </div>
                           )}
                         </div>
