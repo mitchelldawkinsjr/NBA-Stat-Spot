@@ -6,6 +6,7 @@ Uses team-level metrics (def/off ranks, pace, PPG), matchup advantages, and LLM 
 from __future__ import annotations
 from typing import Dict, List, Optional, Any
 from datetime import date, datetime
+import re as _re
 import structlog
 from .context_collector import ContextCollector
 from .team_stats_service import TeamStatsService
@@ -238,16 +239,81 @@ class GamePredictionService:
         if not one:
             return None
 
+        season = "2025-26"
+        home_id = one.get("home_team_id")
+        away_id = one.get("away_team_id")
+        home_abbr = one["home"]
+        away_abbr = one["away"]
+
+        # --- Full rank data ---
+        def_ranks = ContextCollector._calculate_defensive_ranks(season) or {}
+        off_ranks = ContextCollector._calculate_offensive_ranks(season) or {}
+        if not def_ranks and not off_ranks:
+            def_fb, off_fb = ContextCollector._calculate_team_ranks_from_player_stats(season)
+            def_ranks = def_fb or {}
+            off_ranks = off_fb or {}
+        pace_ranks = ContextCollector._calculate_pace_ranks(season) or {}
+        pos_ranks = ContextCollector._calculate_position_defensive_ranks(season) or {}
+
+        home_def_full = def_ranks.get(home_id, {}) if home_id else {}
+        away_def_full = def_ranks.get(away_id, {}) if away_id else {}
+        home_off_full = off_ranks.get(home_id, {}) if home_id else {}
+        away_off_full = off_ranks.get(away_id, {}) if away_id else {}
+        home_pace_data = pace_ranks.get(home_id, {}) if home_id else {}
+        away_pace_data = pace_ranks.get(away_id, {}) if away_id else {}
+
+        # Position defense: how each team defends each position
+        positions = ["PG", "SG", "SF", "PF", "C"]
+        home_pos_defense = {}
+        away_pos_defense = {}
+        for pos in positions:
+            pos_data = pos_ranks.get(pos, {})
+            if home_id:
+                home_pos_defense[pos] = pos_data.get(home_id, {})
+            if away_id:
+                away_pos_defense[pos] = pos_data.get(away_id, {})
+
+        # --- Key players ---
+        home_key_players = _get_team_key_players(home_id, season)
+        away_key_players = _get_team_key_players(away_id, season)
+
+        # --- H2H history ---
+        h2h_games = _get_h2h_from_schedule(home_id, away_id, home_abbr, away_abbr, season)
+        h2h_wins_home = sum(1 for g in h2h_games if g.get("winner") == home_abbr)
+        h2h_wins_away = len(h2h_games) - h2h_wins_home
+
         # Build extended outlook for detail page (longer LLM summary)
         extended_outlook = self._generate_game_outlook(
-            one["home"], one["away"],
-            one["predicted_winner"], one["win_probability_home"] if one["predicted_winner"] == one["home"] else one["win_probability_away"],
+            home_abbr, away_abbr,
+            one["predicted_winner"],
+            one["win_probability_home"] if one["predicted_winner"] == home_abbr else one["win_probability_away"],
             one["key_advantage_summary"],
             one.get("home_ppg"), one.get("away_ppg"), one.get("home_pace"), one.get("away_pace"),
             one.get("home_off_rank_pts"), one.get("home_def_rank_pts"),
             one.get("away_off_rank_pts"), one.get("away_def_rank_pts"),
         )
-        one = {**one, "outlook_extended": extended_outlook}
+
+        one = {
+            **one,
+            "outlook_extended": extended_outlook,
+            # Full rank breakdowns
+            "home_def_full": home_def_full,
+            "away_def_full": away_def_full,
+            "home_off_full": home_off_full,
+            "away_off_full": away_off_full,
+            "home_pace_data": home_pace_data,
+            "away_pace_data": away_pace_data,
+            # Position-based defense
+            "home_pos_defense": home_pos_defense,
+            "away_pos_defense": away_pos_defense,
+            # Key players
+            "home_key_players": home_key_players,
+            "away_key_players": away_key_players,
+            # H2H
+            "h2h_games": h2h_games,
+            "h2h_wins_home": h2h_wins_home,
+            "h2h_wins_away": h2h_wins_away,
+        }
         self.cache.set(cache_key, one, ttl=86400)
         return one
 
@@ -325,6 +391,154 @@ class GamePredictionService:
             f"The model favors {winner_abbr} with a {win_pct:.0f}% win probability based on team metrics and matchup. "
             f"Key factors: {key_advantage}."
         )
+
+
+def _avg(vals: List[float]) -> Optional[float]:
+    """Return mean of a list, or None if empty."""
+    return round(sum(vals) / len(vals), 1) if vals else None
+
+
+def _parse_opp_abbr(matchup: str) -> Optional[str]:
+    """Parse opponent abbreviation from NBA game-log matchup string (e.g. 'LAL vs. GSW' → 'GSW')."""
+    if not matchup:
+        return None
+    mu = matchup.upper().strip()
+    m = _re.search(r'([A-Z]{2,4})\s+(?:VS\.?|V\.?|@)\s+([A-Z]{2,4})', mu)
+    if m:
+        return m.group(2).strip(" .")
+    return None
+
+
+def _get_team_key_players(
+    team_id: Optional[int],
+    season: str,
+    limit: int = 5,
+) -> List[Dict[str, Any]]:
+    """Return top players for a team with season and last-5 averages from cached game logs."""
+    if not team_id:
+        return []
+    try:
+        all_players = NBADataService.fetch_all_players_including_rookies() or []
+        team_players = [p for p in all_players if int(p.get("team_id") or -1) == team_id]
+        results = []
+        for player in team_players:
+            pid = player.get("id")
+            if not pid:
+                continue
+            try:
+                logs = NBADataService.fetch_player_game_log(pid, season)
+                if not logs:
+                    continue
+                # Compute average minutes from logs
+                mins_vals = []
+                for g in logs[:20]:
+                    m_raw = g.get("min")
+                    if m_raw is None:
+                        continue
+                    try:
+                        mins_vals.append(float(str(m_raw).split(":")[0]))
+                    except Exception:
+                        pass
+                avg_mins = (_avg(mins_vals) or 0)
+                if avg_mins < 12:
+                    continue
+                pts = [float(g.get("pts", 0) or 0) for g in logs]
+                reb = [float(g.get("reb", 0) or 0) for g in logs]
+                ast = [float(g.get("ast", 0) or 0) for g in logs]
+                last5 = logs[:5]
+                l5_pts = [float(g.get("pts", 0) or 0) for g in last5]
+                l5_reb = [float(g.get("reb", 0) or 0) for g in last5]
+                l5_ast = [float(g.get("ast", 0) or 0) for g in last5]
+                results.append({
+                    "id": pid,
+                    "name": player.get("full_name") or player.get("name"),
+                    "position": player.get("position"),
+                    "avg_min": round(avg_mins, 1),
+                    "season_pts": _avg(pts),
+                    "season_reb": _avg(reb),
+                    "season_ast": _avg(ast),
+                    "last5_pts": _avg(l5_pts),
+                    "last5_reb": _avg(l5_reb),
+                    "last5_ast": _avg(l5_ast),
+                    "games_played": len(logs),
+                })
+            except Exception:
+                continue
+        results.sort(key=lambda x: (x.get("season_pts") or 0), reverse=True)
+        return results[:limit]
+    except Exception as e:
+        logger.debug("_get_team_key_players failed", team_id=team_id, error=str(e))
+        return []
+
+
+def _get_h2h_from_schedule(
+    home_team_id: Optional[int],
+    away_team_id: Optional[int],
+    home_abbr: str,
+    away_abbr: str,
+    season: str,
+    limit: int = 5,
+) -> List[Dict[str, Any]]:
+    """
+    Use ESPN team schedule to find past H2H meetings between the two teams.
+    Returns list of {date, home, away, home_score, away_score, winner} dicts.
+    """
+    if not home_team_id:
+        return []
+    try:
+        from .espn_mapping_service import get_espn_mapping_service
+        from .espn_api_service import get_espn_service
+        mapping = get_espn_mapping_service()
+        home_slug = mapping.get_espn_team_slug(home_team_id)
+        if not home_slug:
+            return []
+        espn = get_espn_service()
+        schedule = espn.get_team_schedule(home_slug)
+        meetings = []
+        for event in schedule:
+            comps = event.get("competitions") or []
+            if not comps:
+                continue
+            comp = comps[0]
+            competitors = comp.get("competitors") or []
+            ev_home = ev_away = None
+            for c in competitors:
+                abbr = ((c.get("team") or {}).get("abbreviation") or "").strip().upper()
+                ha = (c.get("homeAway") or "").lower()
+                score_raw = c.get("score") or "0"
+                try:
+                    score = int(str(score_raw).split(".")[0])
+                except Exception:
+                    score = 0
+                if ha == "home":
+                    ev_home = {"abbr": abbr, "score": score}
+                else:
+                    ev_away = {"abbr": abbr, "score": score}
+            if not ev_home or not ev_away:
+                continue
+            # Only include games between these two specific teams
+            pair = {ev_home["abbr"], ev_away["abbr"]}
+            if not ({home_abbr, away_abbr} == pair or {home_abbr.upper(), away_abbr.upper()} == pair):
+                continue
+            # Only include completed games (score > 0)
+            if ev_home["score"] == 0 and ev_away["score"] == 0:
+                continue
+            game_date = (event.get("date") or "")[:10]
+            winner = ev_home["abbr"] if ev_home["score"] > ev_away["score"] else ev_away["abbr"]
+            meetings.append({
+                "date": game_date,
+                "home": ev_home["abbr"],
+                "away": ev_away["abbr"],
+                "home_score": ev_home["score"],
+                "away_score": ev_away["score"],
+                "winner": winner,
+            })
+        # Sort descending by date, take most recent
+        meetings.sort(key=lambda x: x.get("date", ""), reverse=True)
+        return meetings[:limit]
+    except Exception as e:
+        logger.debug("_get_h2h_from_schedule failed", error=str(e))
+        return []
 
 
 def get_game_prediction_service() -> GamePredictionService:

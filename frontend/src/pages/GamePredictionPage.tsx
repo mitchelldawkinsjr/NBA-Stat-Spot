@@ -17,14 +17,45 @@ import {
 import { apiFetch } from '../utils/api'
 
 const NUM_TEAMS = 30
-function rankToStrength(rank: number | null): number {
+function rankToStrength(rank: number | null | undefined): number {
   if (rank == null) return 0
   return Math.max(0, NUM_TEAMS + 1 - rank)
+}
+
+function rankLabel(rank: number | null | undefined): string {
+  if (rank == null) return '—'
+  return `#${rank}`
 }
 
 function teamLogoUrl(abbr: string): string {
   const a = (abbr || '').trim().toUpperCase()
   return a ? `https://a.espncdn.com/i/teamlogos/nba/500/${a}.png` : ''
+}
+
+type RankBlock = { pts?: number | null; reb?: number | null; ast?: number | null; '3pm'?: number | null }
+type PaceData = { possessions?: number; pace_rank?: number }
+
+type PlayerRow = {
+  id: number
+  name: string
+  position?: string
+  avg_min?: number
+  season_pts?: number | null
+  season_reb?: number | null
+  season_ast?: number | null
+  last5_pts?: number | null
+  last5_reb?: number | null
+  last5_ast?: number | null
+  games_played?: number
+}
+
+type H2HGame = {
+  date: string
+  home: string
+  away: string
+  home_score: number
+  away_score: number
+  winner: string
 }
 
 type PredictionDetail = {
@@ -48,6 +79,23 @@ type PredictionDetail = {
   home_def_rank_pts?: number | null
   away_off_rank_pts?: number | null
   away_def_rank_pts?: number | null
+  // Full rank data
+  home_def_full?: RankBlock
+  away_def_full?: RankBlock
+  home_off_full?: RankBlock
+  away_off_full?: RankBlock
+  home_pace_data?: PaceData
+  away_pace_data?: PaceData
+  // Position defense
+  home_pos_defense?: Record<string, RankBlock>
+  away_pos_defense?: Record<string, RankBlock>
+  // Key players
+  home_key_players?: PlayerRow[]
+  away_key_players?: PlayerRow[]
+  // H2H
+  h2h_games?: H2HGame[]
+  h2h_wins_home?: number
+  h2h_wins_away?: number
 }
 
 export default function GamePredictionPage() {
@@ -86,29 +134,76 @@ export default function GamePredictionPage() {
     return () => { cancelled = true }
   }, [gameId])
 
+  // Team comparison bar chart data (full ranks)
   const comparisonBarData = useMemo(() => {
     if (!data) return []
     const home = data.home_full_name || data.home
     const away = data.away_full_name || data.away
+    const hd = data.home_def_full || {}
+    const ad = data.away_def_full || {}
+    const ho = data.home_off_full || {}
+    const ao = data.away_off_full || {}
     return [
-      { metric: 'Offensive rank (strength)', home: rankToStrength(data.home_off_rank_pts ?? null), away: rankToStrength(data.away_off_rank_pts ?? null), homeLabel: home, awayLabel: away },
-      { metric: 'Defensive rank (strength)', home: rankToStrength(data.home_def_rank_pts ?? null), away: rankToStrength(data.away_def_rank_pts ?? null), homeLabel: home, awayLabel: away },
-      { metric: 'Pace', home: data.home_pace ?? 0, away: data.away_pace ?? 0, homeLabel: home, awayLabel: away },
+      { metric: 'Off. PTS strength', home: rankToStrength(ho.pts), away: rankToStrength(ao.pts), homeLabel: home, awayLabel: away },
+      { metric: 'Off. REB strength', home: rankToStrength(ho.reb), away: rankToStrength(ao.reb), homeLabel: home, awayLabel: away },
+      { metric: 'Off. AST strength', home: rankToStrength(ho.ast), away: rankToStrength(ao.ast), homeLabel: home, awayLabel: away },
+      { metric: 'Def. PTS strength', home: rankToStrength(hd.pts), away: rankToStrength(ad.pts), homeLabel: home, awayLabel: away },
+      { metric: 'Def. REB strength', home: rankToStrength(hd.reb), away: rankToStrength(ad.reb), homeLabel: home, awayLabel: away },
+      { metric: 'Def. AST strength', home: rankToStrength(hd.ast), away: rankToStrength(ad.ast), homeLabel: home, awayLabel: away },
+      { metric: 'Pace (possessions)', home: data.home_pace_data?.possessions ?? (data.home_pace ?? 0), away: data.away_pace_data?.possessions ?? (data.away_pace ?? 0), homeLabel: home, awayLabel: away },
       { metric: 'PPG', home: data.home_ppg ?? 0, away: data.away_ppg ?? 0, homeLabel: home, awayLabel: away },
     ].filter((d) => d.home > 0 || d.away > 0)
   }, [data])
 
+  // Radar data from the same source
   const radarData = useMemo(() => {
     if (!data || !comparisonBarData.length) return []
     const home = data.home_full_name || data.home
     const away = data.away_full_name || data.away
-    return comparisonBarData.map((d) => ({
-      subject: d.metric.replace(' (strength)', ''),
+    // Use the first 6 metrics for radar (skip Pace/PPG since different scale)
+    return comparisonBarData.slice(0, 6).map((d) => ({
+      subject: d.metric,
       [home]: d.home,
       [away]: d.away,
-      fullMark: Math.max(30, Math.ceil(Math.max(d.home, d.away) * 1.2)),
+      fullMark: NUM_TEAMS,
     }))
   }, [data, comparisonBarData])
+
+  // Defensive matchup bar chart: each team's def rank by stat (lower rank = better)
+  const defMatchupData = useMemo(() => {
+    if (!data) return []
+    const home = data.home_full_name || data.home
+    const away = data.away_full_name || data.away
+    const hd = data.home_def_full || {}
+    const ad = data.away_def_full || {}
+    return [
+      { stat: 'PTS allowed', home: hd.pts ?? null, away: ad.pts ?? null, homeLabel: home, awayLabel: away },
+      { stat: 'REB allowed', home: hd.reb ?? null, away: ad.reb ?? null, homeLabel: home, awayLabel: away },
+      { stat: 'AST allowed', home: hd.ast ?? null, away: ad.ast ?? null, homeLabel: home, awayLabel: away },
+      { stat: '3PM allowed', home: hd['3pm'] ?? null, away: ad['3pm'] ?? null, homeLabel: home, awayLabel: away },
+    ].filter((d) => d.home != null || d.away != null)
+  }, [data])
+
+  // Position defense bar chart: how each team defends each position
+  const posDefData = useMemo(() => {
+    if (!data) return []
+    const home = data.home_full_name || data.home
+    const away = data.away_full_name || data.away
+    const positions = ['PG', 'SG', 'SF', 'PF', 'C']
+    return positions.map((pos) => {
+      const hr = (data.home_pos_defense || {})[pos] || {}
+      const ar = (data.away_pos_defense || {})[pos] || {}
+      return {
+        pos,
+        homeRank: hr.pts ?? null,
+        awayRank: ar.pts ?? null,
+        homeStrength: rankToStrength(hr.pts),
+        awayStrength: rankToStrength(ar.pts),
+        homeLabel: home,
+        awayLabel: away,
+      }
+    }).filter((d) => d.homeStrength > 0 || d.awayStrength > 0)
+  }, [data])
 
   if (loading) {
     return (
@@ -133,6 +228,8 @@ export default function GamePredictionPage() {
 
   const winPct = data.predicted_winner === data.home ? data.win_probability_home : data.win_probability_away
   const outlook = data.outlook_extended || data.outlook_summary || ''
+  const homeName = data.home_full_name || data.home
+  const awayName = data.away_full_name || data.away
 
   return (
     <div className="container mx-auto px-3 md:px-4 max-w-5xl pb-8">
@@ -146,12 +243,18 @@ export default function GamePredictionPage() {
       <div className="mt-4 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-6">
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mb-4">
-            <img src={teamLogoUrl(data.away)} alt={data.away} className="h-14 w-14 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            <div className="flex flex-col items-center gap-1">
+              <img src={teamLogoUrl(data.away)} alt={data.away} className="h-14 w-14 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              <span className="text-xs text-gray-500 dark:text-gray-400">Away</span>
+            </div>
             <span className="text-lg font-bold text-gray-700 dark:text-gray-300">@</span>
-            <img src={teamLogoUrl(data.home)} alt={data.home} className="h-14 w-14 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            <div className="flex flex-col items-center gap-1">
+              <img src={teamLogoUrl(data.home)} alt={data.home} className="h-14 w-14 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              <span className="text-xs text-gray-500 dark:text-gray-400">Home</span>
+            </div>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-center text-gray-900 dark:text-slate-100">
-            {data.away_full_name || data.away} vs {data.home_full_name || data.home}
+            {awayName} vs {homeName}
           </h1>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
             <span className="px-3 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 font-semibold">
@@ -179,32 +282,60 @@ export default function GamePredictionPage() {
 
       {/* Team comparison */}
       <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-4">Team comparison</h2>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-          Offensive/defensive strength: higher = better (derived from league rank). Pace and PPG are raw values.
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Team comparison</h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+          Strength = 31 − league rank (higher is better). Pace = estimated possessions per game.
         </p>
         {comparisonBarData.length > 0 ? (
-          <div className="h-72 sm:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={comparisonBarData} layout="vertical" margin={{ left: 8, right: 24, top: 8, bottom: 8 }}>
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="metric" width={140} tick={{ fontSize: 11 }} />
-                <Tooltip
-                  formatter={(value: number) => [value.toFixed(1), '']}
-                  labelFormatter={(_, payload) => payload?.[0]?.payload?.metric}
-                />
-                <Legend />
-                <Bar dataKey="home" name={data.home_full_name || data.home} fill="#10b981" radius={[0, 4, 4, 0]} />
-                <Bar dataKey="away" name={data.away_full_name || data.away} fill="#6366f1" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <>
+            <div className="h-80 sm:h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={comparisonBarData} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }}>
+                  <XAxis type="number" tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="metric" width={150} tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(value: number) => [value.toFixed(1), '']} />
+                  <Legend />
+                  <Bar dataKey="home" name={homeName} fill="#10b981" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="away" name={awayName} fill="#6366f1" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Quick stats table */}
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-slate-700">
+                    <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Metric</th>
+                    <th className="py-1.5 px-2 font-semibold text-emerald-700 dark:text-emerald-300 text-right">{homeName}</th>
+                    <th className="py-1.5 px-2 font-semibold text-indigo-700 dark:text-indigo-300 text-right">{awayName}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { label: 'Off. PTS rank', h: rankLabel(data.home_off_full?.pts), a: rankLabel(data.away_off_full?.pts) },
+                    { label: 'Off. AST rank', h: rankLabel(data.home_off_full?.ast), a: rankLabel(data.away_off_full?.ast) },
+                    { label: 'Def. PTS rank', h: rankLabel(data.home_def_full?.pts), a: rankLabel(data.away_def_full?.pts) },
+                    { label: 'Def. REB rank', h: rankLabel(data.home_def_full?.reb), a: rankLabel(data.away_def_full?.reb) },
+                    { label: 'Pace rank', h: rankLabel(data.home_pace_data?.pace_rank), a: rankLabel(data.away_pace_data?.pace_rank) },
+                    { label: 'Possessions/g', h: data.home_pace_data?.possessions?.toFixed(1) ?? '—', a: data.away_pace_data?.possessions?.toFixed(1) ?? '—' },
+                    { label: 'PPG', h: data.home_ppg?.toFixed(1) ?? '—', a: data.away_ppg?.toFixed(1) ?? '—' },
+                  ].map((row) => (
+                    <tr key={row.label} className="border-t border-gray-100 dark:border-slate-700">
+                      <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{row.label}</td>
+                      <td className="py-1.5 px-2 text-right font-medium text-gray-900 dark:text-slate-100">{row.h}</td>
+                      <td className="py-1.5 px-2 text-right font-medium text-gray-900 dark:text-slate-100">{row.a}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400">No comparison data available.</p>
         )}
       </section>
 
-      {/* Radar (optional, when we have multiple dimensions) */}
+      {/* Radar (when we have 3+ metrics) */}
       {radarData.length >= 3 && (
         <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-4">Strength radar</h2>
@@ -212,10 +343,10 @@ export default function GamePredictionPage() {
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
                 <PolarGrid />
-                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
-                <PolarRadiusAxis tick={{ fontSize: 10 }} />
-                <Radar name={data.home_full_name || data.home} dataKey={data.home_full_name || data.home} stroke="#10b981" fill="#10b981" fillOpacity={0.4} />
-                <Radar name={data.away_full_name || data.away} dataKey={data.away_full_name || data.away} stroke="#6366f1" fill="#6366f1" fillOpacity={0.4} />
+                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
+                <PolarRadiusAxis tick={{ fontSize: 9 }} domain={[0, NUM_TEAMS]} />
+                <Radar name={homeName} dataKey={homeName} stroke="#10b981" fill="#10b981" fillOpacity={0.35} />
+                <Radar name={awayName} dataKey={awayName} stroke="#6366f1" fill="#6366f1" fillOpacity={0.35} />
                 <Legend />
               </RadarChart>
             </ResponsiveContainer>
@@ -223,28 +354,169 @@ export default function GamePredictionPage() {
         </section>
       )}
 
-      {/* Defensive matchup insights (placeholder) */}
+      {/* Defensive matchup insights */}
       <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2">Defensive matchup insights</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Points allowed by position, defensive efficiency by matchup, and opponent FG% by zone will be added as more data is integrated.
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Defensive matchup insights</h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+          League defensive rank per category — lower rank (#1) = best defense (allows fewest).
         </p>
+        {defMatchupData.length > 0 ? (
+          <>
+            <div className="h-52 sm:h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={defMatchupData} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }}>
+                  <XAxis type="number" domain={[0, NUM_TEAMS]} tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="stat" width={100} tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(value: number) => [`#${value} (${value <= 10 ? 'elite' : value <= 20 ? 'avg' : 'poor'})`, '']} />
+                  <Legend />
+                  <Bar dataKey="home" name={homeName} fill="#10b981" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="away" name={awayName} fill="#6366f1" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Position defense table */}
+            {posDefData.length > 0 && (
+              <div className="mt-5">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-slate-200 mb-2">Points allowed by position (def rank — lower = better)</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 dark:bg-slate-700">
+                        <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Position</th>
+                        <th className="py-1.5 px-2 font-semibold text-emerald-700 dark:text-emerald-300 text-right">{homeName}</th>
+                        <th className="py-1.5 px-2 font-semibold text-indigo-700 dark:text-indigo-300 text-right">{awayName}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {posDefData.map((row) => {
+                        const homeBetter = (row.homeRank ?? 99) < (row.awayRank ?? 99)
+                        return (
+                          <tr key={row.pos} className="border-t border-gray-100 dark:border-slate-700">
+                            <td className="py-1.5 px-2 font-medium text-gray-700 dark:text-gray-300">{row.pos}</td>
+                            <td className={`py-1.5 px-2 text-right font-semibold ${homeBetter ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                              {rankLabel(row.homeRank)}
+                            </td>
+                            <td className={`py-1.5 px-2 text-right font-semibold ${!homeBetter ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                              {rankLabel(row.awayRank)}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Defensive rank data not yet available. Run the morning cache warm to compute ranks.</p>
+        )}
       </section>
 
-      {/* Player impact (placeholder) */}
+      {/* Player impact */}
       <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2">Player impact</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Key player stats, usage trends, and last-5 performance will appear here in a future update.
-        </p>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Player impact</h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Top players by scoring avg. Last 5 = average over last 5 games.</p>
+        {(data.home_key_players?.length || data.away_key_players?.length) ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[
+              { label: homeName, players: data.home_key_players || [], color: 'emerald' },
+              { label: awayName, players: data.away_key_players || [], color: 'indigo' },
+            ].map(({ label, players, color }) => (
+              <div key={label}>
+                <h3 className={`text-sm font-semibold mb-2 ${color === 'emerald' ? 'text-emerald-700 dark:text-emerald-300' : 'text-indigo-700 dark:text-indigo-300'}`}>
+                  {label}
+                </h3>
+                {players.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 dark:bg-slate-700">
+                          <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Player</th>
+                          <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Avg PTS</th>
+                          <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Avg REB</th>
+                          <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Avg AST</th>
+                          <th className="py-1.5 px-2 text-right font-semibold text-blue-600 dark:text-blue-400">L5 PTS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {players.map((p) => (
+                          <tr key={p.id} className="border-t border-gray-100 dark:border-slate-700">
+                            <td className="py-1.5 px-2">
+                              <div className="font-medium text-gray-900 dark:text-slate-100">{p.name}</div>
+                              <div className="text-gray-400 dark:text-gray-500">{p.position || '—'} · {p.avg_min != null ? `${p.avg_min} mpg` : ''}</div>
+                            </td>
+                            <td className="py-1.5 px-2 text-right text-gray-800 dark:text-slate-200">{p.season_pts ?? '—'}</td>
+                            <td className="py-1.5 px-2 text-right text-gray-800 dark:text-slate-200">{p.season_reb ?? '—'}</td>
+                            <td className="py-1.5 px-2 text-right text-gray-800 dark:text-slate-200">{p.season_ast ?? '—'}</td>
+                            <td className={`py-1.5 px-2 text-right font-bold ${(p.last5_pts ?? 0) > (p.season_pts ?? 0) ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                              {p.last5_pts ?? '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 dark:text-gray-500">No player data available.</p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Player data not yet cached. Run the morning warm to load player game logs.</p>
+        )}
       </section>
 
-      {/* Historical matchup (placeholder) */}
+      {/* Historical matchup */}
       <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2">Historical matchup</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Last 5 meetings, average scoring margin, and head-to-head record will be added when historical data is available.
-        </p>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Historical matchup</h2>
+        {data.h2h_games && data.h2h_games.length > 0 ? (
+          <>
+            <div className="flex gap-6 mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{data.h2h_wins_home ?? 0}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{homeName} wins</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-400 dark:text-gray-500">–</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{data.h2h_wins_away ?? 0}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{awayName} wins</div>
+              </div>
+              <div className="text-xs text-gray-400 dark:text-gray-500 self-center ml-2">(last {data.h2h_games.length} meetings)</div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-slate-700">
+                    <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Date</th>
+                    <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Matchup</th>
+                    <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Score</th>
+                    <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Winner</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.h2h_games.map((g, i) => (
+                    <tr key={i} className="border-t border-gray-100 dark:border-slate-700">
+                      <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{g.date}</td>
+                      <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{g.away} @ {g.home}</td>
+                      <td className="py-1.5 px-2 text-right font-medium text-gray-900 dark:text-slate-100">
+                        {g.home_score} – {g.away_score}
+                      </td>
+                      <td className={`py-1.5 px-2 text-right font-semibold ${g.winner === data.home ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
+                        {g.winner}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">No recent matchup history found for this season.</p>
+        )}
       </section>
 
       <div className="mt-6 text-center">
