@@ -186,8 +186,8 @@ Example: Player avg REB = 9.5, opponent allows to centers = 13.2 → **+3.7** (f
 ## Implementation Notes (Current Codebase)
 
 - **Defensive ranks:** `ContextCollector._calculate_defensive_ranks()` builds PTS/REB/AST/3PM ranks from opponent game logs; cached 24h. Refresh via Admin “Refresh defensive ranks.”
-- **Team stats/ranks:** `GET /api/v1/teams/team-stats/ranks` returns def/off ranks for all teams; used by Team page and player context.
-- **Player context:** `GET /api/v1/players/{id}/context` includes `opponent_defense` (rank_pts, rank_reb, rank_ast, rank_3pm) for Opponent Defense Rank on player profile.
-- **Pace / possessions:** Not yet computed in app; can be added from box scores or game logs (FGA, FTA, TOV, OREB).
-
-This design aligns with existing defensive rank and team-stats endpoints and provides a roadmap for derived metrics, position ranks, and visualizations.
+- **Team stats/ranks:** `GET /api/v1/teams/team-stats/ranks` returns def/off ranks plus pace (possessions per game, pace_rank) for all teams.
+- **Pace:** `ContextCollector._calculate_pace_ranks()` computes possessions per game (FGA + 0.44·FTA + TOV − OREB from game logs); rank 1 = fastest. Cached 24h; refresh via Admin “Refresh pace ranks.”
+- **Position defense:** `ContextCollector._calculate_position_defensive_ranks()` ranks teams by PTS/REB/AST/3PM allowed per position (PG/SG/SF/PF/C). Refresh via Admin “Refresh position defense ranks.”
+- **Player context:** `GET /api/v1/players/{id}/context` includes `opponent_defense`, `matchup_advantage` (player avg − opponent allowed), rest, injury, H2H.
+- **Matchup advantage:** Shown on player profile; formula: player season avg − opponent’s avg allowed per stat.

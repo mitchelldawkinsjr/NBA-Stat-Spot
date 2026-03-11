@@ -1,114 +1,25 @@
 # Documentation Index
 
-This directory contains all documentation for the NBA Stat Spot application. Each guide serves a specific purpose:
+## Core guides
 
-## 📚 Documentation Guide
+| Doc | Purpose |
+|-----|---------|
+| [API Contracts](api-contracts.md) | API endpoints, request/response formats. |
+| [Deployment](deployment.md) | Local dev, Docker, production, env vars, DB. |
+| [Operations Runbook](runbook.md) | Troubleshooting, caching, rate limits, health. |
+| [Rationale and LLM](rationale-and-llm.md) | How prop rationales work, LLM chain (OpenAI → Ollama → rule-based), models (gpt-4o-mini, llama3.2), config. |
+| [Analytics Engine Design](analytics-engine-design.md) | Stats, defensive/pace/position ranks, matchup advantage, formulas. |
 
-### [API Contracts](./api-contracts.md)
-**Purpose**: Reference for API endpoints, request/response formats, and data structures.
+## Other references
 
-**Use when**: 
-- Integrating with the API
-- Understanding request/response formats
-- Building frontend components that call the backend
+- [ESPN Integration](espn-integration.md) – ESPN data (injuries, standings, news) and config.
+- [External API Configuration](external-api-configuration.md) – ESPN and API setup.
+- [Theme Setup](theme-setup.md) – Sliced Pro theme assets.
+- [GitHub Pages Deployment](github-pages-deployment.md) – Frontend-only static deploy.
 
----
+## Quick links
 
-### [Deployment Guide](./deployment.md)
-**Purpose**: Complete guide for deploying the application in various environments.
-
-**Use when**:
-- Setting up local development
-- Deploying with Docker
-- Deploying to production servers
-- Configuring environment variables
-- Setting up databases
-
-**Covers**:
-- Local development setup
-- Docker deployment (dev and production)
-- Production deployment options
-- Environment variables
-- Database setup (SQLite and PostgreSQL)
-- Health checks and monitoring
-- Security checklist
-- Backup and recovery
-
----
-
-### [GitHub Pages Deployment](./github-pages-deployment.md)
-**Purpose**: Step-by-step guide for deploying the frontend to GitHub Pages.
-
-**Use when**:
-- You want free static hosting for the frontend
-- You need to deploy the frontend separately from the backend
-- You're using GitHub Actions for CI/CD
-
-**Covers**:
-- GitHub Actions workflow setup
-- Configuring backend API URLs
-- CORS configuration
-- Alternative hosting options (Vercel, Netlify)
-
----
-
-### [Operations Runbook](./runbook.md)
-**Purpose**: Quick reference for operations, troubleshooting, and common issues.
-
-**Use when**:
-- Debugging production issues
-- Understanding system behavior
-- Configuring caching and rate limits
-- Checking health endpoints
-
-**Covers**:
-- Environment configuration
-- Caching strategies
-- Rate limiting
-- Health checks
-- Common issues and solutions
-
----
-
-### [Theme Setup](./theme-setup.md)
-**Purpose**: Guide for setting up and maintaining the Sliced Pro theme assets.
-
-**Use when**:
-- Setting up the theme for the first time
-- Updating theme assets
-- Understanding theme structure
-
-**Covers**:
-- Theme asset structure
-- Building and copying assets
-- Updating theme files
-
----
-
-### [ESPN Integration](./espn-integration.md)
-**Purpose**: Documentation for ESPN API integration that enhances predictions with real-time data.
-
-**Use when**:
-- Understanding how ESPN data improves predictions
-- Configuring ESPN API access
-- Troubleshooting ESPN data issues
-- Extending ESPN integration features
-
-**Covers**:
-- Architecture and services
-- Feature engineering enhancements
-- API endpoints
-- Caching strategy
-- Error handling
-- Database schema updates
-
----
-
-## Quick Links
-
-- **Getting Started**: See [Deployment Guide - Local Development](./deployment.md#local-development)
-- **API Reference**: See [API Contracts](./api-contracts.md)
-- **Deploy to Production**: See [Deployment Guide - Production Deployment](./deployment.md#production-deployment)
-- **Deploy Frontend Only**: See [GitHub Pages Deployment](./github-pages-deployment.md)
-- **Troubleshooting**: See [Operations Runbook](./runbook.md)
-
+- **Getting started:** [Deployment – Local](deployment.md#local-development)
+- **API reference:** [API Contracts](api-contracts.md)
+- **Rationale / AI:** [Rationale and LLM](rationale-and-llm.md)
+- **Troubleshooting:** [Runbook](runbook.md)
