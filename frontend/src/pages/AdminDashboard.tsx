@@ -151,7 +151,6 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient()
   const [integritySeason, setIntegritySeason] = useState('2025-26')
   const [dailyPropsParams, setDailyPropsParams] = useState({ minConfidence: 50, limit: 50 })
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [activityLog, setActivityLog] = useState<ActivityLog[]>([])
   const logEndRef = useRef<HTMLDivElement>(null)
   
@@ -1166,302 +1165,219 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Data Refresh Controls & Scanning Controls - Side by Side */}
-      <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
-        {/* Data Refresh Controls */}
-        <div className="rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
-          <div className="mb-2">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Data Refresh</h2>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Refresh cached services</p>
-          </div>
+      {/* Dashboard (homepage) – refresh and clear caches */}
+      <div className="mt-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
+        <div className="mb-2">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Dashboard (homepage)</h2>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Warm and refresh caches that feed the main dashboard</p>
+        </div>
 
-          <div className="grid grid-cols-1 gap-1.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
           <button
             onClick={() => warmDashboardMutation.mutate()}
             disabled={warmDashboardMutation.isPending}
-            className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-900 dark:text-emerald-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-emerald-300 dark:border-emerald-700 transition-colors duration-200"
+            className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-900 dark:text-emerald-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 border border-emerald-300 dark:border-emerald-700 transition-colors duration-200"
           >
-            {warmDashboardMutation.isPending ? (
-              <>
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Warming...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span>Warm dashboard</span>
-              </>
-            )}
+            {warmDashboardMutation.isPending ? <span className="animate-pulse">Warming...</span> : <>Warm dashboard</>}
           </button>
-
           <button
             onClick={() => refreshDailyPropsMutation.mutate()}
             disabled={refreshDailyPropsMutation.isPending}
-            className="px-3 py-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-blue-300 dark:border-blue-700 transition-colors duration-200"
+            className="px-3 py-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 text-xs font-semibold rounded-lg disabled:opacity-60 border border-blue-300 dark:border-blue-700 transition-colors duration-200"
           >
-            {refreshDailyPropsMutation.isPending ? (
-              <>
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Refreshing...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span>Refresh Daily Props</span>
-              </>
-            )}
+            {refreshDailyPropsMutation.isPending ? 'Refreshing...' : 'Refresh Daily Props'}
           </button>
-
+          <button
+            onClick={() => refreshTopPicksMutation.mutate()}
+            disabled={refreshTopPicksMutation.isPending}
+            className="px-3 py-2 bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/50 text-violet-900 dark:text-violet-300 text-xs font-semibold rounded-lg disabled:opacity-60 border border-violet-300 dark:border-violet-700 transition-colors duration-200"
+          >
+            {refreshTopPicksMutation.isPending ? 'Refreshing...' : 'Refresh Top Picks'}
+          </button>
+          <button
+            onClick={() => refreshStatLeadersMutation.mutate()}
+            disabled={refreshStatLeadersMutation.isPending}
+            className="px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-900 dark:text-indigo-300 text-xs font-semibold rounded-lg disabled:opacity-60 border border-indigo-300 dark:border-indigo-700 transition-colors duration-200"
+          >
+            {refreshStatLeadersMutation.isPending ? 'Refreshing...' : 'Refresh Stat Leaders'}
+          </button>
           <button
             onClick={() => refreshAllMutation.mutate()}
             disabled={refreshAllMutation.isPending || refreshDailyPropsMutation.isPending || warmDashboardMutation.isPending}
-            className="px-3 py-2 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 text-purple-900 dark:text-purple-300 text-xs font-semibold rounded-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-purple-300 dark:border-purple-700 transition-colors duration-200"
+            className="px-3 py-2 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 text-purple-900 dark:text-purple-300 text-xs font-semibold rounded-lg disabled:opacity-60 border border-purple-300 dark:border-purple-700 transition-colors duration-200"
           >
-            {refreshAllMutation.isPending ? (
-              <>
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Refreshing All...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span>Refresh All Services</span>
-              </>
-            )}
+            {refreshAllMutation.isPending ? 'Refreshing All...' : 'Refresh All'}
           </button>
         </div>
 
-        {/* Success/Error Messages */}
         {(refreshDailyPropsMutation.isSuccess || warmDashboardMutation.isSuccess || refreshAllMutation.isSuccess) && (
           <div className="mt-2 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs text-emerald-800 dark:text-emerald-300 transition-colors duration-200">
-            {refreshAllMutation.isSuccess && 'All services refreshed successfully! '}
-            {warmDashboardMutation.isSuccess && !refreshAllMutation.isSuccess && 'Dashboard warmed successfully! '}
-            {refreshDailyPropsMutation.isSuccess && !refreshAllMutation.isSuccess && !warmDashboardMutation.isSuccess && 'Daily props refreshed successfully! '}
-            Cache updated and ready for use.
+            {refreshAllMutation.isSuccess && 'All services refreshed. '}
+            {warmDashboardMutation.isSuccess && !refreshAllMutation.isSuccess && 'Dashboard warmed. '}
+            {refreshDailyPropsMutation.isSuccess && !refreshAllMutation.isSuccess && !warmDashboardMutation.isSuccess && 'Daily props refreshed. '}
+            Cache updated.
           </div>
         )}
-
         {(refreshDailyPropsMutation.isError || warmDashboardMutation.isError || refreshAllMutation.isError) && (
           <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
             Error: {refreshAllMutation.error?.message || refreshDailyPropsMutation.error?.message || warmDashboardMutation.error?.message}
           </div>
         )}
 
-          {/* Advanced Controls Toggle */}
-          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700 transition-colors duration-200">
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700">
+          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 transition-colors duration-200">Clear dashboard caches (then use Warm dashboard to refill)</div>
+          <div className="flex flex-wrap gap-1.5">
             <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 flex items-center gap-1 transition-colors duration-200"
+              onClick={() => clearDailyPropsCacheMutation.mutate()}
+              disabled={clearDailyPropsCacheMutation.isPending}
+              className="px-3 py-1.5 text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-900 dark:text-red-300 rounded disabled:opacity-50 border border-red-300 dark:border-red-700 transition-colors duration-200"
             >
-              <svg className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-              {showAdvanced ? 'Hide' : 'Show'} Advanced
+              {clearDailyPropsCacheMutation.isPending ? 'Clearing...' : 'Clear Daily Props'}
+            </button>
+            <button
+              onClick={() => clearTodaysGamesCacheMutation.mutate()}
+              disabled={clearTodaysGamesCacheMutation.isPending}
+              className="px-3 py-1.5 text-xs bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 text-amber-900 dark:text-amber-300 rounded disabled:opacity-50 border border-amber-300 dark:border-amber-700 transition-colors duration-200"
+              title="Today's games + top picks"
+            >
+              {clearTodaysGamesCacheMutation.isPending ? 'Clearing...' : "Clear Today's Games"}
+            </button>
+            <button
+              onClick={() => clearGamePredictionsCacheMutation.mutate()}
+              disabled={clearGamePredictionsCacheMutation.isPending}
+              className="px-3 py-1.5 text-xs bg-sky-100 dark:bg-sky-900/30 hover:bg-sky-200 dark:hover:bg-sky-900/50 text-sky-900 dark:text-sky-300 rounded disabled:opacity-50 border border-sky-300 dark:border-sky-700 transition-colors duration-200"
+            >
+              {clearGamePredictionsCacheMutation.isPending ? 'Clearing...' : 'Clear Game Predictions'}
             </button>
           </div>
+        </div>
 
-          {/* Advanced Controls */}
-          {showAdvanced && (
-            <div className="mt-2 space-y-1.5">
-            {/* Custom Refresh Parameters */}
-            <div className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600 transition-colors duration-200">
-              <h3 className="text-xs font-semibold text-gray-900 dark:text-slate-100 mb-3 transition-colors duration-200">Custom Refresh Parameters</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {/* Daily Props Custom */}
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">Daily Props</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Min Confidence</label>
-                      <input
-                        type="number"
-                        value={dailyPropsParams.minConfidence}
-                        onChange={(e) => setDailyPropsParams({ ...dailyPropsParams, minConfidence: Number(e.target.value) })}
-                        className="w-full px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
-                        min="0"
-                        max="100"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Limit</label>
-                      <input
-                        type="number"
-                        value={dailyPropsParams.limit}
-                        onChange={(e) => setDailyPropsParams({ ...dailyPropsParams, limit: Number(e.target.value) })}
-                        className="w-full px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
-                        min="1"
-                        max="200"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => refreshDailyPropsCustomMutation.mutate(dailyPropsParams)}
-                    disabled={refreshDailyPropsCustomMutation.isPending}
-                    className="w-full px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 rounded disabled:opacity-50 border border-blue-300 dark:border-blue-700 transition-colors duration-200"
-                  >
-                    {refreshDailyPropsCustomMutation.isPending ? 'Refreshing...' : 'Refresh with Custom Params'}
-                  </button>
-                </div>
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700">
+          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 transition-colors duration-200">Other cache</div>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => clearTeamsCacheMutation.mutate()}
+              disabled={clearTeamsCacheMutation.isPending}
+              className="px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 rounded disabled:opacity-50 border border-blue-300 dark:border-blue-700 transition-colors duration-200"
+            >
+              Clear Teams
+            </button>
+            <button
+              onClick={() => cacheCleanupMutation.mutate()}
+              disabled={cacheCleanupMutation.isPending}
+              className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 rounded disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
+            >
+              {cacheCleanupMutation.isPending ? 'Cleaning...' : 'Cache Cleanup'}
+            </button>
+            <button
+              onClick={() => { if (confirm('Clear ALL caches? Next request will refetch.')) clearAllCacheMutation.mutate(); }}
+              disabled={clearAllCacheMutation.isPending}
+              className="px-3 py-1.5 text-xs bg-red-200 dark:bg-red-900/40 hover:bg-red-300 dark:hover:bg-red-900/60 text-red-900 dark:text-red-200 rounded font-semibold disabled:opacity-50 border border-red-400 dark:border-red-700 transition-colors duration-200"
+            >
+              Clear All Caches
+            </button>
+          </div>
+        </div>
 
-              </div>
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700">
+          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 transition-colors duration-200">Daily props (custom params)</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-[10px] text-gray-500 dark:text-gray-400">Min confidence</label>
+            <input
+              type="number"
+              value={dailyPropsParams.minConfidence}
+              onChange={(e) => setDailyPropsParams({ ...dailyPropsParams, minConfidence: Number(e.target.value) })}
+              className="w-16 px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+              min={0}
+              max={100}
+            />
+            <label className="text-[10px] text-gray-500 dark:text-gray-400">Limit</label>
+            <input
+              type="number"
+              value={dailyPropsParams.limit}
+              onChange={(e) => setDailyPropsParams({ ...dailyPropsParams, limit: Number(e.target.value) })}
+              className="w-16 px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+              min={1}
+              max={200}
+            />
+            <button
+              onClick={() => refreshDailyPropsCustomMutation.mutate(dailyPropsParams)}
+              disabled={refreshDailyPropsCustomMutation.isPending}
+              className="px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 rounded disabled:opacity-50 border border-blue-300 dark:border-blue-700 transition-colors duration-200"
+            >
+              {refreshDailyPropsCustomMutation.isPending ? 'Refreshing...' : 'Refresh with params'}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700">
+          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 transition-colors duration-200">Accuracy</div>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => settleAccuracyMutation.mutate()}
+              disabled={settleAccuracyMutation.isPending}
+              className="px-3 py-1.5 text-xs bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-900 dark:text-emerald-300 rounded disabled:opacity-50 border border-emerald-300 dark:border-emerald-700 transition-colors duration-200"
+            >
+              {settleAccuracyMutation.isPending ? 'Settling...' : 'Settle accuracy'}
+            </button>
+            <Link
+              to="/accuracy"
+              className="px-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 rounded border border-slate-300 dark:border-slate-600 transition-colors duration-200 inline-block"
+            >
+              View accuracy
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 transition-colors duration-200">Rate limits</span>
+            <button type="button" onClick={() => refetchRateLimits()} className="text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-slate-100">
+              Refresh
+            </button>
+          </div>
+          {rateLimits?.providers && Object.keys(rateLimits.providers).length > 0 ? (
+            <div className="flex flex-wrap gap-2 text-[10px] text-gray-600 dark:text-gray-400">
+              {Object.entries(rateLimits.providers).map(([name, p]: [string, any]) => (
+                <span key={name} className="px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded border border-gray-200 dark:border-slate-600">
+                  {name}: {p?.used ?? '?'}/{p?.limit ?? '?'}
+                </span>
+              ))}
             </div>
+          ) : (
+            <div className="text-[10px] text-gray-500 dark:text-gray-500">No rate limit data</div>
+          )}
+        </div>
 
-            {/* Cache Management */}
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border-2 border-red-200 dark:border-red-800 transition-colors duration-200">
-              <h3 className="text-xs font-semibold text-red-900 dark:text-red-300 mb-3 transition-colors duration-200">⚠️ Cache Management</h3>
-              <p className="text-xs text-red-700 dark:text-red-400 mb-3 transition-colors duration-200">Clear caches to force fresh data on next request. Use with caution.</p>
-              
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                <button
-                  onClick={() => clearDailyPropsCacheMutation.mutate()}
-                  disabled={clearDailyPropsCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 text-red-900 dark:text-red-300 rounded disabled:opacity-50 border border-red-300 dark:border-red-700 transition-colors duration-200"
-                >
-                  Clear Daily Props
-                </button>
-                <button
-                  onClick={() => clearTeamsCacheMutation.mutate()}
-                  disabled={clearTeamsCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 rounded disabled:opacity-50 border border-blue-300 dark:border-blue-700 transition-colors duration-200"
-                >
-                  Clear Teams Cache
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm('Are you sure you want to clear ALL caches? This will force fresh data on next request.')) {
-                      clearAllCacheMutation.mutate()
-                    }
-                  }}
-                  disabled={clearAllCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-red-200 dark:bg-red-900/40 hover:bg-red-300 dark:hover:bg-red-900/60 text-red-900 dark:text-red-200 rounded font-bold disabled:opacity-50 border-2 border-red-400 dark:border-red-700 transition-colors duration-200"
-                >
-                  Clear All Caches
-                </button>
-              </div>
-
-              <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
-                <button
-                  onClick={() => clearTodaysGamesCacheMutation.mutate()}
-                  disabled={clearTodaysGamesCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 text-amber-900 dark:text-amber-300 rounded disabled:opacity-50 border border-amber-300 dark:border-amber-700 transition-colors duration-200"
-                  title="Clear today's games and top-picks cache (e.g. after NBA API was empty and ESPN fallback is now used)"
-                >
-                  {clearTodaysGamesCacheMutation.isPending ? 'Clearing...' : 'Clear Today\'s Games'}
-                </button>
-                <button
-                  onClick={() => clearGamePredictionsCacheMutation.mutate()}
-                  disabled={clearGamePredictionsCacheMutation.isPending}
-                  className="px-3 py-2 text-xs bg-sky-100 dark:bg-sky-900/30 hover:bg-sky-200 dark:hover:bg-sky-900/50 text-sky-900 dark:text-sky-300 rounded disabled:opacity-50 border border-sky-300 dark:border-sky-700 transition-colors duration-200"
-                  title="Clear game predictions cache so next load uses current def/off ranks and team stats"
-                >
-                  {clearGamePredictionsCacheMutation.isPending ? 'Clearing...' : 'Clear Game Predictions'}
-                </button>
-                <button
-                  onClick={() => cacheCleanupMutation.mutate()}
-                  disabled={cacheCleanupMutation.isPending}
-                  className="px-3 py-2 text-xs bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 rounded disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
-                  title="Remove expired cache entries"
-                >
-                  {cacheCleanupMutation.isPending ? 'Cleaning...' : 'Cache Cleanup'}
-                </button>
-                <button
-                  onClick={() => refreshStatLeadersMutation.mutate()}
-                  disabled={refreshStatLeadersMutation.isPending}
-                  className="px-3 py-2 text-xs bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-900 dark:text-indigo-300 rounded disabled:opacity-50 border border-indigo-300 dark:border-indigo-700 transition-colors duration-200"
-                  title="Pre-compute stat leaders from game logs"
-                >
-                  {refreshStatLeadersMutation.isPending ? 'Refreshing...' : 'Refresh Stat Leaders'}
-                </button>
-                <button
-                  onClick={() => refreshTopPicksMutation.mutate()}
-                  disabled={refreshTopPicksMutation.isPending}
-                  className="px-3 py-2 text-xs bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/50 text-violet-900 dark:text-violet-300 rounded disabled:opacity-50 border border-violet-300 dark:border-violet-700 transition-colors duration-200"
-                  title="Regenerate unified top-picks cache"
-                >
-                  {refreshTopPicksMutation.isPending ? 'Refreshing...' : 'Refresh Top Picks'}
-                </button>
-                <button
-                  onClick={() => settleAccuracyMutation.mutate()}
-                  disabled={settleAccuracyMutation.isPending}
-                  className="px-3 py-2 text-xs bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-900 dark:text-emerald-300 rounded disabled:opacity-50 border border-emerald-300 dark:border-emerald-700 transition-colors duration-200"
-                  title="Settle game predictions and AI pick of the day for yesterday (fill actual results)"
-                >
-                  {settleAccuracyMutation.isPending ? 'Settling...' : 'Settle accuracy'}
-                </button>
-                <Link
-                  to="/accuracy"
-                  className="px-3 py-2 text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 rounded border border-slate-300 dark:border-slate-600 transition-colors duration-200 inline-block text-center"
-                  title="View prediction and pick-of-the-day accuracy history"
-                >
-                  View accuracy
-                </Link>
-              </div>
-
-              {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess || clearTodaysGamesCacheMutation.isSuccess || clearGamePredictionsCacheMutation.isSuccess || cacheCleanupMutation.isSuccess || refreshStatLeadersMutation.isSuccess || refreshTopPicksMutation.isSuccess) && (
-                <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded text-xs text-red-800 dark:text-red-300 transition-colors duration-200">
-                  Cache cleared / refreshed successfully. Next request will use updated data.
-                </div>
-              )}
-
-              {/* Rate limits (API-NBA, ESPN) */}
-              <div className="mt-3 p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600 transition-colors duration-200">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-xs font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Rate limits</h3>
-                  <button
-                    type="button"
-                    onClick={() => refetchRateLimits()}
-                    className="text-[10px] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-slate-100 transition-colors duration-200"
-                  >
-                    Refresh
-                  </button>
-                </div>
-                {rateLimits?.providers && Object.keys(rateLimits.providers).length > 0 ? (
-                  <div className="flex flex-wrap gap-2 text-[10px] text-gray-600 dark:text-gray-400 transition-colors duration-200">
-                    {Object.entries(rateLimits.providers).map(([name, p]: [string, any]) => (
-                      <span key={name} className="px-1.5 py-0.5 bg-white dark:bg-slate-700 rounded border border-gray-200 dark:border-slate-600">
-                        {name}: {p?.used ?? '?'}/{p?.limit ?? '?'}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-[10px] text-gray-500 dark:text-gray-500 transition-colors duration-200">No rate limit data</div>
-                )}
-              </div>
-            </div>
+        {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess || clearTodaysGamesCacheMutation.isSuccess || clearGamePredictionsCacheMutation.isSuccess || cacheCleanupMutation.isSuccess || refreshStatLeadersMutation.isSuccess || refreshTopPicksMutation.isSuccess) && (
+          <div className="mt-2 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded text-xs text-emerald-800 dark:text-emerald-300 transition-colors duration-200">
+            Cache cleared / refreshed. Next request will use updated data.
           </div>
         )}
       </div>
-      </div>
 
-      {/* Sync */}
+      {/* Sync – NBA API */}
       <div className="mt-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
         <div className="mb-2">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Sync</h2>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Sync players from NBA API</p>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Sync (NBA API)</h2>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Sync players and teams from NBA API</p>
         </div>
-        <button
-          onClick={() => syncMutation.mutate()}
-          disabled={syncMutation.isPending}
-          className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
-        >
-          {syncMutation.isPending ? 'Syncing...' : 'Sync Players'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
+          >
+            {syncMutation.isPending ? 'Syncing...' : 'Sync Players'}
+          </button>
+          <button
+            onClick={() => syncTeamsMutation.mutate()}
+            disabled={syncTeamsMutation.isPending}
+            className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
+          >
+            {syncTeamsMutation.isPending ? 'Syncing...' : 'Sync Teams'}
+          </button>
+        </div>
       </div>
 
       {/* Player & context */}
