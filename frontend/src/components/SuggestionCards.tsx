@@ -96,7 +96,7 @@ export function SuggestionCards({ suggestions, horizontal = false }: { suggestio
 
         {/* Stats grid */}
         <div className="space-y-0.5 text-[10px] text-gray-700 dark:text-gray-300 transition-colors duration-200">
-          {(s.marketLine != null && s.marketLine !== '') && (
+          {s.marketLine != null && (
             <div className="flex justify-between items-center">
               <span className="text-gray-500 dark:text-gray-400">{s.type} line:</span>
               <span className="font-bold text-gray-900 dark:text-slate-100">
