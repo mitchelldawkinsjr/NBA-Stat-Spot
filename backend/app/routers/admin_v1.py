@@ -126,12 +126,41 @@ def _is_cache_valid(cache_date: Optional[date], cache_time: Optional[datetime]) 
     return cache_date == today
 
 def _clear_cache():
-    """Clear all caches"""
+    """
+    Clear all caches used by the dashboard, team data, and defensive/rank data.
+    After this, the next request to any affected endpoint will repopulate from live sources.
+    Call warm-dashboard after clear to prefill dashboard caches, or refresh the site.
+    """
     db = next(get_db())
+    total = 0
     try:
-        _cache.clear_pattern("daily_props:*", db=db)
-        _cache.clear_pattern("high_hit_rate:*", db=db)
-        _cache.delete("best_bets:latest", db=db)
+        patterns = [
+            "daily_props:*",
+            "high_hit_rate:*",
+            "best_bets:*",
+            "pick_of_the_day:*",
+            "best_match_of_the_day:*",
+            "top_picks:*",
+            "hot_form:*",
+            "game_predictions:*",
+            "game_prediction_detail:*",
+            "nba_api:todays_games:*",
+            "stat_leaders:*",
+            "defensive_ranks:*",
+            "defensive_avgs:*",
+            "offensive_ranks:*",
+            "team_ranks_from_players_fallback:*",
+            "pace_ranks:*",
+            "position_def_ranks:*",
+            "team_ppg_from_logs:*",
+            "nba_api:teams:*",
+            "team_stats:*",
+        ]
+        for pattern in patterns:
+            total += _cache.clear_pattern(pattern, db=db)
+        # Player caches: nba_api:players_active:*, nba_api:players_all_including_rookies:*
+        total += _cache.clear_pattern("nba_api:players*:*", db=db)
+        return total
     finally:
         db.close()
 
@@ -823,16 +852,29 @@ def warm_dashboard(request: Request):
         results["gamePredictions"] = len(preds)
     except Exception as e:
         results["gamePredictions"] = str(e)
+    # Best Match of the Day (LLM or fallback)
+    if not _cache.get(f"best_match_of_the_day:{today_str}"):
+        try:
+            from ..routers.games_v1 import compute_best_match_of_the_day
+            best_match = compute_best_match_of_the_day(date.today())
+            if best_match is not None:
+                _cache.set(f"best_match_of_the_day:{today_str}", best_match, ttl=86400)
+            results["bestMatchOfTheDay"] = 1 if best_match else 0
+        except Exception as e:
+            results["bestMatchOfTheDay"] = str(e)
+    else:
+        results["bestMatchOfTheDay"] = "cached"
     return {"status": "success", "date": today_str, "results": results}
 
 
 @router.post("/cache/clear")
 def clear_cache():
-    """Clear all caches"""
-    _clear_cache()
+    """Clear all dashboard, team, and defensive/rank caches. Next request will repopulate; use Warm dashboard to prefill."""
+    count = _clear_cache()
     return {
         "status": "success",
-        "message": "All caches cleared",
+        "message": "All caches cleared. Refresh the page or click Warm dashboard to reload data.",
+        "entries_cleared": count,
         "clearedAt": datetime.now().isoformat()
     }
 

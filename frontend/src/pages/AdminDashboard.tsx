@@ -296,10 +296,20 @@ export default function AdminDashboard() {
     onMutate: () => {
       addActivityLog('warning', 'Clearing all caches...')
     },
-    onSuccess: () => {
-      addActivityLog('success', 'All caches cleared', 'Next requests will fetch fresh data')
+    onSuccess: (_data: { entries_cleared?: number; message?: string }) => {
+      addActivityLog('success', 'All caches cleared', _data?.message ?? 'Refresh the page or Warm dashboard to reload data.')
       refetchCacheStatus()
       refetchHealth()
+      // Invalidate all dashboard and data queries so next visit refetches fresh data
+      queryClient.invalidateQueries({ queryKey: ['games-today'] })
+      queryClient.invalidateQueries({ queryKey: ['games-predictions'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-50'] })
+      queryClient.invalidateQueries({ queryKey: ['top-picks'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-hot-form'] })
+      queryClient.invalidateQueries({ queryKey: ['pick-of-the-day'] })
+      queryClient.invalidateQueries({ queryKey: ['best-match-of-the-day'] })
+      queryClient.invalidateQueries({ queryKey: ['stat-leaders'] })
+      queryClient.invalidateQueries({ queryKey: ['team-stats-ranks'] })
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Cache clear failed', error.message)
@@ -331,6 +341,7 @@ export default function AdminDashboard() {
       addActivityLog('success', `Teams and players cache cleared (${teamsCount} teams, ${playersCount} players)`)
       refetchCacheStatus()
       refetchTeamsStatus()
+      queryClient.invalidateQueries({ queryKey: ['team-stats-ranks'] })
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Cache clear failed', error.message)
@@ -544,6 +555,7 @@ export default function AdminDashboard() {
         `List: ${data?.game_predictions_cleared ?? 0}, Detail: ${data?.game_prediction_detail_cleared ?? 0}. Next request will rebuild with current ranks/stats.`
       )
       refetchCacheStatus()
+      queryClient.invalidateQueries({ queryKey: ['games-predictions'] })
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Clear game predictions cache failed', error.message)
@@ -1351,7 +1363,7 @@ export default function AdminDashboard() {
 
         {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess || clearTodaysGamesCacheMutation.isSuccess || clearGamePredictionsCacheMutation.isSuccess || cacheCleanupMutation.isSuccess || refreshStatLeadersMutation.isSuccess || refreshTopPicksMutation.isSuccess) && (
           <div className="mt-2 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded text-xs text-emerald-800 dark:text-emerald-300 transition-colors duration-200">
-            Cache cleared / refreshed. Next request will use updated data.
+            {clearAllCacheMutation.isSuccess ? 'All caches cleared. Refresh the page or click Warm dashboard to reload data.' : 'Cache cleared / refreshed. Next request will use updated data.'}
           </div>
         )}
       </div>

@@ -216,34 +216,36 @@ class CacheService:
         Clear all cache entries matching a pattern.
         
         Args:
-            pattern: Pattern to match (e.g., "daily_props_*")
+            pattern: Pattern to match. Use * or % as wildcard (both work for SQLite;
+                     Redis always receives * as wildcard).
             db: Optional database session
         
         Returns:
             Number of entries deleted
         """
         count = 0
-        
-        # Clear from Redis (supports wildcards)
+        # Redis uses * for wildcards; SQLite LIKE uses %. Normalize for each backend.
+        redis_pattern = pattern.replace("%", "*")
+        sql_pattern = pattern.replace("*", "%")
+
+        # Clear from Redis
         if self._use_redis and self._redis_client:
             try:
-                keys = self._redis_client.keys(pattern.replace("*", "*"))
+                keys = self._redis_client.keys(redis_pattern)
                 if keys:
                     self._redis_client.delete(*keys)
                     count += len(keys)
             except Exception:
                 pass
-        
-        # Clear from SQLite (simple LIKE pattern)
+
         if db is None:
             from ..database import SessionLocal
             db = SessionLocal()
             should_close = True
         else:
             should_close = False
-        
+
         try:
-            sql_pattern = pattern.replace("*", "%")
             entries = db.query(CacheEntry).filter(CacheEntry.key.like(sql_pattern)).all()
             count += len(entries)
             for entry in entries:
