@@ -31,6 +31,16 @@ type SuggestionItem = {
   /** Game date YYYY-MM-DD for bet payload */
   gameDate?: string
   game_date?: string
+  /** Insight engine: matchup strength 0–100 */
+  matchup_score?: number | null
+  /** Insight category (e.g. favorable_scoring_matchup, hot_streak) */
+  insight_type?: string | null
+  /** Short narrative for matchup (from backend) */
+  matchup_explanation?: string | null
+  /** Opponent def rank vs position (e.g. "#3 most PTS to PGs") */
+  opponent_def_rank_vs_position?: string | null
+  /** Supporting metrics (recent_avg_5, pace, usage_approx) */
+  supporting_metrics?: Record<string, unknown> | null
 }
 
 export type { SuggestionItem }
@@ -78,6 +88,9 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
             {(s.confidenceSource === 'ml_blended' || s.rationaleSource === 'llm' || s.mlAvailable) && (
               <span className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-medium" title="AI-enhanced (ML or LLM)">AI</span>
             )}
+            {(s.matchup_score != null || s.matchup_explanation) && (
+              <span className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 font-medium" title="Matchup insight">Matchup</span>
+            )}
           </div>
           <span
             className={`text-[10px] px-1.5 py-0.5 rounded-full text-white font-semibold whitespace-nowrap ${isOver ? 'bg-emerald-500' : 'bg-red-500'}`}
@@ -97,9 +110,9 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
             >
               {s.playerName}
             </Link>
-            {(s.opponentAbbr || s.opponentDefRank != null) && (
+            {(s.opponentAbbr ?? s.opponent_abbr ?? s.opponentDefRank != null) && (
               <span className="text-[9px] text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap" title="Opponent defense rank (lower = tougher)">
-                {s.opponentAbbr && `vs ${s.opponentAbbr}`}
+                {(s.opponent_abbr ?? s.opponentAbbr) && `vs ${s.opponent_abbr ?? s.opponentAbbr}`}
                 {s.opponentDefRank != null && ` · Def #${s.opponentDefRank}`}
               </span>
             )}
@@ -141,6 +154,21 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
             </div>
           )}
         </div>
+
+        {/* Matchup explanation (insight engine) */}
+        {s.matchup_explanation && (
+          <div className="mt-1.5 p-1.5 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-200 dark:border-amber-800/50 transition-colors duration-200">
+            <p className="text-[9px] text-amber-900 dark:text-amber-200 line-clamp-3">{s.matchup_explanation}</p>
+            {s.playerId && (
+              <Link
+                to={`/player/${s.playerId}`}
+                className="mt-1 inline-block text-[9px] font-semibold text-amber-700 dark:text-amber-300 hover:underline"
+              >
+                View matchup →
+              </Link>
+            )}
+          </div>
+        )}
 
         {/* Rationale */}
         {rationaleText && (

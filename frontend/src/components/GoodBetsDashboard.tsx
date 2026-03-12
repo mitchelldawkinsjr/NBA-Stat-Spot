@@ -446,6 +446,12 @@ export function GoodBetsDashboard() {
       .slice(0, 8)
   }, [topPicks, dailyData, today, games.length])
 
+  // Top Insights: picks with matchup_score, sorted by score (top 5)
+  const topInsights = useMemo(() => {
+    const withScore = (bestBets as any[]).filter((b) => b.matchup_score != null)
+    return [...withScore].sort((a, b) => (b.matchup_score ?? 0) - (a.matchup_score ?? 0)).slice(0, 5)
+  }, [bestBets])
+
   const playersToWatch = useMemo(() => {
     if (games.length === 0) return []
     const items = (dailyData?.items ?? []) as any[]
@@ -703,7 +709,15 @@ export function GoodBetsDashboard() {
           ) : bestBets.length === 0 ? (
             <p className="text-gray-600 dark:text-gray-400 text-center py-2 text-sm transition-colors duration-200">Picks are being generated — check back soon.</p>
           ) : (
-            <SuggestionCards suggestions={bestBets} horizontal={true} onAddToTracker={handleAddToTracker} isAddingToTracker={isAddingToTracker} />
+            <>
+              {topInsights.length > 0 && (
+                <div className="mb-3">
+                  <h4 className="text-xs font-bold text-amber-800 dark:text-amber-200 mb-1.5">Top Insights by matchup</h4>
+                  <SuggestionCards suggestions={topInsights} horizontal={true} onAddToTracker={handleAddToTracker} isAddingToTracker={isAddingToTracker} />
+                </div>
+              )}
+              <SuggestionCards suggestions={bestBets} horizontal={true} onAddToTracker={handleAddToTracker} isAddingToTracker={isAddingToTracker} />
+            </>
           )}
         </div>
       </div>
@@ -1006,6 +1020,11 @@ export function GoodBetsDashboard() {
                       <div className="mt-1.5 inline-flex items-center px-2.5 py-1 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-200 text-sm font-bold">
                         {Math.round(Number(pickOfTheDay.confidence))}% confidence
                       </div>
+                    )}
+                    {(pickOfTheDay as any).matchup_explanation && (
+                      <p className="mt-1.5 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 rounded p-2 border border-amber-200 dark:border-amber-800/50">
+                        {(pickOfTheDay as any).matchup_explanation}
+                      </p>
                     )}
                   </div>
                   {pickOfTheDay.rationale && (

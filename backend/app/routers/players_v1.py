@@ -487,6 +487,7 @@ def get_player_context(
             "rank_ast": context.opponent_def_rank_ast,
         }
         opponent_offense = {}
+        opponent_defense_vs_position = None
         if context.opponent_team_id:
             try:
                 opp_perf = ContextCollector.get_team_performance(
@@ -499,6 +500,25 @@ def get_player_context(
                     "rank_ast": opp_perf.get("off_rank_ast"),
                     "rank_3pm": opp_perf.get("off_rank_3pm"),
                 }
+            except Exception:
+                pass
+            # Position-based defense: opponent's ranks vs this player's position (PG/SG/SF/PF/C)
+            try:
+                from ..services.best_picks_service import _normalize_position
+                all_players = NBADataService.fetch_all_players_including_rookies() or []
+                player = next((p for p in all_players if p.get("id") == player_id), None)
+                position = _normalize_position(player.get("position") if player else None)
+                if position:
+                    pos_ranks = ContextCollector._calculate_position_defensive_ranks(season or "2025-26") or {}
+                    opp_pos_ranks = pos_ranks.get(position, {}).get(int(context.opponent_team_id), {})
+                    if opp_pos_ranks:
+                        opponent_defense_vs_position = {
+                            "position": position,
+                            "rank_pts": opp_pos_ranks.get("pts"),
+                            "rank_reb": opp_pos_ranks.get("reb"),
+                            "rank_ast": opp_pos_ranks.get("ast"),
+                            "rank_3pm": opp_pos_ranks.get("3pm"),
+                        }
             except Exception:
                 pass
 
@@ -542,6 +562,7 @@ def get_player_context(
                 "games_played": context.h2h_games_played
             },
             "opponent_defense": opponent_defense,
+            "opponent_defense_vs_position": opponent_defense_vs_position,
             "opponent_offense": opponent_offense,
             "matchup_advantage": matchup_advantage,
             "team_performance": {
@@ -561,6 +582,7 @@ def get_player_context(
             "error": str(e),
             "h2h": {"avg_pts": None, "avg_reb": None, "avg_ast": None, "games_played": 0},
             "opponent_defense": {"rank_pts": None, "rank_reb": None, "rank_ast": None, "rank_3pm": None},
+            "opponent_defense_vs_position": None,
             "opponent_offense": {"rank_pts": None, "rank_reb": None, "rank_ast": None, "rank_3pm": None}
         }
 

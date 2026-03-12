@@ -183,6 +183,20 @@ Example: Player avg REB = 9.5, opponent allows to centers = 13.2 → **+3.7** (f
 
 ---
 
+## 11. Insight Generation Engine (Planned)
+
+The **Insight Generation Engine** extends the Top Picks pipeline to automatically surface high-value matchups and narrative insights. It reuses all existing data (team and position defensive ranks, pace, player context, game logs) and adds:
+
+- **Position-based matchup scoring** — Use opponent's position-defense (e.g. "allows 3rd most PTS to PG") in addition to team-level def rank when generating lines and confidence.
+- **Unified Matchup / Insight Strength Score** — Weighted combination: defense vs position (0.35), recent form (0.30), pace (0.15), usage (0.10), historical matchup (0.10). Rank insights by this score.
+- **Insight categories** — Tag picks as e.g. favorable_scoring_matchup, assist_advantage, rebounding_advantage, defensive_weakness_exploit, hot_streak, pace_driven, historical_dominance.
+- **Short narratives** — Template- or LLM-generated explanation (e.g. "Elite matchup for X. Opponent allows … X is averaging …").
+- **Homepage promotion** — Show matchup explanation and optional "Top Insights" strip; "View matchup" links to player profile with opponent context.
+
+Full design, formula, and implementation order: **[insight-generation-engine.md](insight-generation-engine.md)**.
+
+---
+
 ## Implementation Notes (Current Codebase)
 
 - **Defensive ranks:** `ContextCollector._calculate_defensive_ranks()` builds PTS/REB/AST/3PM ranks from opponent game logs; cached 24h. Refresh via Admin “Refresh defensive ranks.”

@@ -1061,6 +1061,24 @@ export default function PlayerProfile() {
                           </>
                         )}
                       </div>
+                      {/* Opponent defense vs player position (insight engine) */}
+                      {(() => {
+                        const posDef = playerContext?.opponent_defense_vs_position as { position?: string; rank_pts?: number; rank_reb?: number; rank_ast?: number; rank_3pm?: number } | undefined
+                        if (!posDef?.position) return null
+                        return (
+                          <div className="w-[180px] flex-none">
+                            <MatchupCard
+                              title={`Vs your position (${posDef.position})`}
+                              stats={[
+                                { label: 'PTS', value: posDef.rank_pts != null ? `#${posDef.rank_pts}` : '—' },
+                                { label: 'REB', value: posDef.rank_reb != null ? `#${posDef.rank_reb}` : '—' },
+                                { label: 'AST', value: posDef.rank_ast != null ? `#${posDef.rank_ast}` : '—' },
+                                { label: '3PM', value: posDef.rank_3pm != null ? `#${posDef.rank_3pm}` : '—' },
+                              ]}
+                            />
+                          </div>
+                        )
+                      })()}
                       {/* Opponent Offense (pace / scoring context) */}
                       {(playerContext?.opponent_offense && (playerContext.opponent_offense.rank_pts != null || playerContext.opponent_offense.rank_3pm != null)) && (
                         <div className="w-[180px] flex-none">

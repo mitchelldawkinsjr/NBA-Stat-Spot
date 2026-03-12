@@ -811,6 +811,12 @@ def warm_dashboard(request: Request):
                     "confidenceSource": items[0].get("confidenceSource"),
                     "rationaleSource": items[0].get("rationaleSource"),
                     "mlAvailable": items[0].get("mlAvailable"),
+                    "matchup_score": items[0].get("matchup_score"),
+                    "insight_type": items[0].get("insight_type"),
+                    "matchup_explanation": items[0].get("matchup_explanation"),
+                    "opponent_abbr": items[0].get("opponent_abbr"),
+                    "opponent_def_rank_vs_position": items[0].get("opponent_def_rank_vs_position"),
+                    "supporting_metrics": items[0].get("supporting_metrics"),
                 }
                 _cache.set(f"pick_of_the_day:{today_str}", pick, ttl=86400)
                 try:

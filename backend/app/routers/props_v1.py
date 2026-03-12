@@ -533,6 +533,12 @@ def pick_of_the_day(
         "confidenceSource": best.get("confidenceSource"),
         "rationaleSource": best.get("rationaleSource"),
         "mlAvailable": best.get("mlAvailable"),
+        "matchup_score": best.get("matchup_score"),
+        "insight_type": best.get("insight_type"),
+        "matchup_explanation": best.get("matchup_explanation"),
+        "opponent_abbr": best.get("opponent_abbr"),
+        "opponent_def_rank_vs_position": best.get("opponent_def_rank_vs_position"),
+        "supporting_metrics": best.get("supporting_metrics"),
     }
     cache.set(cache_key, pick, ttl=86400)
     return {"pick": pick, "cached": False, "date": target_date}
