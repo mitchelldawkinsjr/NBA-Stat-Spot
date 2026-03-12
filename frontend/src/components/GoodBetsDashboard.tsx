@@ -11,6 +11,8 @@ import { getCache, setCache, clearCache, getTodayDate } from '../utils/cache'
 
 import { apiFetch, apiPost } from '../utils/api'
 import { getLiveGames } from '../services/overUnderService'
+import { useAddPropToTracker, type AddPropPayload } from '../hooks/useAddPropToTracker'
+import type { SuggestionItem } from './SuggestionCards'
 
 /** ESPN team logo (500px). Use uppercase abbreviation. */
 function teamLogoUrl(abbr: string): string {
@@ -112,6 +114,13 @@ async function fetchPickOfTheDay(date?: string) {
   const params = date ? `?date=${encodeURIComponent(date)}` : ''
   const res = await apiFetch(`api/v1/props/pick-of-the-day${params}`)
   if (!res.ok) throw new Error('Failed to load pick of the day')
+  return res.json()
+}
+
+async function fetchBestMatchOfTheDay(date?: string) {
+  const params = date ? `?date=${encodeURIComponent(date)}` : ''
+  const res = await apiFetch(`api/v1/games/best-match-of-the-day${params}`)
+  if (!res.ok) throw new Error('Failed to load best match of the day')
   return res.json()
 }
 
@@ -259,6 +268,15 @@ export function GoodBetsDashboard() {
   })
   const pickOfTheDay = pickOfTheDayData?.pick ?? null
 
+  const { data: bestMatchData, isLoading: bestMatchLoading } = useQuery({
+    queryKey: ['best-match-of-the-day', today],
+    queryFn: () => fetchBestMatchOfTheDay(today),
+    enabled: gamesCount > 0,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+  })
+  const bestMatchOfTheDay = bestMatchData?.match ?? null
+
   const { data: predictionsData, isLoading: predictionsLoading } = useQuery({
     queryKey: ['games-predictions', today],
     queryFn: () => fetchPredictions(today),
@@ -353,6 +371,7 @@ export function GoodBetsDashboard() {
       queryClient.invalidateQueries({ queryKey: ['top-picks', today] })
       queryClient.invalidateQueries({ queryKey: ['daily-hot-form', today] })
       queryClient.invalidateQueries({ queryKey: ['pick-of-the-day', today] })
+      queryClient.invalidateQueries({ queryKey: ['best-match-of-the-day', today] })
       updateProgress(50)
 
       // Step 4: Refetch all data sources
@@ -487,6 +506,33 @@ export function GoodBetsDashboard() {
     const list = featuredFilter === 'hot' ? hotPlayers : playersToWatch
     return list.slice(0, 8)
   }, [featuredFilter, hotPlayers, playersToWatch])
+
+  // Add prop to bet tracker from dashboard suggestions
+  const { addToTracker, isAdding: isAddingToTracker } = useAddPropToTracker()
+  const buildTrackerPayload = (s: SuggestionItem): AddPropPayload | null => {
+    const playerId = s.playerId ?? (s as any).player_id
+    const playerName = s.playerName ?? (s as any).player_name
+    if (playerId == null || !playerName || !s.type) return null
+    const line = s.marketLine ?? s.fairLine
+    if (line == null) return null
+    const dir = s.suggestion || s.chosenDirection || ((s.fairLine != null && s.marketLine != null && s.fairLine >= s.marketLine) ? 'over' : 'under')
+    const gameDate = s.gameDate ?? (s as any).game_date ?? today
+    return {
+      player_id: Number(playerId),
+      player_name: String(playerName),
+      prop_type: String(s.type),
+      line_value: Number(line),
+      direction: String(dir),
+      game_date: gameDate,
+      system_confidence: s.confidence ?? null,
+      system_fair_line: s.fairLine ?? null,
+      system_suggestion: (s.suggestion as string) ?? null,
+    }
+  }
+  const handleAddToTracker = (s: SuggestionItem) => {
+    const payload = buildTrackerPayload(s)
+    if (payload) addToTracker(payload)
+  }
 
   const statLeaders = useMemo(() => {
     const empty = { PTS: [] as any[], AST: [] as any[], REB: [] as any[], '3PM': [] as any[] }
@@ -657,7 +703,7 @@ export function GoodBetsDashboard() {
           ) : bestBets.length === 0 ? (
             <p className="text-gray-600 dark:text-gray-400 text-center py-2 text-sm transition-colors duration-200">Picks are being generated — check back soon.</p>
           ) : (
-            <SuggestionCards suggestions={bestBets} horizontal={true} />
+            <SuggestionCards suggestions={bestBets} horizontal={true} onAddToTracker={handleAddToTracker} isAddingToTracker={isAddingToTracker} />
           )}
         </div>
       </div>
@@ -834,6 +880,65 @@ export function GoodBetsDashboard() {
           </div>
           )}
 
+          {/* Best Match of the Day — LLM-picked best game from today's predictions */}
+          <div className="p-3 sm:p-4 border-2 border-amber-200 dark:border-amber-800/50 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 shadow-md transition-colors duration-200">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl" aria-hidden>🏀</span>
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">Best Match of the Day</h3>
+              {bestMatchOfTheDay?.source === 'llm' && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200 dark:bg-amber-800/50 text-amber-800 dark:text-amber-200 font-medium">AI</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 transition-colors duration-200">
+              Top game to watch or bet — chosen from today&apos;s slate using our model&apos;s predictions and AI insight.
+            </p>
+            {bestMatchLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <svg className="animate-spin h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading best match…</span>
+              </div>
+            ) : games.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2 text-center transition-colors duration-200">No games today.</p>
+            ) : !bestMatchOfTheDay ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-2 text-center transition-colors duration-200">No match selected for today.</p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => bestMatchOfTheDay?.gameId && navigate(`/game/${bestMatchOfTheDay.gameId}`)}
+                className="w-full text-left block p-4 rounded-xl bg-white dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/50 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-lg transition-all duration-200"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <img src={teamLogoUrl(bestMatchOfTheDay.away)} alt="" className="w-7 h-7 object-contain" />
+                  <span className="font-bold text-gray-900 dark:text-slate-100">{bestMatchOfTheDay.away} @ {bestMatchOfTheDay.home}</span>
+                  <img src={teamLogoUrl(bestMatchOfTheDay.home)} alt="" className="w-7 h-7 object-contain" />
+                </div>
+                {(bestMatchOfTheDay.win_probability_home != null || bestMatchOfTheDay.win_probability_away != null) && (
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mb-1.5">
+                    {bestMatchOfTheDay.predicted_winner} favored — {Math.round(
+                      bestMatchOfTheDay.predicted_winner === bestMatchOfTheDay.home
+                        ? (bestMatchOfTheDay.win_probability_home ?? 0)
+                        : (bestMatchOfTheDay.win_probability_away ?? 0)
+                    )}% win probability
+                  </p>
+                )}
+                {bestMatchOfTheDay.insight && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 mb-2">
+                    {bestMatchOfTheDay.insight}
+                  </p>
+                )}
+                {Array.isArray(bestMatchOfTheDay.key_factors) && bestMatchOfTheDay.key_factors.length > 0 && (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-500">
+                    Key factors: {bestMatchOfTheDay.key_factors.join(', ')}
+                  </p>
+                )}
+                <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-400 font-medium">View game analysis →</p>
+              </button>
+            )}
+          </div>
+
           {/* AI Pick of the Day — single best bet from today's props */}
           <div className="p-3 sm:p-4 border-2 border-violet-200 dark:border-violet-800/50 rounded-xl bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-950/30 dark:to-indigo-950/20 shadow-md transition-colors duration-200">
             <div className="flex items-center gap-2 mb-3">
@@ -862,21 +967,32 @@ export function GoodBetsDashboard() {
               const firstTopPick = bestBets.length > 0 ? bestBets[0] : null
               const isSameAsFirstTopPick = firstTopPick && firstTopPick.playerId === pickOfTheDay.playerId && String(firstTopPick.type || '').toUpperCase() === String(pickOfTheDay.type || '').toUpperCase()
               if (isSameAsFirstTopPick) {
+                const podPayload = buildTrackerPayload(pickOfTheDay as SuggestionItem)
                 return (
-                  <a href={`/player/${pickOfTheDay.playerId}`} className="block py-2 px-3 rounded-lg bg-white dark:bg-slate-800/80 border border-violet-200 dark:border-violet-800/50 hover:border-violet-400 dark:hover:border-violet-600 transition-colors duration-200 text-sm">
-                    <span className="font-semibold text-violet-700 dark:text-violet-300">Today&apos;s spotlight:</span>{' '}
-                    <span className="font-bold text-gray-900 dark:text-slate-100">{pickOfTheDay.playerName}</span>{' '}
-                    {pickOfTheDay.type} {pickOfTheDay.marketLine != null ? Number(pickOfTheDay.marketLine) : '—'}{' '}
-                    <span className={pickOfTheDay.suggestion === 'over' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>{String(pickOfTheDay.suggestion).toUpperCase()}</span>
-                    {pickOfTheDay.confidence != null && <span className="ml-1.5 font-bold text-violet-700 dark:text-violet-300">— {Math.round(Number(pickOfTheDay.confidence))}% confidence</span>}
-                  </a>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <a href={`/player/${pickOfTheDay.playerId}`} className="flex-1 min-w-0 py-2 px-3 rounded-lg bg-white dark:bg-slate-800/80 border border-violet-200 dark:border-violet-800/50 hover:border-violet-400 dark:hover:border-violet-600 transition-colors duration-200 text-sm">
+                      <span className="font-semibold text-violet-700 dark:text-violet-300">Today&apos;s spotlight:</span>{' '}
+                      <span className="font-bold text-gray-900 dark:text-slate-100">{pickOfTheDay.playerName}</span>{' '}
+                      {pickOfTheDay.type} {pickOfTheDay.marketLine != null ? Number(pickOfTheDay.marketLine) : '—'}{' '}
+                      <span className={pickOfTheDay.suggestion === 'over' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>{String(pickOfTheDay.suggestion).toUpperCase()}</span>
+                      {pickOfTheDay.confidence != null && <span className="ml-1.5 font-bold text-violet-700 dark:text-violet-300">— {Math.round(Number(pickOfTheDay.confidence))}% confidence</span>}
+                    </a>
+                    {podPayload && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToTracker(podPayload) }}
+                        disabled={isAddingToTracker}
+                        className="shrink-0 py-2 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white transition-colors"
+                      >
+                        {isAddingToTracker ? 'Adding…' : 'Add to tracker'}
+                      </button>
+                    )}
+                  </div>
                 )
               }
+              const podPayload = buildTrackerPayload(pickOfTheDay as SuggestionItem)
               return (
-              <a
-                href={`/player/${pickOfTheDay.playerId}`}
-                className="block p-4 rounded-xl bg-white dark:bg-slate-800/80 border border-violet-200 dark:border-violet-800/50 hover:border-violet-400 dark:hover:border-violet-600 hover:shadow-lg transition-all duration-200"
-              >
+              <div className="block p-4 rounded-xl bg-white dark:bg-slate-800/80 border border-violet-200 dark:border-violet-800/50 hover:border-violet-400 dark:hover:border-violet-600 hover:shadow-lg transition-all duration-200">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-lg font-bold text-gray-900 dark:text-slate-100 truncate transition-colors duration-200">{pickOfTheDay.playerName}</div>
@@ -898,10 +1014,22 @@ export function GoodBetsDashboard() {
                     </p>
                   )}
                 </div>
-                <div className="mt-2 pt-2 border-t border-violet-100 dark:border-violet-800/30 text-[11px] text-gray-500 dark:text-gray-400 transition-colors duration-200">
-                  View full analysis →
+                <div className="mt-2 pt-2 border-t border-violet-100 dark:border-violet-800/30 flex items-center justify-between gap-2 flex-wrap">
+                  <a href={`/player/${pickOfTheDay.playerId}`} className="text-[11px] text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-300 transition-colors duration-200">
+                    View full analysis →
+                  </a>
+                  {podPayload && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToTracker(podPayload) }}
+                      disabled={isAddingToTracker}
+                      className="py-1.5 px-3 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white transition-colors"
+                    >
+                      {isAddingToTracker ? 'Adding…' : 'Add to tracker'}
+                    </button>
+                  )}
                 </div>
-              </a>
+              </div>
               )
             })()}
           </div>

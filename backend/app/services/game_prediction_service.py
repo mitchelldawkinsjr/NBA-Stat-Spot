@@ -21,6 +21,12 @@ from .context_collector import ContextCollector
 from .team_stats_service import TeamStatsService
 from .cache_service import get_cache_service
 from .nba_api_service import NBADataService
+from .llm.prompt_builder import (
+    GAME_OUTLOOK_SYSTEM_PROMPT,
+    GAME_SUMMARY_SYSTEM_PROMPT,
+    build_game_summary_prompt,
+    build_game_outlook_prompt,
+)
 
 logger = structlog.get_logger()
 
@@ -264,6 +270,96 @@ class GamePredictionService:
             logger.debug("record_game_predictions failed", date=target_date.isoformat(), error=str(e))
         return predictions
 
+    def _resolve_game_from_espn(self, game_id: str) -> Optional[Dict[str, Any]]:
+        """When game is not in today's predictions, try to load from ESPN summary and build minimal prediction."""
+        try:
+            from .espn_api_service import get_espn_service
+            espn = get_espn_service()
+            summary = espn.get_game_summary(game_id)
+            if not summary:
+                return None
+            header = summary.get("header") or {}
+            comps = header.get("competitions") or []
+            if not comps:
+                return None
+            comp = comps[0]
+            competitors = comp.get("competitors") or []
+            home_abbr = away_abbr = None
+            for c in competitors:
+                abbr = ((c.get("team") or {}).get("abbreviation") or "").strip().upper()
+                if (c.get("homeAway") or "").lower() == "home":
+                    home_abbr = abbr
+                else:
+                    away_abbr = abbr
+            if not home_abbr or not away_abbr:
+                return None
+            teams_by_abbr = _get_teams_by_abbr()
+            home_team = teams_by_abbr.get(home_abbr)
+            away_team = teams_by_abbr.get(away_abbr)
+            home_id = int(home_team["id"]) if home_team and home_team.get("id") is not None else None
+            away_id = int(away_team["id"]) if away_team and away_team.get("id") is not None else None
+            season = "2025-26"
+            def_ranks = ContextCollector._calculate_defensive_ranks(season) or {}
+            off_ranks = ContextCollector._calculate_offensive_ranks(season) or {}
+            if not def_ranks or not off_ranks:
+                def_fb, off_fb = ContextCollector._calculate_team_ranks_from_player_stats(season)
+                if not def_ranks and def_fb:
+                    def_ranks = def_fb
+                if not off_ranks and off_fb:
+                    off_ranks = off_fb
+            home_def = def_ranks.get(home_id, {}) if home_id else {}
+            away_def = def_ranks.get(away_id, {}) if away_id else {}
+            home_off = off_ranks.get(home_id, {}) if home_id else {}
+            away_off = off_ranks.get(away_id, {}) if away_id else {}
+            home_stats = self._team_stats.get_team_stats(home_abbr)
+            away_stats = self._team_stats.get_team_stats(away_abbr)
+            default_ppg, default_pace = 112.5, 100.0
+            home_ppg = getattr(home_stats, "ppg", default_ppg) or default_ppg
+            away_ppg = getattr(away_stats, "ppg", default_ppg) or default_ppg
+            prob_home = _win_probability_from_ranks(
+                home_off.get("pts"), home_def.get("pts"),
+                away_off.get("pts"), away_def.get("pts"),
+                home_ppg, away_ppg,
+            )
+            prob_away = 1.0 - prob_home
+            predicted_winner = home_abbr if prob_home >= 0.5 else away_abbr
+            key_adv = _key_advantages(
+                predicted_winner, home_abbr, away_abbr,
+                home_off, home_def, away_off, away_def,
+                home_ppg, away_ppg,
+                getattr(home_stats, "pace", default_pace) or default_pace,
+                getattr(away_stats, "pace", default_pace) or default_pace,
+            )
+            key_advantage_summary = " and ".join(key_adv) if key_adv else "balanced matchup"
+            event_date = (comps[0].get("date") if comps else "") or comp.get("date") or ""
+            return {
+                "gameId": game_id,
+                "home": home_abbr,
+                "away": away_abbr,
+                "home_team_id": home_id,
+                "away_team_id": away_id,
+                "home_full_name": (home_team or {}).get("full_name") or home_abbr,
+                "away_full_name": (away_team or {}).get("full_name") or away_abbr,
+                "predicted_winner": predicted_winner,
+                "predicted_winner_name": (home_team or {}).get("full_name") if predicted_winner == home_abbr else (away_team or {}).get("full_name"),
+                "win_probability_home": round(prob_home * 100, 1),
+                "win_probability_away": round(prob_away * 100, 1),
+                "key_advantage_summary": key_advantage_summary,
+                "outlook_summary": None,
+                "game_time_utc": event_date,
+                "home_off_rank_pts": home_off.get("pts"),
+                "home_def_rank_pts": home_def.get("pts"),
+                "away_off_rank_pts": away_off.get("pts"),
+                "away_def_rank_pts": away_def.get("pts"),
+                "home_ppg": home_ppg,
+                "away_ppg": away_ppg,
+                "home_pace": getattr(home_stats, "pace", default_pace) or default_pace,
+                "away_pace": getattr(away_stats, "pace", default_pace) or default_pace,
+            }
+        except Exception as e:
+            logger.debug("Resolve game from ESPN failed", game_id=game_id, error=str(e))
+            return None
+
     def get_game_prediction_detail(self, game_id: str, target_date: Optional[date] = None) -> Optional[Dict[str, Any]]:
         """Get full prediction and detail for one game (for game detail page)."""
         target_date = target_date or date.today()
@@ -275,6 +371,8 @@ class GamePredictionService:
         predictions = self.get_todays_predictions(target_date)
         one = next((p for p in predictions if p["gameId"] == game_id), None)
         if not one:
+            one = self._resolve_game_from_espn(game_id)
+        if not one:
             return None
 
         season = "2025-26"
@@ -283,20 +381,34 @@ class GamePredictionService:
         home_abbr = one["home"]
         away_abbr = one["away"]
 
-        # --- Full rank data ---
+        # --- Full rank data --- (use player-stats fallback when primary is empty or team missing)
         def_ranks = ContextCollector._calculate_defensive_ranks(season) or {}
         off_ranks = ContextCollector._calculate_offensive_ranks(season) or {}
-        if not def_ranks and not off_ranks:
+        need_def = not def_ranks or (home_id is not None and def_ranks.get(int(home_id) if home_id is not None else None) is None) or (away_id is not None and def_ranks.get(int(away_id) if away_id is not None else None) is None)
+        need_off = not off_ranks or (home_id is not None and off_ranks.get(int(home_id) if home_id is not None else None) is None) or (away_id is not None and off_ranks.get(int(away_id) if away_id is not None else None) is None)
+        if need_def or need_off:
             def_fb, off_fb = ContextCollector._calculate_team_ranks_from_player_stats(season)
-            def_ranks = def_fb or {}
-            off_ranks = off_fb or {}
+            if need_def and def_fb:
+                def_ranks = dict(def_ranks)
+                for tid, r in def_fb.items():
+                    tid_int = int(tid) if tid is not None else None
+                    if tid_int is not None and (tid_int not in def_ranks or not def_ranks.get(tid_int)):
+                        def_ranks[tid_int] = r
+            if need_off and off_fb:
+                off_ranks = dict(off_ranks)
+                for tid, r in off_fb.items():
+                    tid_int = int(tid) if tid is not None else None
+                    if tid_int is not None and (tid_int not in off_ranks or not off_ranks.get(tid_int)):
+                        off_ranks[tid_int] = r
         pace_ranks = ContextCollector._calculate_pace_ranks(season) or {}
         pos_ranks = ContextCollector._calculate_position_defensive_ranks(season) or {}
 
-        home_def_full = def_ranks.get(home_id, {}) if home_id else {}
-        away_def_full = def_ranks.get(away_id, {}) if away_id else {}
-        home_off_full = off_ranks.get(home_id, {}) if home_id else {}
-        away_off_full = off_ranks.get(away_id, {}) if away_id else {}
+        _hid = int(home_id) if home_id is not None else None
+        _aid = int(away_id) if away_id is not None else None
+        home_def_full = (def_ranks.get(_hid) or def_ranks.get(home_id)) if (_hid or home_id) else {}
+        away_def_full = (def_ranks.get(_aid) or def_ranks.get(away_id)) if (_aid or away_id) else {}
+        home_off_full = (off_ranks.get(_hid) or off_ranks.get(home_id)) if (_hid or home_id) else {}
+        away_off_full = (off_ranks.get(_aid) or off_ranks.get(away_id)) if (_aid or away_id) else {}
         home_pace_data = pace_ranks.get(home_id, {}) if home_id else {}
         away_pace_data = pace_ranks.get(away_id, {}) if away_id else {}
 
@@ -320,7 +432,8 @@ class GamePredictionService:
         h2h_wins_home = sum(1 for g in h2h_games if g.get("winner") == home_abbr)
         h2h_wins_away = len(h2h_games) - h2h_wins_home
 
-        # Build extended outlook for detail page (longer LLM summary)
+        # Build extended outlook for detail page (longer LLM summary; include player averages and recent form)
+        key_players_text = _format_key_players_for_prompt(home_key_players, away_key_players, home_abbr, away_abbr)
         extended_outlook = self._generate_game_outlook(
             home_abbr, away_abbr,
             one["predicted_winner"],
@@ -329,6 +442,7 @@ class GamePredictionService:
             one.get("home_ppg"), one.get("away_ppg"), one.get("home_pace"), one.get("away_pace"),
             one.get("home_off_rank_pts"), one.get("home_def_rank_pts"),
             one.get("away_off_rank_pts"), one.get("away_def_rank_pts"),
+            key_players_text=key_players_text,
         )
 
         one = {
@@ -373,13 +487,38 @@ class GamePredictionService:
             gen = get_rationale_generator()
             if not gen.is_available():
                 return f"{winner_abbr} favored ({win_pct}%). Key advantage: {key_advantage}."
-            prompt = (
-                f"In one short sentence, why might {winner_abbr} win today's NBA game vs their opponent? "
-                f"Game: {away_abbr} @ {home_abbr}. Predicted winner: {winner_abbr} ({win_pct}% win probability). "
-                f"Key statistical advantages: {key_advantage}. Home PPG: {home_ppg:.1f}, Away PPG: {away_ppg:.1f}. "
-                f"Pace: {home_pace:.1f} vs {away_pace:.1f}. Reply with only one concise sentence, no prefix."
+            # Detect whether the first service is chat-based (OpenAI) or single-prompt (Ollama)
+            first_svc = gen.services[0] if gen.services else None
+            for_chat = hasattr(first_svc, "client") if first_svc else True
+            prompt = build_game_summary_prompt(
+                home_abbr=home_abbr,
+                away_abbr=away_abbr,
+                winner_abbr=winner_abbr,
+                win_pct=win_pct,
+                key_advantage=key_advantage,
+                home_ppg=home_ppg,
+                away_ppg=away_ppg,
+                home_pace=home_pace,
+                away_pace=away_pace,
+                for_chat_api=for_chat,
             )
-            result = gen._generate_simple(prompt)
+            if for_chat and first_svc and hasattr(first_svc, "client"):
+                try:
+                    resp = first_svc.client.chat.completions.create(
+                        model=first_svc.model,
+                        messages=[
+                            {"role": "system", "content": GAME_SUMMARY_SYSTEM_PROMPT},
+                            {"role": "user", "content": prompt},
+                        ],
+                        temperature=0.4,
+                        max_tokens=60,
+                    )
+                    result = (resp.choices[0].message.content or "").strip()
+                    if result:
+                        return result[:200]
+                except Exception:
+                    pass
+            result = gen._generate_simple(prompt, max_tokens=60)
             if result:
                 return result.strip()[:200]
         except Exception as e:
@@ -401,8 +540,9 @@ class GamePredictionService:
         home_def_pts: Optional[int],
         away_off_pts: Optional[int],
         away_def_pts: Optional[int],
+        key_players_text: Optional[str] = None,
     ) -> str:
-        """Longer LLM-generated outlook for game detail page."""
+        """Longer LLM-generated outlook for game detail page. Includes player averages and recent form when provided."""
         try:
             from .rationale_generator import get_rationale_generator
             gen = get_rationale_generator()
@@ -411,15 +551,41 @@ class GamePredictionService:
                     f"The model favors {winner_abbr} with a {win_pct:.0f}% win probability. "
                     f"Key factors: {key_advantage}. Use the team comparison and defensive matchup sections below for details."
                 )
-            prompt = (
-                f"Write a short paragraph (2-4 sentences) explaining the game outlook for today's NBA game: {away_abbr} @ {home_abbr}. "
-                f"Predicted winner: {winner_abbr} ({win_pct:.0f}% win probability). "
-                f"Key statistical advantages: {key_advantage}. "
-                f"Home team PPG: {home_ppg or 'N/A'}, Away team PPG: {away_ppg or 'N/A'}. "
-                f"Pace: Home {home_pace or 'N/A'}, Away {away_pace or 'N/A'}. "
-                f"Offensive ranks (1=best): Home {home_off_pts}, Away {away_off_pts}. Defensive ranks (1=best): Home {home_def_pts}, Away {away_def_pts}. "
-                f"Be concise and focus on why the model predicts this outcome. No bullet points."
+            first_svc = gen.services[0] if gen.services else None
+            for_chat = hasattr(first_svc, "client") if first_svc else True
+            prompt = build_game_outlook_prompt(
+                home_abbr=home_abbr,
+                away_abbr=away_abbr,
+                winner_abbr=winner_abbr,
+                win_pct=win_pct,
+                key_advantage=key_advantage,
+                home_ppg=home_ppg,
+                away_ppg=away_ppg,
+                home_pace=home_pace,
+                away_pace=away_pace,
+                home_off_pts=home_off_pts,
+                home_def_pts=home_def_pts,
+                away_off_pts=away_off_pts,
+                away_def_pts=away_def_pts,
+                key_players_text=key_players_text,
+                for_chat_api=for_chat,
             )
+            if for_chat and first_svc and hasattr(first_svc, "client"):
+                try:
+                    resp = first_svc.client.chat.completions.create(
+                        model=first_svc.model,
+                        messages=[
+                            {"role": "system", "content": GAME_OUTLOOK_SYSTEM_PROMPT},
+                            {"role": "user", "content": prompt},
+                        ],
+                        temperature=0.5,
+                        max_tokens=400,
+                    )
+                    result = (resp.choices[0].message.content or "").strip()
+                    if result:
+                        return result[:800]
+                except Exception:
+                    pass
             result = gen._generate_simple(prompt, max_tokens=400)
             if result:
                 return result.strip()[:800]
@@ -434,6 +600,44 @@ class GamePredictionService:
 def _avg(vals: List[float]) -> Optional[float]:
     """Return mean of a list, or None if empty."""
     return round(sum(vals) / len(vals), 1) if vals else None
+
+
+def _format_key_players_for_prompt(
+    home_players: List[Dict[str, Any]],
+    away_players: List[Dict[str, Any]],
+    home_abbr: str,
+    away_abbr: str,
+    max_per_side: int = 3,
+) -> str:
+    """Format key players' season averages and last-5 for LLM prompt (player stats in prediction context)."""
+    def fmt(p: Dict[str, Any]) -> str:
+        name = (p.get("name") or p.get("full_name") or "?").strip().split()[-1] or "?"
+        pts = p.get("season_pts")
+        l5 = p.get("last5_pts")
+        reb = p.get("season_reb")
+        ast = p.get("season_ast")
+        s = f"{name} {pts:.1f} ppg" if pts is not None else f"{name}"
+        if l5 is not None:
+            s += f" (last 5: {l5:.1f})"
+        if reb is not None or ast is not None:
+            extras = []
+            if reb is not None:
+                extras.append(f"{reb:.1f} rpg")
+            if ast is not None:
+                extras.append(f"{ast:.1f} apg")
+            s += " " + ", ".join(extras)
+        return s
+
+    home_str = ", ".join(fmt(p) for p in (home_players or [])[:max_per_side])
+    away_str = ", ".join(fmt(p) for p in (away_players or [])[:max_per_side])
+    if not home_str and not away_str:
+        return ""
+    lines = []
+    if home_str:
+        lines.append(f"{home_abbr} key players: {home_str}.")
+    if away_str:
+        lines.append(f"{away_abbr} key players: {away_str}.")
+    return " ".join(lines)
 
 
 def _parse_opp_abbr(matchup: str) -> Optional[str]:

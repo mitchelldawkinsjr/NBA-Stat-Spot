@@ -1,10 +1,13 @@
+import re
 from fastapi import APIRouter, Query, Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from datetime import date, timedelta, datetime
 import structlog
 from ..services.live_game_service import LiveGameService
 from ..services.espn_api_service import get_espn_service
 from ..services.game_prediction_service import get_game_prediction_service
+from ..services.cache_service import get_cache_service
+from ..services.llm.prompt_builder import BEST_MATCH_SYSTEM_PROMPT, build_best_match_prompt
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/v1/games", tags=["games_v1"])
@@ -139,6 +142,195 @@ def get_predictions(
     except Exception as e:
         logger.error("Failed to fetch game predictions", date=target_date.isoformat(), error=str(e))
         return {"date": target_date.isoformat(), "predictions": [], "error": str(e)}
+
+
+def _parse_best_match_response(
+    llm_text: str, predictions: List[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    """
+    Parse LLM response to find matchup (e.g. 'BOS @ MIA' or 'MIA vs BOS') and match to a game.
+    Returns the prediction dict for the matched game, or None.
+    """
+    if not llm_text or not predictions:
+        return None
+    text = (llm_text or "").upper()
+    # Build set of (away, home) and (home, away) for each game (abbrs normalized)
+    for p in predictions:
+        home = (p.get("home") or "").strip().upper()
+        away = (p.get("away") or "").strip().upper()
+        if not home or not away:
+            continue
+        # Look for "AWAY @ HOME" or "HOME vs AWAY" or "AWAY vs HOME"
+        if (away + " @ " + home) in text or (home + " @ " + away) in text:
+            return p
+        if (away + " VS " + home) in text or (home + " VS " + away) in text:
+            return p
+        if (away + " VS. " + home) in text or (home + " VS. " + away) in text:
+            return p
+    # Regex: two 3-letter abbrs separated by @ or vs
+    abbrs = set()
+    for p in predictions:
+        abbrs.add((p.get("home") or "").strip().upper())
+        abbrs.add((p.get("away") or "").strip().upper())
+    # Pattern: WORD @ WORD or WORD vs WORD (WORD = 2-4 chars)
+    for m in re.finditer(r"([A-Z]{2,4})\s*(?:@|VS\.?)\s*([A-Z]{2,4})", text, re.IGNORECASE):
+        a1, a2 = m.group(1).upper(), m.group(2).upper()
+        for p in predictions:
+            home = (p.get("home") or "").strip().upper()
+            away = (p.get("away") or "").strip().upper()
+            if (a1 == away and a2 == home) or (a1 == home and a2 == away):
+                return p
+    return None
+
+
+def _extract_insight_and_factors(llm_text: str) -> Tuple[str, List[str]]:
+    """Extract WHY and FACTORS from LLM response. Returns (insight_paragraph, key_factors_list)."""
+    insight = ""
+    factors: List[str] = []
+    if not llm_text:
+        return insight, factors
+    lines = [ln.strip() for ln in llm_text.split("\n") if ln.strip()]
+    for i, line in enumerate(lines):
+        upper = line.upper()
+        if upper.startswith("WHY:") or upper.startswith("INSIGHT:"):
+            insight = line.split(":", 1)[-1].strip()
+        elif upper.startswith("FACTORS:"):
+            rest = line.split(":", 1)[-1].strip()
+            factors = [x.strip() for x in rest.split(",") if x.strip()]
+    if not insight:
+        # Use first 1-2 sentences that don't look like MATCHUP/WHY/FACTORS
+        for line in lines:
+            if not re.match(r"^(MATCHUP|WHY|FACTORS):", line, re.I):
+                insight = line[:400]
+                break
+    return insight or llm_text[:400], factors
+
+
+def compute_best_match_of_the_day(target_date: date) -> Optional[Dict[str, Any]]:
+    """
+    Compute best match of the day (no cache). Used by the endpoint and by admin warm-dashboard.
+    Returns the match payload dict or None if no games.
+    """
+    try:
+        svc = get_game_prediction_service()
+        predictions = svc.get_todays_predictions(target_date)
+    except Exception as e:
+        logger.warning("Failed to get predictions for best match", date=target_date.isoformat(), error=str(e))
+        predictions = []
+
+    if not predictions:
+        return None
+
+    try:
+        from ..services.rationale_generator import get_rationale_generator as _gen
+        first_svc = (_gen().services or [None])[0]
+        for_chat = hasattr(first_svc, "client") if first_svc else True
+    except Exception:
+        for_chat = True
+
+    prompt = build_best_match_prompt(predictions=predictions, for_chat_api=for_chat)
+
+    insight = ""
+    key_factors: List[str] = []
+    matched = None
+    source = "fallback"
+
+    try:
+        from ..services.rationale_generator import get_rationale_generator
+        gen = get_rationale_generator()
+        if gen.is_available():
+            first_svc = gen.services[0] if gen.services else None
+            result = None
+            if for_chat and first_svc and hasattr(first_svc, "client"):
+                try:
+                    resp = first_svc.client.chat.completions.create(
+                        model=first_svc.model,
+                        messages=[
+                            {"role": "system", "content": BEST_MATCH_SYSTEM_PROMPT},
+                            {"role": "user", "content": prompt},
+                        ],
+                        temperature=0.4,
+                        max_tokens=400,
+                    )
+                    result = (resp.choices[0].message.content or "").strip()
+                except Exception:
+                    pass
+            if not result:
+                result = gen._generate_simple(prompt, max_tokens=400)
+            if result:
+                matched = _parse_best_match_response(result, predictions)
+                insight, key_factors = _extract_insight_and_factors(result)
+                if matched:
+                    source = "llm"
+    except Exception as e:
+        logger.debug("Best match LLM failed", error=str(e))
+
+    if not matched:
+        def _closeness(p: Dict[str, Any]) -> float:
+            wh = p.get("win_probability_home") or 50
+            return -abs(wh - 50)
+        predictions_sorted = sorted(predictions, key=_closeness)
+        matched = predictions_sorted[0] if predictions_sorted else None
+        if matched:
+            insight = (
+                f"{matched.get('predicted_winner')} favored with a close spread. "
+                f"Key advantage: {matched.get('key_advantage_summary') or 'balanced matchup'}."
+            )
+            key_factors = [matched.get("key_advantage_summary")] if matched.get("key_advantage_summary") else []
+
+    if not matched:
+        return None
+
+    return {
+        "gameId": matched.get("gameId"),
+        "home": matched.get("home"),
+        "away": matched.get("away"),
+        "home_full_name": matched.get("home_full_name"),
+        "away_full_name": matched.get("away_full_name"),
+        "predicted_winner": matched.get("predicted_winner"),
+        "win_probability_home": matched.get("win_probability_home"),
+        "win_probability_away": matched.get("win_probability_away"),
+        "key_advantage_summary": matched.get("key_advantage_summary"),
+        "insight": insight,
+        "key_factors": key_factors,
+        "source": source,
+    }
+
+
+@router.get(
+    "/best-match-of-the-day",
+    summary="Get Best Match of the Day",
+    description="""
+    Returns the single best game of the day based on an LLM analysis of today's predictions.
+    Uses game predictions (win probability, key advantage, PPG, pace) to build a prompt;
+    the LLM picks one game and provides a short insight and key factors.
+    Cached per day (24h TTL). Falls back to most competitive game (closest to 50% win prob) if LLM unavailable.
+    """,
+    response_description="One game (gameId, home, away, insight, key_factors) or null if no games.",
+    tags=["games_v1"],
+)
+def best_match_of_the_day(
+    date_param: Optional[str] = Query(None, description="Target date YYYY-MM-DD. Defaults to today.", alias="date"),
+):
+    """Best match of the day: LLM picks one game from today's predictions and explains why."""
+    target_date = date.today()
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = date.today()
+    cache = get_cache_service()
+    cache_key = f"best_match_of_the_day:{target_date.isoformat()}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return {"match": cached, "cached": True, "date": target_date.isoformat()}
+
+    out = compute_best_match_of_the_day(target_date)
+    if out is None:
+        cache.set(cache_key, None, ttl=86400)
+        return {"match": None, "cached": False, "date": target_date.isoformat()}
+    cache.set(cache_key, out, ttl=86400)
+    return {"match": out, "cached": False, "date": target_date.isoformat()}
 
 
 @router.get(

@@ -6,6 +6,8 @@ import { apiFetch, apiPost } from '../utils/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from '../context/SnackbarContext'
 import { SuggestionCards } from '../components/SuggestionCards'
+import type { SuggestionItem } from '../components/SuggestionCards'
+import { useAddPropToTracker } from '../hooks/useAddPropToTracker'
 import { PropCard } from '../components/PropCard'
 import { calculateConfidenceBasic } from '../utils/confidence'
 import { TrendChart } from '../components/TrendChart'
@@ -451,6 +453,32 @@ export default function PlayerProfile() {
     return { ...match, chosenDirection: hrDir as 'over' | 'under' }
   }, [evalResult, hrStat, hrDir])
 
+  const propTypeMap: Record<'PTS'|'REB'|'AST'|'3PM'|'PRA', string> = useMemo(() => ({
+    PTS: 'PTS',
+    REB: 'REB',
+    AST: 'AST',
+    '3PM': '3PM',
+    PRA: 'PRA'
+  }), [])
+
+  const { addToTracker, isAdding: isAddingToTracker } = useAddPropToTracker()
+  const handleAddToTrackerFromSuggestion = (s: SuggestionItem) => {
+    if (!id || !playerName || !hrLine) return
+    const line = s.marketLine ?? s.fairLine ?? Number(hrLine)
+    const dir = (s.suggestion || s.chosenDirection || hrDir) as string
+    addToTracker({
+      player_id: Number(id),
+      player_name: playerName,
+      prop_type: propTypeMap[hrStat],
+      line_value: Number.isFinite(line) ? Number(line) : Number(hrLine),
+      direction: dir,
+      game_date: new Date().toISOString().split('T')[0],
+      system_confidence: (s.confidence as number) ?? null,
+      system_fair_line: (s.fairLine as number) ?? null,
+      system_suggestion: (s.suggestion as string) ?? null,
+    })
+  }
+
   // Create bet mutation
   const createBet = useMutation({
     mutationFn: async () => {
@@ -458,19 +486,10 @@ export default function PlayerProfile() {
         throw new Error('Missing required bet information')
       }
       
-      // Map prop type to API format
-      const propTypeMap: Record<'PTS'|'REB'|'AST'|'3PM'|'PRA', string> = {
-        PTS: 'PTS',
-        REB: 'REB',
-        AST: 'AST',
-        '3PM': '3PM',
-        PRA: 'PRA'
-      }
-      
       const betData = {
         player_id: Number(id),
         player_name: playerName,
-        prop_type: propTypeMap[hrStat],
+        prop_type: propTypeMap[hrStat] as string,
         line_value: Number(hrLine),
         direction: hrDir,
         game_date: new Date().toISOString().split('T')[0], // Today's date in YYYY-MM-DD format
@@ -1628,7 +1647,7 @@ export default function PlayerProfile() {
           {/* Evaluated suggestion */}
           {selectedSuggestion && (
             <div className="mt-3">
-              <SuggestionCards suggestions={[selectedSuggestion]} />
+              <SuggestionCards suggestions={[selectedSuggestion]} onAddToTracker={handleAddToTrackerFromSuggestion} isAddingToTracker={isAddingToTracker} />
               {/* Add to Bet Tracker button */}
               {id && playerName && hrLine && (
                 <div className="mt-3 flex justify-center">

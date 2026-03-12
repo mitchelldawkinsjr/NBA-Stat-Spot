@@ -3,9 +3,10 @@ Local LLM Service - Uses local or remote LLM (Ollama/LlamaCpp) for rationale gen
 Supports Ollama on a VPS via OLLAMA_HOST (e.g. http://your-vps:11434).
 """
 from __future__ import annotations
-from typing import Dict, Optional, Any
+from typing import Dict, List, Optional, Any
 import os
 from .base_llm import BaseLLMService
+from .prompt_builder import build_prop_rationale_prompt, build_over_under_prompt
 
 try:
     import ollama
@@ -119,10 +120,7 @@ class LocalLLMService(BaseLLMService):
                 response = self._ollama_client.generate(
                     model=self.model_name,
                     prompt=prompt,
-                    options={
-                        "temperature": 0.7,
-                        "num_predict": 300
-                    }
+                    options={"temperature": 0.5, "num_predict": 300},
                 )
                 rationale = response.response.strip() if hasattr(response, "response") else response.get("response", "").strip()
             elif self.provider == "llamacpp":
@@ -131,13 +129,12 @@ class LocalLLMService(BaseLLMService):
                 response = self._model(
                     prompt,
                     max_tokens=300,
-                    temperature=0.7,
-                    stop=["\n\n", "Player:", "Prop:"]
+                    temperature=0.5,
+                    stop=["\n\n", "PROP:", "Game:"],
                 )
                 rationale = response["choices"][0]["text"].strip()
             else:
                 raise ValueError(f"Unknown provider: {self.provider}")
-            
             return rationale
         except Exception as e:
             import structlog
@@ -146,7 +143,7 @@ class LocalLLMService(BaseLLMService):
             raise
 
     def generate_from_prompt(self, prompt: str, max_tokens: int = 300) -> Optional[str]:
-        """Generate text from a single user prompt."""
+        """Generate text from a single user prompt (temperature 0.5 for consistency)."""
         if not self._available:
             return None
         try:
@@ -154,15 +151,61 @@ class LocalLLMService(BaseLLMService):
                 response = self._ollama_client.generate(
                     model=self.model_name,
                     prompt=prompt,
-                    options={"temperature": 0.6, "num_predict": max_tokens},
+                    options={"temperature": 0.5, "num_predict": max_tokens},
                 )
                 return (response.response if hasattr(response, "response") else response.get("response", "") or "").strip()
             if self.provider == "llamacpp" and self._model:
-                out = self._model(prompt, max_tokens=max_tokens, temperature=0.6, stop=["\n\n"])
+                out = self._model(prompt, max_tokens=max_tokens, temperature=0.5, stop=["\n\n"])
                 return (out["choices"][0]["text"] or "").strip()
         except Exception:
             pass
         return None
+
+    def generate_over_under_rationale(
+        self,
+        home_team: str,
+        away_team: str,
+        current_total: int,
+        projected_total: float,
+        live_line: Optional[float],
+        recommendation: str,
+        confidence: str,
+        key_factors: List[str],
+        game_context: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Generate over/under rationale using the enhanced O/U prompt (persona embedded for Ollama)."""
+        if not self._available:
+            raise RuntimeError("Local LLM service not available")
+        prompt = build_over_under_prompt(
+            home_team=home_team,
+            away_team=away_team,
+            current_total=current_total,
+            projected_total=projected_total,
+            live_line=live_line,
+            recommendation=recommendation,
+            confidence=confidence,
+            key_factors=key_factors,
+            game_context=game_context,
+            for_chat_api=False,
+        )
+        try:
+            if self.provider == "ollama":
+                response = self._ollama_client.generate(
+                    model=self.model_name,
+                    prompt=prompt,
+                    options={"temperature": 0.5, "num_predict": 200},
+                )
+                return (response.response if hasattr(response, "response") else response.get("response", "") or "").strip()
+            if self.provider == "llamacpp" and self._model:
+                out = self._model(prompt, max_tokens=200, temperature=0.5, stop=["\n\n", "GAME:"])
+                return (out["choices"][0]["text"] or "").strip()
+        except Exception as e:
+            import structlog
+            structlog.get_logger().warning("Ollama O/U rationale failed", error=str(e))
+        return super().generate_over_under_rationale(
+            home_team, away_team, current_total, projected_total,
+            live_line, recommendation, confidence, key_factors, game_context,
+        )
 
     def _build_prompt(
         self,
@@ -176,47 +219,19 @@ class LocalLLMService(BaseLLMService):
         context: Optional[Dict[str, Any]],
         espn_context: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Build the prompt for rationale generation"""
-        hit_rate = stats.get("hit_rate", 0)
-        hit_rate_over = stats.get("hit_rate_over", 0)
-        recent = stats.get("recent", {})
-        trend = recent.get("trend", "flat")
-        avg = recent.get("avg", 0)
-        
-        prompt = f"""Generate a concise rationale for this NBA prop bet:
-
-Player: {player_name}
-Bet: {prop_type} {direction.upper()} {line_value}
-Confidence: {confidence}%"""
-        
-        if ml_confidence:
-            prompt += f"\nML Confidence: {ml_confidence}%"
-        
-        prompt += f"""
-Stats:
-- Hit rate ({direction}): {hit_rate:.1%}
-- Recent form: {trend} (avg: {avg:.1f})
-- Season hit rate (over): {hit_rate_over:.1%}"""
-        
-        if context:
-            if context.get("rest_days") is not None:
-                prompt += f"\n- Rest days: {context['rest_days']}"
-            if context.get("is_home_game"):
-                prompt += "\n- Home game"
-            if context.get("opponent_def_rank"):
-                prompt += f"\n- Opponent defensive rank: {context['opponent_def_rank']}"
-        
-        if espn_context:
-            if espn_context.get("injury_status"):
-                prompt += f"\n- Injury status: {espn_context['injury_status']}"
-            if espn_context.get("conference_rank"):
-                prompt += f"\n- Conference rank: {espn_context['conference_rank']}"
-            if espn_context.get("news_sentiment") is not None:
-                prompt += f"\n- News sentiment: {espn_context['news_sentiment']:.2f}"
-        
-        prompt += "\n\nRationale:"
-        
-        return prompt
+        """Build the single-prompt for local/Ollama models (persona embedded inline)."""
+        return build_prop_rationale_prompt(
+            player_name=player_name,
+            prop_type=prop_type,
+            line_value=line_value,
+            direction=direction,
+            confidence=confidence,
+            ml_confidence=ml_confidence,
+            stats=stats,
+            context=context,
+            espn_context=espn_context,
+            for_chat_api=False,
+        )
     
     def is_available(self) -> bool:
         """Check if local LLM service is available"""

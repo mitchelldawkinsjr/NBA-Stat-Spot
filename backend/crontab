@@ -27,10 +27,11 @@
 25 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/stat-leaders" --max-time 300 || echo "Failed: stat-leaders"
 
 # 6:26–6:30 AM EST — Team defense/offense/pace/position ranks (Team profile + player context)
-26 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/defensive-ranks?season=2025-26" --max-time 180 || echo "Failed: defensive-ranks"
-27 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/offensive-ranks?season=2025-26" --max-time 120 || echo "Failed: offensive-ranks"
+# No short timeout: let jobs run to completion so cache is full; UI updates when done.
+26 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/defensive-ranks?season=2025-26" --max-time 3600 || echo "Failed: defensive-ranks"
+27 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/offensive-ranks?season=2025-26" --max-time 1800 || echo "Failed: offensive-ranks"
 28 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/pace-ranks?season=2025-26" --max-time 120 || echo "Failed: pace-ranks"
-29 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/position-defense-ranks?season=2025-26" --max-time 180 || echo "Failed: position-defense-ranks"
+29 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/position-defense-ranks?season=2025-26" --max-time 3600 || echo "Failed: position-defense-ranks"
 
 # 6:30 AM EST — Warm dashboard caches so Top Picks, AI Pick, Players to Watch, Hot form all have data
 30 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/warm-dashboard" --max-time 300 || echo "Failed: warm-dashboard"

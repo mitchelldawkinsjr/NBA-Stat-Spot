@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { useSeason } from '../context/SeasonContext'
 import {
   BarChart,
   Bar,
@@ -55,6 +56,7 @@ type TeamStatsRanks = {
 
 export default function TeamProfile() {
   const { id } = useParams()
+  const { season } = useSeason()
   const [team, setTeam] = useState<Team | null>(null)
   const [roster, setRoster] = useState<Player[]>([])
   const [teamStats, setTeamStats] = useState<TeamStatsRanks | null>(null)
@@ -92,12 +94,14 @@ export default function TeamProfile() {
 
   useEffect(() => {
     let cancelled = false
+    const seasonToTry = season || '2025-26'
+
     const fetchTeamStats = async (retry = 0) => {
       if (!id) return
       setTeamStatsLoading(true)
       setTeamStatsError(false)
       try {
-        const res = await apiFetch('api/v1/teams/team-stats/ranks?season=2025-26')
+        const res = await apiFetch(`api/v1/teams/team-stats/ranks?season=${encodeURIComponent(seasonToTry)}`)
         if (cancelled) return
         if (!res.ok) {
           if (retry < 1) {
@@ -135,7 +139,7 @@ export default function TeamProfile() {
     }
     fetchTeamStats()
     return () => { cancelled = true }
-  }, [id])
+  }, [id, season])
 
   const chartData = useMemo(() => {
     if (!teamStats) return []
@@ -245,8 +249,9 @@ export default function TeamProfile() {
       )}
       {!teamStatsLoading && (teamStatsError || !teamStats || (!teamStats.def_rank_pts && !teamStats.off_rank_pts)) && (
         <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50">
-          <p className="text-sm text-amber-800 dark:text-amber-200">
-            Rank data is not available yet. In <strong>Admin</strong>, run <strong>Refresh defensive ranks</strong> (and ensure game logs are cached) to load defense/offense ranks.
+          <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">Defense &amp; offense ranks did not load</p>
+          <p className="text-sm text-amber-800/90 dark:text-amber-200/90">
+            The server has no cached rank data for <strong>{season || '2025-26'}</strong>. In <strong>Admin</strong> → Cache &amp; Data, run <strong>Refresh defensive ranks</strong> and <strong>Refresh offensive ranks</strong> for this season. After the jobs finish, reload this page.
           </p>
         </div>
       )}

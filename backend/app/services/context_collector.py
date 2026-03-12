@@ -451,45 +451,36 @@ class ContextCollector:
                 logger.warning("No tasks to process for defensive ranks calculation")
                 return {}
             
-            # Process in parallel with ThreadPoolExecutor
-            # Use 10 workers to balance speed vs API rate limits; allow enough time for all 30 teams (90 tasks)
+            # Process in parallel with ThreadPoolExecutor; run until all tasks complete (no overall timeout).
+            # UI (Admin or cron) waits for response and updates when done.
             logger.info("Starting defensive ranks calculation", total_tasks=len(tasks), season=season_to_use)
-            overall_timeout = 600.0  # 10 minutes so all teams can complete (was 120s, often stopped at ~10 teams)
-            per_task_timeout = 15.0  # per-task timeout for slow API
+            per_task_timeout = 45.0  # per-task timeout so one stuck API call doesn't hang a worker forever
 
             with ThreadPoolExecutor(max_workers=10) as executor:
-                # Submit all tasks
                 future_to_task = {
                     executor.submit(process_team_player, task): task
                     for task in tasks
                 }
                 completed = 0
-                try:
-                    for future in as_completed(future_to_task, timeout=overall_timeout):
-                        try:
-                            game_stats = future.result(timeout=per_task_timeout)
-                            if game_stats:
-                                with stats_lock:
-                                    for stat in game_stats:
-                                        team_id = stat["team_id"]
-                                        if team_id in team_defensive_stats:
-                                            team_defensive_stats[team_id]["pts"].append(stat["opp_pts"])
-                                            team_defensive_stats[team_id]["reb"].append(stat["opp_reb"])
-                                            team_defensive_stats[team_id]["ast"].append(stat["opp_ast"])
-                                            team_defensive_stats[team_id]["3pm"].append(stat.get("opp_3pm", 0.0))
-                            completed += 1
-                        except FutureTimeoutError:
-                            logger.warning("Task timed out in defensive ranks calculation")
-                            continue
-                        except Exception as e:
-                            logger.warning("Error processing task in defensive ranks", error=str(e))
-                            continue
-                except FutureTimeoutError:
-                    logger.warning(
-                        "Overall timeout reached in defensive ranks calculation",
-                        completed=completed, total=len(tasks), timeout_sec=overall_timeout,
-                    )
-                    # Continue with whatever data we've collected so far
+                for future in as_completed(future_to_task):
+                    try:
+                        game_stats = future.result(timeout=per_task_timeout)
+                        if game_stats:
+                            with stats_lock:
+                                for stat in game_stats:
+                                    team_id = stat["team_id"]
+                                    if team_id in team_defensive_stats:
+                                        team_defensive_stats[team_id]["pts"].append(stat["opp_pts"])
+                                        team_defensive_stats[team_id]["reb"].append(stat["opp_reb"])
+                                        team_defensive_stats[team_id]["ast"].append(stat["opp_ast"])
+                                        team_defensive_stats[team_id]["3pm"].append(stat.get("opp_3pm", 0.0))
+                        completed += 1
+                    except FutureTimeoutError:
+                        logger.warning("Task timed out in defensive ranks calculation")
+                        continue
+                    except Exception as e:
+                        logger.warning("Error processing task in defensive ranks", error=str(e))
+                        continue
             
             logger.info("Completed defensive ranks calculation", completed=completed, total=len(tasks))
             
