@@ -18,8 +18,9 @@ type SuggestionItem = {
   tier?: 'lock' | 'strong' | 'lean'
   streak?: number
   consistency?: number
-  /** Opponent team abbr (e.g. BOS) for matchup context */
+  /** Opponent team abbr (e.g. BOS) for matchup context — API may send opponent_abbr (snake_case) */
   opponentAbbr?: string
+  opponent_abbr?: string
   /** Opponent def rank for this stat type (1=best D). Helps decide if matchup is tough. */
   opponentDefRank?: number
   /** When set (e.g. "ml_blended"), confidence used ML model — AI was used */
