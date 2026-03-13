@@ -265,10 +265,13 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
 
   if (horizontal) {
     return (
-      <div className="w-full max-w-full overflow-x-auto -mx-2.5 px-2.5 pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" style={{ scrollbarWidth: 'thin' }}>
+      <div className="w-full max-w-full overflow-x-auto overflow-y-visible -mx-2.5 px-2.5 pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100" style={{ scrollbarWidth: 'thin' }}>
         <div className="flex gap-2.5 min-w-max">
           {suggestions.map((s: SuggestionItem, idx: number) => (
-            <div key={idx} className="flex-none w-48 sm:w-56 p-2.5 sm:p-3 border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+            <div
+              key={`${s.playerId ?? s.player_id ?? 'p'}-${s.type ?? 'prop'}-${idx}`}
+              className="flex-none w-48 sm:w-56 p-2.5 sm:p-3 border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-all duration-200"
+            >
               <CardContent s={s} />
             </div>
           ))}

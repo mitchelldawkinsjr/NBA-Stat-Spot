@@ -446,10 +446,14 @@ export function GoodBetsDashboard() {
       .slice(0, 8)
   }, [topPicks, dailyData, today, games.length])
 
-  // Top Insights: picks with matchup_score, sorted by score (top 5)
+  // Top Insights: picks with matchup_score or matchup_explanation (API may send snake_case), sorted by score (top 5)
   const topInsights = useMemo(() => {
-    const withScore = bestBets.filter((b) => b.matchup_score != null)
-    return [...withScore].sort((a, b) => (b.matchup_score ?? 0) - (a.matchup_score ?? 0)).slice(0, 5)
+    const score = (b: SuggestionItem) => b.matchup_score ?? (b as Record<string, unknown>).matchup_score as number | undefined
+    const explanation = (b: SuggestionItem) => b.matchup_explanation ?? (b as Record<string, unknown>).matchup_explanation as string | undefined
+    const withInsight = bestBets.filter((b) => score(b) != null || explanation(b) != null)
+    return [...withInsight]
+      .sort((a, b) => (Number(score(b)) || 0) - (Number(score(a)) || 0))
+      .slice(0, 5)
   }, [bestBets])
 
   const playersToWatch = useMemo(() => {
@@ -691,7 +695,7 @@ export function GoodBetsDashboard() {
             )}
           </div>
         </div>
-        <div className="p-2 sm:p-2.5 overflow-x-auto">
+        <div className="p-2 sm:p-2.5 overflow-x-auto min-w-0">
           {(topPicksLoading || (dailyLoading && topPicks.length === 0)) ? (
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
@@ -711,9 +715,11 @@ export function GoodBetsDashboard() {
           ) : (
             <>
               {topInsights.length > 0 && (
-                <div className="mb-3">
+                <div className="mb-3 min-w-0">
                   <h4 className="text-xs font-bold text-amber-800 dark:text-amber-200 mb-1.5">Top Insights by matchup</h4>
-                  <SuggestionCards suggestions={topInsights} horizontal={true} onAddToTracker={handleAddToTracker} isAddingToTracker={isAddingToTracker} />
+                  <div className="min-w-0">
+                    <SuggestionCards suggestions={topInsights} horizontal={true} onAddToTracker={handleAddToTracker} isAddingToTracker={isAddingToTracker} />
+                  </div>
                 </div>
               )}
               <SuggestionCards suggestions={bestBets} horizontal={true} onAddToTracker={handleAddToTracker} isAddingToTracker={isAddingToTracker} />
