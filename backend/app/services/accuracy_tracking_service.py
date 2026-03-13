@@ -38,14 +38,26 @@ def record_game_predictions(target_date: date, predictions: List[Dict[str, Any]]
         if existing > 0:
             return 0
         for p in predictions:
+            pred_winner = (p.get("predicted_winner") or "").strip().upper()
+            home_abbr = (p.get("home") or "").strip().upper()
+            win_prob_home = p.get("win_probability_home")
+            win_prob_away = p.get("win_probability_away")
+            confidence_pct = (
+                win_prob_home if pred_winner == home_abbr else win_prob_away
+            )
+            insight = p.get("key_advantage_summary") or p.get("outlook_summary")
+            if insight and len(str(insight)) > 2000:
+                insight = str(insight)[:2000]
             r = GamePredictionRecord(
                 record_date=target_date,
                 game_id=str(p.get("gameId", "")),
-                home_abbr=(p.get("home") or "").strip().upper(),
+                home_abbr=home_abbr,
                 away_abbr=(p.get("away") or "").strip().upper(),
-                predicted_winner_abbr=(p.get("predicted_winner") or "").strip().upper(),
-                win_probability_home=p.get("win_probability_home"),
-                win_probability_away=p.get("win_probability_away"),
+                predicted_winner_abbr=pred_winner,
+                win_probability_home=win_prob_home,
+                win_probability_away=win_prob_away,
+                confidence_pct=confidence_pct,
+                insight_summary=insight,
             )
             db.add(r)
         db.commit()
@@ -262,16 +274,19 @@ def get_accuracy_history(
     from_date = from_date or (to_date - timedelta(days=limit_days))
     db = _get_db()
     try:
-        # Game predictions: only settled
+        # Game predictions: all records in range (settled + pending)
         game_q = db.query(GamePredictionRecord).filter(
             GamePredictionRecord.record_date >= from_date,
             GamePredictionRecord.record_date <= to_date,
-            GamePredictionRecord.actual_winner_abbr.isnot(None),
         ).order_by(GamePredictionRecord.record_date.desc(), GamePredictionRecord.id)
-        game_records = game_q.all()
-        game_correct = sum(1 for r in game_records if r.correct)
-        game_total = len(game_records)
-        game_pct = round(100.0 * game_correct / game_total, 1) if game_total else None
+        game_all = game_q.all()
+        game_settled = [r for r in game_all if r.actual_winner_abbr is not None]
+        game_correct = sum(1 for r in game_settled if r.correct)
+        game_incorrect = sum(1 for r in game_settled if r.correct is False)
+        game_pending = sum(1 for r in game_all if r.actual_winner_abbr is None)
+        game_total_settled = len(game_settled)
+        game_total_all = len(game_all)
+        game_pct = round(100.0 * game_correct / game_total_settled, 1) if game_total_settled else None
 
         # Pick of the day: only settled (exclude push for hit rate)
         pick_q = db.query(PickOfTheDayRecord).filter(
@@ -286,9 +301,10 @@ def get_accuracy_history(
         pick_total = len(pick_records)
         pick_hit_rate = round(100.0 * pick_hits / (pick_total - pick_push), 1) if (pick_total - pick_push) > 0 else None
 
-        # Per-day lists for UI
+        # Per-record list for UI (all records, with status)
         game_by_date = []
-        for r in game_records:
+        for r in game_all:
+            status = "graded" if r.actual_winner_abbr is not None else "pending"
             game_by_date.append({
                 "date": r.record_date.isoformat(),
                 "game_id": r.game_id,
@@ -298,6 +314,9 @@ def get_accuracy_history(
                 "home_score": r.home_score,
                 "away_score": r.away_score,
                 "correct": r.correct,
+                "status": status,
+                "confidence_pct": r.confidence_pct,
+                "insight_summary": r.insight_summary,
             })
         pick_by_date = []
         for r in pick_records:
@@ -316,8 +335,11 @@ def get_accuracy_history(
             "from_date": from_date.isoformat(),
             "to_date": to_date.isoformat(),
             "game_predictions": {
-                "total": game_total,
+                "total": game_total_all,
+                "total_settled": game_total_settled,
                 "correct": game_correct,
+                "incorrect": game_incorrect,
+                "pending": game_pending,
                 "accuracy_pct": game_pct,
                 "records": game_by_date,
             },

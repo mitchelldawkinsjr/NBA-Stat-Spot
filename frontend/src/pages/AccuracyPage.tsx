@@ -7,10 +7,13 @@ type GameRecord = {
   game_id: string
   matchup: string
   predicted_winner: string
-  actual_winner: string
-  home_score: number
-  away_score: number
-  correct: boolean
+  actual_winner: string | null
+  home_score: number | null
+  away_score: number | null
+  correct: boolean | null
+  status: 'pending' | 'graded'
+  confidence_pct?: number | null
+  insight_summary?: string | null
 }
 
 type PickRecord = {
@@ -30,7 +33,10 @@ type AccuracyResponse = {
   to_date: string
   game_predictions: {
     total: number
+    total_settled?: number
     correct: number
+    incorrect?: number
+    pending?: number
     accuracy_pct: number | null
     records: GameRecord[]
   }
@@ -102,7 +108,7 @@ export default function AccuracyPage() {
       </div>
 
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Game winner predictions and AI pick of the day are recorded when generated; results are settled after games complete. Run &quot;Settle accuracy&quot; in Admin to update.
+        Game predictions are saved automatically when the morning warm runs. Results are graded after games complete (run &quot;Settle accuracy&quot; in Admin, or use the daily cron).
       </p>
 
       {loading && (
@@ -120,18 +126,24 @@ export default function AccuracyPage() {
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Game predictions</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Predicted winner vs actual winner</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Predicted winner vs actual winner (win % on settled only)</p>
               {data.game_predictions.total === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">No settled games in this range.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">No predictions in this range.</p>
               ) : (
                 <>
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-baseline gap-2 flex-wrap">
                     <span className="text-3xl font-bold text-gray-900 dark:text-slate-100">
                       {data.game_predictions.accuracy_pct ?? 0}%
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {data.game_predictions.correct} / {data.game_predictions.total} correct
+                      win rate
                     </span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                    <span>Total: <strong className="text-gray-900 dark:text-slate-100">{data.game_predictions.total}</strong></span>
+                    <span>Correct: <strong className="text-emerald-600 dark:text-emerald-400">{data.game_predictions.correct}</strong></span>
+                    <span>Incorrect: <strong className="text-rose-600 dark:text-rose-400">{data.game_predictions.incorrect ?? 0}</strong></span>
+                    <span>Pending: <strong className="text-amber-600 dark:text-amber-400">{data.game_predictions.pending ?? 0}</strong></span>
                   </div>
                 </>
               )}
@@ -157,9 +169,9 @@ export default function AccuracyPage() {
             </div>
           </div>
 
-          {/* Game prediction history table */}
+          {/* Game prediction history table (recent prediction history) */}
           <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Game prediction history</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Recent prediction history</h2>
             {data.game_predictions.records.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">No records.</p>
             ) : (
@@ -170,9 +182,10 @@ export default function AccuracyPage() {
                       <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Date</th>
                       <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Matchup</th>
                       <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Predicted</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-right">Conf.</th>
                       <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Actual</th>
                       <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-right">Score</th>
-                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-center">Hit</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-center">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -181,13 +194,16 @@ export default function AccuracyPage() {
                         <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{r.date}</td>
                         <td className="py-1.5 px-2 font-medium text-gray-900 dark:text-slate-100">{r.matchup}</td>
                         <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{r.predicted_winner}</td>
-                        <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{r.actual_winner}</td>
-                        <td className="py-1.5 px-2 text-right text-gray-600 dark:text-gray-400">{r.home_score}–{r.away_score}</td>
+                        <td className="py-1.5 px-2 text-right text-gray-500 dark:text-gray-400">{r.confidence_pct != null ? `${r.confidence_pct}%` : '—'}</td>
+                        <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{r.actual_winner ?? '—'}</td>
+                        <td className="py-1.5 px-2 text-right text-gray-600 dark:text-gray-400">{r.home_score != null && r.away_score != null ? `${r.home_score}–${r.away_score}` : '—'}</td>
                         <td className="py-1.5 px-2 text-center">
-                          {r.correct ? (
-                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Yes</span>
+                          {r.status === 'pending' ? (
+                            <span className="text-amber-600 dark:text-amber-400 font-medium">Pending</span>
+                          ) : r.correct ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Correct</span>
                           ) : (
-                            <span className="text-rose-600 dark:text-rose-400 font-semibold">No</span>
+                            <span className="text-rose-600 dark:text-rose-400 font-semibold">Incorrect</span>
                           )}
                         </td>
                       </tr>
@@ -246,7 +262,7 @@ export default function AccuracyPage() {
       )}
 
       <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">
-        <p>Run <strong>Settle accuracy</strong> in Admin (for a past date) to fill actual results from completed games. Default settle date is yesterday.</p>
+        <p>Predictions are recorded when the dashboard is warmed. Run <strong>Settle accuracy</strong> in Admin to grade a date (default: yesterday). A daily cron can run this automatically after the morning warm.</p>
       </div>
       <div className="mt-4">
         <Link to="/admin" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Go to Admin</Link>

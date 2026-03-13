@@ -12,6 +12,7 @@ class GamePredictionRecord(Base):
     __table_args__ = (
         Index("idx_game_pred_record_date", "record_date"),
         Index("idx_game_pred_settled", "correct"),
+        Index("idx_game_pred_status", "actual_winner_abbr"),
     )
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
@@ -22,6 +23,10 @@ class GamePredictionRecord(Base):
     predicted_winner_abbr = Column(String(8), nullable=False)
     win_probability_home = Column(Float)
     win_probability_away = Column(Float)
+    # Confidence: win prob of predicted winner (for filtering/display)
+    confidence_pct = Column(Float, nullable=True)
+    # Supporting insight/reasoning at prediction time
+    insight_summary = Column(Text, nullable=True)
     # Settled after game completes
     actual_winner_abbr = Column(String(8), nullable=True)
     home_score = Column(Integer, nullable=True)

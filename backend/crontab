@@ -36,6 +36,9 @@
 # 6:30 AM EST — Warm dashboard caches so Top Picks, AI Pick, Players to Watch, Hot form all have data
 30 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/warm-dashboard" --max-time 300 || echo "Failed: warm-dashboard"
 
+# 6:35 AM EST — Settle yesterday's game predictions and pick-of-the-day (fill actual results for accuracy tracking)
+35 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/settle-accuracy" --max-time 120 || echo "Failed: settle-accuracy"
+
 # Cleanup expired cache entries daily at 3:00 AM UTC (10-11 PM EST previous day)
 # This removes old cache entries to keep the database clean
 0 3 * * * curl -f -X POST "http://localhost:8007/api/v1/admin/cache/cleanup" || echo "Failed to cleanup expired cache"
