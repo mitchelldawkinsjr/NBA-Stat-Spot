@@ -16,6 +16,28 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+
+def _game_date_sort_key(g: Dict) -> Any:
+    """Return a sort key for game_date (newest first). Handles YYYY-MM-DD and API formats like 'FEB 15, 2025'."""
+    gd = g.get("game_date") or ""
+    if not gd:
+        return ""
+    # YYYY-MM-DD
+    if len(gd) >= 10 and gd[4] == "-" and gd[7] == "-":
+        return gd
+    try:
+        # e.g. "FEB 15, 2025" or "Feb 15, 2025"
+        dt = datetime.strptime(gd.strip(), "%b %d, %Y")
+        return dt.strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        pass
+    try:
+        dt = datetime.strptime(gd.strip(), "%B %d, %Y")  # "February 15, 2025"
+        return dt.strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        pass
+    return gd
+
 from .insight_scoring import compute_matchup_score
 from .nba_api_service import NBADataService
 from .prop_engine import PropBetEngine
@@ -106,9 +128,11 @@ def _generate_sportsbook_line(
     """
     if not logs:
         return 0.0
-    baseline = StatsCalculator.calculate_rolling_average(logs, stat, n_games=min(10, len(logs)))
+    # Caller passes logs sorted newest-first; use first n for "most recent"
+    n_baseline = min(10, len(logs))
+    baseline = StatsCalculator.calculate_rolling_average(logs[:n_baseline], stat, n_games=n_baseline)
     recent_n = min(5, len(logs))
-    recent_avg = StatsCalculator.calculate_rolling_average(logs[-recent_n:], stat, n_games=recent_n)
+    recent_avg = StatsCalculator.calculate_rolling_average(logs[:recent_n], stat, n_games=recent_n)
     form_adj = (recent_avg - baseline) * 0.35
     rank = _blend_def_rank(opponent_def_rank, opponent_pos_def_rank)
     matchup_adj = (rank - 15) / 20.0
@@ -145,6 +169,8 @@ def _scan_player(
         if _avg_minutes(logs) < 18.0:
             return [], []
         logs = _enrich_pra(logs)
+        # Sort by game_date descending so "recent" = most recent games (API order is not guaranteed)
+        logs = sorted(logs, key=_game_date_sort_key, reverse=True)
     except Exception:
         return [], []
 
@@ -166,7 +192,8 @@ def _scan_player(
                 opponent_def_rank=opp_rank,
                 opponent_pos_def_rank=opp_pos_rank,
             )
-            recent = logs[-n_recent:] if n_recent else logs
+            # Use the most recent n_recent games by date (logs are sorted newest first)
+            recent = logs[:n_recent] if n_recent else logs
             hr_over = StatsCalculator.calculate_hit_rate(recent, line, stat, "over")
             hr_under = StatsCalculator.calculate_hit_rate(recent, line, stat, "under")
             direction = "over" if hr_over >= hr_under else "under"
@@ -177,9 +204,13 @@ def _scan_player(
             confidence = PropBetEngine.multi_factor_confidence(
                 logs, stat, line, direction, opp_def_score=opp_score
             )
-            form = StatsCalculator.calculate_recent_form(logs, stat)
-            consistency = StatsCalculator.calculate_consistency(logs, stat, n_games=n_recent)
-            streak = StatsCalculator.calculate_streak(logs, stat, line, direction)
+            # Form/consistency over most recent games (logs are newest-first)
+            form = StatsCalculator.calculate_recent_form(recent, stat, n_games=min(5, len(recent)))
+            consistency = StatsCalculator.calculate_consistency(recent, stat, n_games=len(recent))
+            # Streak expects chronological order (most recent last); recent is newest-first so reverse
+            streak = StatsCalculator.calculate_streak(
+                list(reversed(recent)), stat, line, direction
+            )
 
             rationale = PropBetEngine.build_rationale_text(
                 hr, direction, line, form["trend"], consistency, streak, min(len(logs), n_recent)

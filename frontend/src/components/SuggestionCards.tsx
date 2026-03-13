@@ -226,7 +226,7 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddToTracker(s) }}
               disabled={isAddingToTracker}
-              className="w-full py-1.5 px-2 rounded-md text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors flex items-center justify-center gap-1"
+              className="w-full py-1.5 px-2 rounded-md text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500 flex items-center justify-center gap-1"
             >
               {isAddingToTracker ? (
                 <>

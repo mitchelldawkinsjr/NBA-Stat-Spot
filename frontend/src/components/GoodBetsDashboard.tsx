@@ -996,7 +996,7 @@ export function GoodBetsDashboard() {
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToTracker(podPayload) }}
                         disabled={isAddingToTracker}
-                        className="shrink-0 py-2 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white transition-colors"
+                        className="shrink-0 py-2 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white transition-colors dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500"
                       >
                         {isAddingToTracker ? 'Adding…' : 'Add to tracker'}
                       </button>
@@ -1042,7 +1042,7 @@ export function GoodBetsDashboard() {
                       type="button"
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToTracker(podPayload) }}
                       disabled={isAddingToTracker}
-                      className="py-1.5 px-3 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white transition-colors"
+                      className="py-1.5 px-3 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white transition-colors dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500"
                     >
                       {isAddingToTracker ? 'Adding…' : 'Add to tracker'}
                     </button>
