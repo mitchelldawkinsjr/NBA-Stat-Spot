@@ -22,10 +22,10 @@ from ..utils.season import get_current_season
 from ..core.rate_limiter import limiter
 
 def _require_admin(request: Request) -> None:
-    """Require ADMIN_SECRET env var and matching header (Authorization: Bearer <secret> or X-Admin-Secret: <secret>). Raises 401 if unset or mismatch."""
-    secret = os.getenv("ADMIN_SECRET")
-    if not secret or not secret.strip():
-        raise HTTPException(status_code=401, detail="Admin access not configured")
+    """When ADMIN_SECRET is set, require matching header (Authorization: Bearer <secret> or X-Admin-Secret). When unset, allow access for backward compatibility."""
+    secret = (os.getenv("ADMIN_SECRET") or "").strip()
+    if not secret:
+        return
     auth = request.headers.get("Authorization") or request.headers.get("X-Admin-Secret")
     token = None
     if auth and auth.startswith("Bearer "):
