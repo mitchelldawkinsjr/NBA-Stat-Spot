@@ -37,7 +37,8 @@ class HighHitRateService:
             Dict with items list and metadata
         """
         if not season:
-            season = "2025-26"  # Default to 2025-26 season
+            from ..utils.season import get_current_season
+            season = get_current_season()
         
         # Get the date for game_date field - use provided date or today in UTC
         from datetime import timezone

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
@@ -38,10 +38,12 @@ def _game_date_sort_key(g: Dict) -> Any:
         pass
     return gd
 
+from .accuracy_tracking_service import record_prop_predictions
 from .insight_scoring import compute_matchup_score
 from .nba_api_service import NBADataService
-from .prop_engine import PropBetEngine
+from .prop_engine import PropBetEngine, _ml_enabled
 from .stats_calculator import StatsCalculator
+from ..utils.season import get_current_season
 
 
 STAT_TYPES = ["pts", "reb", "ast", "tpm"]
@@ -160,7 +162,9 @@ def _scan_player(
     n_recent: int = 10,
     opponent_def_ranks: Optional[Dict[str, int]] = None,
     opponent_pos_def_ranks: Optional[Dict[str, int]] = None,
-) -> List[Dict[str, Any]]:
+    opponent_team_id: Optional[int] = None,
+    is_home_game: bool = True,
+) -> tuple:
     """Return one pick per stat: realistic line (sportsbook-style), then over/under prediction and confidence."""
     try:
         logs = NBADataService.fetch_player_game_log(player_id, season)
@@ -204,6 +208,33 @@ def _scan_player(
             confidence = PropBetEngine.multi_factor_confidence(
                 logs, stat, line, direction, opp_def_score=opp_score
             )
+            # Optional ML blend when ML_ENABLED and we have opponent context
+            if _ml_enabled() and opponent_team_id is not None:
+                try:
+                    from datetime import date as date_type
+                    from .feature_engineer import FeatureEngineer
+                    from .ml_models.model_server import get_model_server
+                    game_date_obj = date_type.fromisoformat(target_date) if isinstance(target_date, str) and len(target_date) >= 10 else None
+                    if game_date_obj is not None:
+                        feature_set = FeatureEngineer.build_feature_set(
+                            player_id=player_id,
+                            prop_type=key,
+                            game_date=game_date_obj,
+                            market_line=line,
+                            opponent_team_id=opponent_team_id,
+                            is_home_game=is_home_game,
+                            season=season,
+                        )
+                        normalized = FeatureEngineer.normalize_features(feature_set)
+                        model_server = get_model_server()
+                        if model_server.is_available():
+                            ml_confidence = model_server.predict_confidence(normalized)
+                            if ml_confidence is not None:
+                                confidence = round(0.5 * float(ml_confidence) + 0.5 * confidence, 1)
+                except Exception:
+                    pass
+            # Recalibrate so confidence spreads across 0-100 instead of clustering
+            confidence = StatsCalculator.calculate_calibrated_confidence(confidence / 100.0)
             # Form/consistency over most recent games (logs are newest-first)
             form = StatsCalculator.calculate_recent_form(recent, stat, n_games=min(5, len(recent)))
             consistency = StatsCalculator.calculate_consistency(recent, stat, n_games=len(recent))
@@ -217,6 +248,8 @@ def _scan_player(
             )
 
             key = DISPLAY.get(stat, stat.upper())
+            heat_index = StatsCalculator.calculate_heat_index(recent, stat, 10)
+            volatility_index = StatsCalculator.calculate_volatility_index(recent, stat, 10)
             results.append(
                 {
                     "type": key,
@@ -233,6 +266,8 @@ def _scan_player(
                     "tier": _tier_label(confidence),
                     "rationale": rationale,
                     "gameDate": target_date,
+                    "heat_index": round(heat_index, 2),
+                    "volatility_index": volatility_index,
                     "stats": {
                         "hit_rate": hr,
                         "recent": form,
@@ -261,7 +296,7 @@ class BestPicksService:
         limit: int = 12,
         min_confidence: float = 62.0,
     ) -> Dict[str, Any]:
-        season = season or "2025-26"
+        season = season or get_current_season()
         target_date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         games = NBADataService.fetch_todays_games() or []
@@ -345,6 +380,8 @@ class BestPicksService:
                 pid, pname, season, target_date,
                 opponent_def_ranks=opp_ranks,
                 opponent_pos_def_ranks=opp_pos_def_ranks,
+                opponent_team_id=int(opp_id) if opp_id is not None else None,
+                is_home_game=True,
             )
             if not picks:
                 return []
@@ -422,6 +459,12 @@ class BestPicksService:
             }
 
         top = all_picks[:limit]
+
+        try:
+            target_date_obj = date.fromisoformat(target_date[:10])
+            record_prop_predictions(target_date_obj, top)
+        except Exception:
+            pass
 
         return {
             "items": top,

@@ -16,6 +16,7 @@ from ..services.team_standings_service import get_team_standings_service
 from ..services.news_context_service import get_news_context_service
 from ..services.cache_service import get_cache_service
 from ..core.config import current_candidate_season
+from ..utils.season import get_current_season, get_previous_season
 import structlog
 import threading
 
@@ -102,7 +103,7 @@ class ContextCollector:
         try:
             # Check cache first
             cache = get_cache_service()
-            season_to_use = season or "2025-26"
+            season_to_use = season or get_current_season()
             cache_key = f"h2h:{player_id}:{opponent_team_id}:{season_to_use}:{limit}:6h"
             
             cached_result = cache.get(cache_key)
@@ -233,7 +234,7 @@ class ContextCollector:
             result = {"h2h_avg_pts": None, "h2h_avg_reb": None, "h2h_avg_ast": None, "h2h_games_played": 0, "opponent_back_to_back": False}
             # Cache error result for shorter time (1 hour)
             cache = get_cache_service()
-            season_to_use = season or "2025-26"
+            season_to_use = season or get_current_season()
             cache_key = f"h2h:{player_id}:{opponent_team_id}:{season_to_use}:{limit}:1h"
             cache.set(cache_key, result, ttl=3600)
             return result
@@ -252,7 +253,7 @@ class ContextCollector:
         """
         try:
             cache = get_cache_service()
-            season_to_use = season or "2025-26"
+            season_to_use = season or get_current_season()
             cache_key = f"defensive_ranks:{season_to_use}:24h"
             
             # Check cache first (JSON round-trip may have string keys; normalize to int)
@@ -570,7 +571,7 @@ class ContextCollector:
         """
         try:
             cache = get_cache_service()
-            season_to_use = season or "2025-26"
+            season_to_use = season or get_current_season()
             cache_key = f"offensive_ranks:{season_to_use}:24h"
             cached = cache.get(cache_key)
             if cached is not None:
@@ -676,7 +677,7 @@ class ContextCollector:
         """
         try:
             cache = get_cache_service()
-            season_to_use = season or "2025-26"
+            season_to_use = season or get_current_season()
             cache_key = f"team_ranks_from_players_fallback:{season_to_use}:24h"
             cached = cache.get(cache_key)
             if cached is not None:
@@ -850,7 +851,7 @@ class ContextCollector:
         """
         try:
             cache = get_cache_service()
-            season_to_use = season or "2025-26"
+            season_to_use = season or get_current_season()
             cache_key = f"team_ppg_from_logs:{season_to_use}:24h"
             cached = cache.get(cache_key)
             if cached is not None and isinstance(cached, dict):
@@ -908,7 +909,7 @@ class ContextCollector:
     def get_defensive_averages(season: Optional[str] = None) -> Dict[int, Dict[str, float]]:
         """Return raw per-team defensive averages (avg stats allowed per game). Populated as a side-effect of _calculate_defensive_ranks."""
         cache = get_cache_service()
-        season_to_use = season or "2025-26"
+        season_to_use = season or get_current_season()
         cached = cache.get(f"defensive_avgs:{season_to_use}:24h")
         if cached is not None:
             return _normalize_rank_keys(cached)
@@ -929,7 +930,7 @@ class ContextCollector:
         """
         try:
             cache = get_cache_service()
-            season_to_use = season or "2025-26"
+            season_to_use = season or get_current_season()
             cache_key = f"pace_ranks:{season_to_use}:24h"
             cached = cache.get(cache_key)
             if cached is not None:
@@ -1016,7 +1017,7 @@ class ContextCollector:
         POSITIONS = ["PG", "SG", "SF", "PF", "C"]
         try:
             cache = get_cache_service()
-            season_to_use = season or "2025-26"
+            season_to_use = season or get_current_season()
             cache_key = f"position_def_ranks:{season_to_use}:24h"
             cached = cache.get(cache_key)
             if cached is not None:
@@ -1152,7 +1153,7 @@ class ContextCollector:
         try:
             # Check cache first for team performance data
             cache = get_cache_service()
-            season_to_use = season or "2025-26"
+            season_to_use = season or get_current_season()
             cache_key = f"team_performance:{team_id}:{season_to_use}:6h"
             
             cached_result = cache.get(cache_key)
@@ -1180,12 +1181,7 @@ class ContextCollector:
                 if not team_ranks and len(defensive_ranks) == 0:
                     logger.debug("No defensive ranks for current season, trying cached previous season", team_id=team_id, season=season_to_use)
                     # Check cache directly for fallback season - don't trigger calculation
-                    fallback_season = None
-                    if season_to_use == "2025-26":
-                        fallback_season = "2024-25"
-                    elif season_to_use == "2024-25":
-                        fallback_season = "2023-24"
-                    
+                    fallback_season = get_previous_season(season_to_use)
                     if fallback_season:
                         fallback_cache_key = f"defensive_ranks:{fallback_season}:24h"
                         fallback_ranks = cache.get(fallback_cache_key)
@@ -1205,12 +1201,7 @@ class ContextCollector:
                 logger.warning("Error getting defensive ranks, trying cached fallback", team_id=team_id, error=str(e))
                 # Try cached fallback season on error too - don't trigger calculation
                 try:
-                    fallback_season = None
-                    if season_to_use == "2025-26":
-                        fallback_season = "2024-25"
-                    elif season_to_use == "2024-25":
-                        fallback_season = "2023-24"
-                    
+                    fallback_season = get_previous_season(season_to_use)
                     if fallback_season:
                         fallback_cache_key = f"defensive_ranks:{fallback_season}:24h"
                         fallback_ranks = cache.get(fallback_cache_key)
@@ -1270,7 +1261,7 @@ class ContextCollector:
         # Cache error result for shorter time (1 hour)
         if team_id:
             cache = get_cache_service()
-            season_to_use = season or "2025-26"
+            season_to_use = season or get_current_season()
             cache_key = f"team_performance:{team_id}:{season_to_use}:1h"
             cache.set(cache_key, result, ttl=3600)
         return result

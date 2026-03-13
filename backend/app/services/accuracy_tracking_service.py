@@ -9,7 +9,8 @@ from sqlalchemy import func, and_
 import structlog
 
 from ..database import get_db
-from ..models.prediction_accuracy import GamePredictionRecord, PickOfTheDayRecord
+from ..models.prediction_accuracy import GamePredictionRecord, PickOfTheDayRecord, PropPredictionRecord
+from ..utils.season import get_current_season
 from .nba_api_service import NBADataService
 
 logger = structlog.get_logger()
@@ -194,7 +195,7 @@ def settle_pick_of_the_day(target_date: date, season: Optional[str] = None) -> D
     For a given date, get the pick record, fetch that player's game log, find the game on that date,
     and set actual_value and hit. Returns { settled: bool, actual_value, hit, push, error }.
     """
-    season = season or "2025-26"
+    season = season or get_current_season()
     db = _get_db()
     try:
         record = db.query(PickOfTheDayRecord).filter(
@@ -262,6 +263,74 @@ def settle_all_for_date(target_date: date, season: Optional[str] = None) -> Dict
     }
 
 
+def record_prop_predictions(target_date: date, picks: List[Dict[str, Any]], model_version: Optional[str] = None) -> int:
+    """
+    Insert prop prediction records for a date (from get_top_picks or daily props).
+    Returns count of records inserted.
+    """
+    if not picks:
+        return 0
+    try:
+        date_obj = target_date if isinstance(target_date, date) else date.fromisoformat(str(target_date)[:10])
+    except (ValueError, TypeError):
+        return 0
+    db = _get_db()
+    inserted = 0
+    try:
+        for p in picks:
+            player_id = p.get("playerId") or p.get("player_id")
+            if player_id is None:
+                continue
+            stat_type = (p.get("type") or "PTS").upper().strip()
+            if stat_type not in STAT_TO_GAME_LOG_KEY:
+                continue
+            line_val = p.get("marketLine") or p.get("fairLine")
+            if line_val is None:
+                continue
+            try:
+                line_value = float(line_val)
+            except (TypeError, ValueError):
+                continue
+            direction = (p.get("suggestion") or "over").lower().strip()
+            if direction not in ("over", "under"):
+                direction = "over"
+            confidence = p.get("confidence")
+            try:
+                confidence = float(confidence) if confidence is not None else None
+            except (TypeError, ValueError):
+                confidence = None
+            r = PropPredictionRecord(
+                record_date=date_obj,
+                player_id=int(player_id),
+                player_name=(p.get("playerName") or p.get("player_name") or "")[:128],
+                stat_type=stat_type,
+                line_value=line_value,
+                direction=direction,
+                confidence=confidence,
+                predicted_value=line_value,
+                model_version=model_version,
+            )
+            db.add(r)
+            inserted += 1
+        db.commit()
+        return inserted
+    except Exception as e:
+        db.rollback()
+        logger.warning("record_prop_predictions failed", date=str(target_date), error=str(e))
+        return 0
+    finally:
+        db.close()
+
+
+def settle_open_predictions(target_date: date, season: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Settle all open (unsettled) prediction records for a date.
+    Fetches finalized game stats, compares to stored lines, writes actual_value and hit.
+    Intended to be called nightly after games complete (e.g. via cron).
+    """
+    return settle_all_for_date(target_date, season=season)
+
+
 def get_accuracy_history(
     from_date: Optional[date] = None,
     to_date: Optional[date] = None,
@@ -301,6 +370,14 @@ def get_accuracy_history(
         pick_total = len(pick_records)
         pick_hit_rate = round(100.0 * pick_hits / (pick_total - pick_push), 1) if (pick_total - pick_push) > 0 else None
 
+        # MAE and RMSE for pick-of-the-day (exclude pushes)
+        pick_errors = []
+        for r in pick_records:
+            if r.actual_value is not None and not r.push:
+                pick_errors.append(abs(float(r.actual_value) - float(r.line_value)))
+        pick_mae = round(sum(pick_errors) / len(pick_errors), 2) if pick_errors else None
+        pick_rmse = round((sum(e * e for e in pick_errors) / len(pick_errors)) ** 0.5, 2) if pick_errors else None
+
         # Per-record list for UI (all records, with status)
         game_by_date = []
         for r in game_all:
@@ -331,9 +408,19 @@ def get_accuracy_history(
                 "push": r.push,
                 "confidence": r.confidence,
             })
+        model_version = None
+        try:
+            from ..models.app_settings import AppSettings
+            row = db.query(AppSettings).filter(AppSettings.key == "ml_model_version").first()
+            if row and row.value:
+                model_version = row.value
+        except Exception:
+            pass
+
         return {
             "from_date": from_date.isoformat(),
             "to_date": to_date.isoformat(),
+            "model_version": model_version,
             "game_predictions": {
                 "total": game_total_all,
                 "total_settled": game_total_settled,
@@ -349,6 +436,9 @@ def get_accuracy_history(
                 "misses": pick_miss,
                 "pushes": pick_push,
                 "hit_rate_pct": pick_hit_rate,
+                "mae": pick_mae,
+                "rmse": pick_rmse,
+                "win_rate": pick_hit_rate,
                 "records": pick_by_date,
             },
         }

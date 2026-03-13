@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Query, Depends, Request
+import os
+from fastapi import APIRouter, Query, Depends, Request, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date, timedelta
@@ -17,9 +18,25 @@ from ..services.cache_service import get_cache_service
 from ..services.external_api_rate_limiter import get_rate_limiter
 from ..services.context_collector import ContextCollector
 from ..services.game_prediction_service import get_game_prediction_service
+from ..utils.season import get_current_season
 from ..core.rate_limiter import limiter
 
-router = APIRouter(prefix="/api/v1/admin", tags=["admin_v1"])
+def _require_admin(request: Request) -> None:
+    """Require ADMIN_SECRET env var and matching header (Authorization: Bearer <secret> or X-Admin-Secret: <secret>). Raises 401 if unset or mismatch."""
+    secret = os.getenv("ADMIN_SECRET")
+    if not secret or not secret.strip():
+        raise HTTPException(status_code=401, detail="Admin access not configured")
+    auth = request.headers.get("Authorization") or request.headers.get("X-Admin-Secret")
+    token = None
+    if auth and auth.startswith("Bearer "):
+        token = auth[7:].strip()
+    elif auth:
+        token = auth.strip()
+    if not token or token != secret:
+        raise HTTPException(status_code=401, detail="Invalid or missing admin credentials")
+
+
+router = APIRouter(prefix="/api/v1/admin", tags=["admin_v1"], dependencies=[Depends(_require_admin)])
 
 # Cache service instance
 _cache = get_cache_service()
@@ -312,14 +329,14 @@ def sync_stats():
 
 @router.post("/scan/best-bets")
 def scan_best_bets(
-    season: Optional[str] = Query("2025-26", description="Season to analyze"),
+    season: Optional[str] = Query(None, description="Season to analyze (defaults to current season)"),
     min_confidence: Optional[float] = Query(65.0, description="Minimum confidence threshold"),
     limit: Optional[int] = Query(50, description="Maximum number of suggestions")
 ):
     """Scan today's games and generate best prop bets"""
     try:
         results = PropScannerService.scan_best_bets_for_today(
-            season=season or "2025-26",
+            season=season or get_current_season(),
             min_confidence=min_confidence or 65.0,
             limit=limit or 50
         )
@@ -491,10 +508,11 @@ def refresh_top_picks(
         return {"status": "error", "message": str(e)}
 
 
-def _compute_and_cache_stat_leaders(season: str = "2025-26") -> dict:
+def _compute_and_cache_stat_leaders(season: Optional[str] = None) -> dict:
     """Compute stat leaders from already-cached game logs and cache the result."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    season = season or get_current_season()
     today_str = datetime.now().date().isoformat()
     players = NBADataService.fetch_all_players_including_rookies()
     active = [p for p in players if p.get("team_id") and p.get("team_id") != 0]
@@ -556,12 +574,12 @@ def refresh_stat_leaders(request: Request):
 @limiter.limit("5/hour")
 def refresh_defensive_ranks(
     request: Request,
-    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+    season: Optional[str] = Query(None, description="Season (e.g. 2025-26). Defaults to current season.")
 ):
     """Pre-compute opponent defense ranks (PTS/REB/AST/3PM) for all teams and cache for 24h.
     Ensures Opponent Defense Rank cards on player profiles show values instead of —."""
     try:
-        ranks = ContextCollector._calculate_defensive_ranks(season or "2025-26")
+        ranks = ContextCollector._calculate_defensive_ranks(season or get_current_season())
         teams_count = len(ranks) if ranks else 0
         return {
             "status": "success",
@@ -603,11 +621,11 @@ def players_missing_from_espn():
 @limiter.limit("5/hour")
 def refresh_offensive_ranks(
     request: Request,
-    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+    season: Optional[str] = Query(None, description="Season (e.g. 2025-26). Defaults to current season.")
 ):
     """Pre-compute team offense ranks (PTS/REB/AST/3PM) for all teams and cache for 24h."""
     try:
-        ranks = ContextCollector._calculate_offensive_ranks(season or "2025-26")
+        ranks = ContextCollector._calculate_offensive_ranks(season or get_current_season())
         teams_count = len(ranks) if ranks else 0
         return {
             "status": "success",
@@ -622,11 +640,11 @@ def refresh_offensive_ranks(
 @limiter.limit("5/hour")
 def refresh_pace_ranks(
     request: Request,
-    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+    season: Optional[str] = Query(None, description="Season (e.g. 2025-26). Defaults to current season.")
 ):
     """Pre-compute team pace (possessions per game) ranks for all teams and cache for 24h."""
     try:
-        ranks = ContextCollector._calculate_pace_ranks(season or "2025-26")
+        ranks = ContextCollector._calculate_pace_ranks(season or get_current_season())
         return {
             "status": "success",
             "teamsRanked": len(ranks),
@@ -640,11 +658,11 @@ def refresh_pace_ranks(
 @limiter.limit("5/hour")
 def refresh_position_defense_ranks(
     request: Request,
-    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+    season: Optional[str] = Query(None, description="Season (e.g. 2025-26). Defaults to current season.")
 ):
     """Pre-compute position-based defensive ranks (PG/SG/SF/PF/C) for all teams and cache for 24h."""
     try:
-        ranks = ContextCollector._calculate_position_defensive_ranks(season or "2025-26")
+        ranks = ContextCollector._calculate_position_defensive_ranks(season or get_current_season())
         return {
             "status": "success",
             "positions": list(ranks.keys()),
@@ -701,7 +719,7 @@ def refresh_all(request: Request):
     # Refresh best bets
     try:
         best_bets_result = PropScannerService.scan_best_bets_for_today(
-            season="2025-26",
+            season=get_current_season(),
             min_confidence=65.0,
             limit=50
         )
@@ -733,7 +751,7 @@ def refresh_all(request: Request):
 
     # Pre-warm opponent defense and offense ranks
     try:
-        ranks = ContextCollector._calculate_defensive_ranks("2025-26")
+        ranks = ContextCollector._calculate_defensive_ranks(get_current_season())
         results["defensiveRanks"] = {
             "status": "success",
             "teamsRanked": len(ranks) if ranks else 0
@@ -741,7 +759,7 @@ def refresh_all(request: Request):
     except Exception as e:
         results["defensiveRanks"] = {"status": "error", "message": str(e)}
     try:
-        off_ranks = ContextCollector._calculate_offensive_ranks("2025-26")
+        off_ranks = ContextCollector._calculate_offensive_ranks(get_current_season())
         results["offensiveRanks"] = {
             "status": "success",
             "teamsRanked": len(off_ranks) if off_ranks else 0
@@ -774,7 +792,7 @@ def warm_dashboard(request: Request):
     # Daily props (base for pick-of-the-day and filtering)
     if not _get_daily_props_cache(today_str):
         try:
-            r = DailyPropsService.get_top_props_for_date(date=today_str, season="2025-26", min_confidence=50.0, limit=100)
+            r = DailyPropsService.get_top_props_for_date(date=today_str, season=get_current_season(), min_confidence=50.0, limit=100)
             _set_daily_props_cache(r, target_date=today_str, ttl=86400)
             results["dailyProps"] = len(r.get("items", []))
         except Exception as e:
@@ -835,7 +853,7 @@ def warm_dashboard(request: Request):
     if not _cache.get(f"hot_form:{today_str}"):
         try:
             r = DailyPropsService.get_top_props_for_date(
-                date=today_str, season="2025-26", min_confidence=70.0, limit=50, hot_form_only=True
+                date=today_str, season=get_current_season(), min_confidence=70.0, limit=50, hot_form_only=True
             )
             items = r.get("items", [])
             if items:
@@ -948,16 +966,45 @@ def clear_game_predictions_cache():
         db.close()
 
 
+@router.post("/ml/train")
+def ml_train(db: Session = Depends(get_db)):
+    """Trigger ML model training on historical bets and AI feature sets. Requires sufficient settled UserBet + AIFeatureSet data."""
+    try:
+        from ..services.ml_models.trainer import ModelTrainer
+        trainer = ModelTrainer(use_xgboost=True)
+        result = trainer.train_models(db, min_samples=50)
+        return {"status": "success" if result.get("success") else "error", "result": result}
+    except ImportError as e:
+        return {"status": "error", "message": f"ML dependencies missing: {e}"}
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+
+@router.post("/ml/retrain")
+def ml_retrain(min_samples: int = Query(50, ge=10, le=500)):
+    """Full retrain pipeline: train models and update ml_model_version in AppSettings. For weekly cron or manual run."""
+    try:
+        from ..services.ml_models.retrain_pipeline import run_retrain
+        result = run_retrain(min_samples=min_samples)
+        return {"status": "success" if result.get("success") else "error", "result": result}
+    except ImportError as e:
+        return {"status": "error", "message": f"ML dependencies missing: {e}"}
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+
+
 @router.post("/settle-accuracy")
 def settle_accuracy(
     settle_date: Optional[str] = Query(None, description="Date to settle YYYY-MM-DD (default: yesterday)"),
-    season: Optional[str] = Query("2025-26", description="Season for player game logs when settling pick of the day"),
+    season: Optional[str] = Query(None, description="Season for player game logs when settling (defaults to current season)"),
 ):
     """Settle game prediction and AI pick-of-the-day accuracy for a date (e.g. run daily after games complete)."""
     from ..services.accuracy_tracking_service import settle_all_for_date
     target = date.fromisoformat(settle_date) if settle_date else (date.today() - timedelta(days=1))
     try:
-        result = settle_all_for_date(target, season=season)
+        result = settle_all_for_date(target, season=season or get_current_season())
         return {"status": "success", "result": result}
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -1300,7 +1347,7 @@ def debug_player_game_log(
         import structlog
         
         logger = structlog.get_logger()
-        season_to_use = season or "2025-26"
+        season_to_use = season or get_current_season()
         
         logger.info("Debug: Fetching player game log", player_id=player_id, season=season_to_use)
         

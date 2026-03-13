@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { apiFetch } from '../utils/api'
 
 type GameRecord = {
@@ -31,6 +32,7 @@ type PickRecord = {
 type AccuracyResponse = {
   from_date: string
   to_date: string
+  model_version?: string | null
   game_predictions: {
     total: number
     total_settled?: number
@@ -46,6 +48,9 @@ type AccuracyResponse = {
     misses: number
     pushes: number
     hit_rate_pct: number | null
+    mae?: number | null
+    rmse?: number | null
+    win_rate?: number | null
     records: PickRecord[]
   }
 }
@@ -122,6 +127,12 @@ export default function AccuracyPage() {
 
       {!loading && !error && data && (
         <>
+          {data.model_version && (
+            <div className="mt-4 rounded-lg bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-3 py-2 text-sm text-slate-700 dark:text-slate-300">
+              <span className="font-medium">ML model version:</span> <code className="text-xs">{data.model_version}</code>
+              <span className="ml-2 text-slate-500 dark:text-slate-400">(last retrain)</span>
+            </div>
+          )}
           {/* Summary cards */}
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
@@ -155,7 +166,7 @@ export default function AccuracyPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">No settled picks in this range.</p>
               ) : (
                 <>
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-baseline gap-2 flex-wrap">
                     <span className="text-3xl font-bold text-gray-900 dark:text-slate-100">
                       {data.pick_of_the_day.hit_rate_pct ?? 0}%
                     </span>
@@ -164,10 +175,46 @@ export default function AccuracyPage() {
                       {data.pick_of_the_day.pushes > 0 && ` (${data.pick_of_the_day.pushes} push)`}
                     </span>
                   </div>
+                  {(data.pick_of_the_day.mae != null || data.pick_of_the_day.rmse != null) && (
+                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      MAE: <strong className="text-gray-700 dark:text-slate-300">{data.pick_of_the_day.mae ?? '—'}</strong>
+                      {' · '}
+                      RMSE: <strong className="text-gray-700 dark:text-slate-300">{data.pick_of_the_day.rmse ?? '—'}</strong>
+                    </div>
+                  )}
                 </>
               )}
             </div>
           </div>
+
+          {/* Win rate by stat type (Pick of the day) */}
+          {data.pick_of_the_day.records.length > 0 && (() => {
+            const byStat: Record<string, { hits: number; total: number }> = {}
+            for (const r of data.pick_of_the_day.records) {
+              if (r.push) continue
+              const st = r.stat_type || 'PTS'
+              if (!byStat[st]) byStat[st] = { hits: 0, total: 0 }
+              byStat[st].total += 1
+              if (r.hit) byStat[st].hits += 1
+            }
+            const chartData = Object.entries(byStat).map(([stat, v]) => ({ stat, winRate: v.total ? Math.round(100 * v.hits / v.total) : 0, hits: v.hits, total: v.total }))
+            if (chartData.length === 0) return null
+            return (
+              <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Win rate by stat (pick of the day)</h2>
+                <div className="h-48 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="stat" tick={{ fontSize: 12 }} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
+                      <Tooltip formatter={(value: number) => [`${value}%`, 'Win rate']} labelFormatter={(label) => `Stat: ${label}`} />
+                      <Bar dataKey="winRate" fill="rgb(34 197 94)" name="Win rate" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </section>
+            )
+          })()}
 
           {/* Game prediction history table (recent prediction history) */}
           <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">

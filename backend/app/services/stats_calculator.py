@@ -141,3 +141,53 @@ class StatsCalculator:
             else:
                 break
         return streak
+
+    @staticmethod
+    def calculate_heat_index(player_stats: List[Dict], stat_type: str, n_games: int = 10) -> float:
+        """
+        0-1 score: upward trend in recent games (recent avg > earlier avg).
+        Higher = player is heating up in this stat.
+        """
+        vals = [float(g.get(stat_type, 0) or 0) for g in player_stats][-n_games:]
+        if len(vals) < 4:
+            return 0.5
+        mid = len(vals) // 2
+        first_half_avg = sum(vals[:mid]) / mid if mid else 0.0
+        second_half_avg = sum(vals[mid:]) / (len(vals) - mid) if (len(vals) - mid) else 0.0
+        if first_half_avg == 0:
+            return 0.5
+        ratio = (second_half_avg - first_half_avg) / first_half_avg
+        return max(0.0, min(1.0, 0.5 + ratio))
+
+    @staticmethod
+    def calculate_volatility_index(player_stats: List[Dict], stat_type: str, n_games: int = 10) -> float:
+        """
+        0-1 score: coefficient of variation over recent games. Higher = more volatile.
+        """
+        vals = [float(g.get(stat_type, 0) or 0) for g in player_stats][-n_games:]
+        if len(vals) < 3:
+            return 0.0
+        mean = sum(vals) / len(vals)
+        if mean == 0:
+            return 0.0
+        variance = sum((v - mean) ** 2 for v in vals) / len(vals)
+        std = math.sqrt(variance)
+        cv = std / mean
+        return round(min(1.0, cv), 2)
+
+    @staticmethod
+    def calculate_calibrated_confidence(raw_confidence_0_1: float) -> float:
+        """
+        Map raw confidence (0-1) to a calibrated 0-100 score with sigmoid-like spread
+        so values don't cluster in the 60-75 range. Centers at 0.6; steeper slope
+        spreads small differences.
+        """
+        if raw_confidence_0_1 <= 0.0:
+            return 0.0
+        if raw_confidence_0_1 >= 1.0:
+            return 100.0
+        # Sigmoid: 50 + 50 * (1 / (1 + exp(-k*(x - 0.6)))) with k=10 for spread
+        k = 10.0
+        x = raw_confidence_0_1 - 0.6
+        t = 1.0 / (1.0 + math.exp(-k * x))
+        return round(min(99.0, max(1.0, 50.0 + 50.0 * t)), 1)

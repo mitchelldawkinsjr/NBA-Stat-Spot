@@ -220,6 +220,10 @@ class LocalLLMService(BaseLLMService):
         espn_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """Build the single-prompt for local/Ollama models (persona embedded inline)."""
+        import os
+        depth = (os.getenv("LLM_REASONING_DEPTH") or "summary").strip().lower()
+        if depth not in ("summary", "full"):
+            depth = "summary"
         return build_prop_rationale_prompt(
             player_name=player_name,
             prop_type=prop_type,
@@ -231,6 +235,7 @@ class LocalLLMService(BaseLLMService):
             context=context,
             espn_context=espn_context,
             for_chat_api=False,
+            reasoning_depth=depth,
         )
     
     def is_available(self) -> bool:

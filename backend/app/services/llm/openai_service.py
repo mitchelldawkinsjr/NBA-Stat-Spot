@@ -130,6 +130,10 @@ class OpenAIService(BaseLLMService):
         context: Optional[Dict[str, Any]],
         espn_context: Optional[Dict[str, Any]] = None,
     ) -> str:
+        import os
+        depth = (os.getenv("LLM_REASONING_DEPTH") or "summary").strip().lower()
+        if depth not in ("summary", "full"):
+            depth = "summary"
         return build_prop_rationale_prompt(
             player_name=player_name,
             prop_type=prop_type,
@@ -141,6 +145,7 @@ class OpenAIService(BaseLLMService):
             context=context,
             espn_context=espn_context,
             for_chat_api=True,
+            reasoning_depth=depth,
         )
 
     def generate_over_under_rationale(

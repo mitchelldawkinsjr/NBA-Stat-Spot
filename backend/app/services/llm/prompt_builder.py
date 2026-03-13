@@ -154,6 +154,7 @@ def build_prop_rationale_prompt(
     context: Optional[Dict[str, Any]] = None,
     espn_context: Optional[Dict[str, Any]] = None,
     for_chat_api: bool = True,
+    reasoning_depth: str = "summary",
 ) -> str:
     """
     Build the user-facing prompt for a single prop-bet rationale.
@@ -197,6 +198,28 @@ def build_prop_rationale_prompt(
     # Context block
     ctx_block = _context_lines(context, espn_context)
 
+    # Structured multi-factor block for "full" reasoning (LLM_REASONING_DEPTH=full)
+    multi_factor_block = ""
+    if reasoning_depth == "full" and context:
+        factors: List[str] = []
+        ms = context.get("matchup_score")
+        if ms is not None:
+            factors.append(f"matchup_score={float(ms):.0f}/100")
+        odr = context.get("opponent_def_rank")
+        if odr is not None:
+            factors.append(f"opponent_def_rank=#{int(odr)}/30")
+        odvp = context.get("opponent_def_rank_vs_position")
+        if odvp:
+            factors.append(f"opponent_vs_position={odvp}")
+        if context.get("rest_days") is not None:
+            factors.append(f"rest_days={context['rest_days']}")
+        if context.get("h2h_avg") is not None:
+            factors.append(f"h2h_avg={context['h2h_avg']:.1f}")
+        factors.append(f"hit_rate={hit_rate:.0%}")
+        factors.append(f"form={trend}")
+        if factors:
+            multi_factor_block = "\nMULTI-FACTOR INPUT (use these in your 2-sentence reasoning):\n" + " | ".join(factors) + "\n\n"
+
     # Injury — surface at the top if present
     inj_warning = ""
     if espn_context and espn_context.get("injury_status") in ("out", "doubtful"):
@@ -209,7 +232,7 @@ def build_prop_rationale_prompt(
         vals = [str(g.get(prop_type.lower(), g.get("pts", "?"))) for g in recent_games_stats[:3]]
         recent_log_str = f"\n• Last 3 game values ({prop_type}): {', '.join(vals)}"
 
-    body = f"""{inj_warning}
+    body = f"""{inj_warning}{multi_factor_block}
 PROP: {player_name} — {prop_display}
 CONFIDENCE: {confidence:.0f}% [{conf_tier}]{ml_str}
 

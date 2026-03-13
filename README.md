@@ -13,7 +13,7 @@ Lightweight web app to surface suggested NBA player prop bets with transparent r
 - **Data Processing**: Pandas 2.2.3, NumPy 1.26.4
 - **HTTP Client**: httpx 0.27.2
 - **Caching**: cachetools 5.5.0 (in-memory), Redis 5.0.7 (optional)
-- **Task Queue**: Celery 5.4.0 (optional, for background jobs)
+- **Background jobs**: Cron (e.g. supercronic) calling admin refresh endpoints via curl
 - **Logging**: structlog 24.4.0
 - **NBA Data**: nba_api 1.5.0
 - **ESPN Integration**: Real-time injury data, standings, news, and live game context
@@ -52,6 +52,11 @@ pip install -r backend/requirements.txt
 cd backend
 alembic upgrade head
 ```
+   **Production (VPS/Docker):** The backend uses `DATABASE_URL` from the environment. From the server repo root run:
+   ```bash
+   ./scripts/run-migrations-prod.sh
+   ```
+   or `docker exec nba-stat-spot-backend alembic upgrade head` (with backend container name).
 
 4. Run server
 ```bash

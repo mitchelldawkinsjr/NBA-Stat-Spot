@@ -20,6 +20,7 @@ from .routers import over_under_v1
 from .routers import espn_v1
 from .routers import games_enhanced_v1
 from .routers import accuracy_v1
+from .routers import insights_v1
 
 
 app = FastAPI(
@@ -197,3 +198,4 @@ app.include_router(over_under_v1.router)
 app.include_router(espn_v1.router)
 app.include_router(games_enhanced_v1.router)
 app.include_router(accuracy_v1.router)
+app.include_router(insights_v1.router)

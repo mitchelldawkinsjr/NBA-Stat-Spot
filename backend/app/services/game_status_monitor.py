@@ -81,7 +81,10 @@ class GameStatusMonitor:
         # Cache keys now use string format: nba_api:player_game_log:{player_id}:{season}:{date}
         for player_id in player_ids:
             # Try different season formats that might be cached
-            seasons_to_check = ["2025-26", "2024-25"]  # Current and previous seasons
+            from ..utils.season import get_current_season, get_previous_season
+            current = get_current_season()
+            prev = get_previous_season(current)
+            seasons_to_check = [current] + ([prev] if prev else [])
             for season in seasons_to_check:
                 # Generate the cache key that matches what fetch_player_game_log uses
                 cache_key = f"nba_api:player_game_log:{player_id}:{season}:{today_str}"

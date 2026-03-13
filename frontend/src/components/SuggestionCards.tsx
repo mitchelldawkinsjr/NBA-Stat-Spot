@@ -12,7 +12,9 @@ type SuggestionItem = {
   betterDirection?: Direction
   suggestion?: string
   playerId?: number
+  player_id?: number
   playerName?: string
+  player_name?: string
   hitRate?: number
   sampleSize?: number
   tier?: 'lock' | 'strong' | 'lean'
@@ -42,7 +44,16 @@ type SuggestionItem = {
   opponent_def_rank_vs_position?: string | null
   /** Supporting metrics (recent_avg_5, pace, usage_approx) */
   supporting_metrics?: Record<string, unknown> | null
+  /** Backend hot-form filter: player recent &gt; season avg */
+  isHot?: boolean
+  /** 0-1 upward trend in recent games */
+  heat_index?: number
+  /** 0-1 volatility (CV) over recent games */
+  volatility_index?: number
 }
+
+/** API often returns snake_case; SuggestionItem supports both. Pick of the day is the same shape. */
+export type PickOfTheDay = SuggestionItem
 
 export type { SuggestionItem }
 
@@ -91,6 +102,12 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
             )}
             {(s.matchup_score != null || s.matchup_explanation) && (
               <span className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 font-medium" title="Matchup insight">Matchup</span>
+            )}
+            {s.heat_index != null && s.heat_index > 0.55 && (
+              <span className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 font-medium" title="Heating up">Heat</span>
+            )}
+            {s.volatility_index != null && s.volatility_index > 0.3 && (
+              <span className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 font-medium" title="High variance">Vol</span>
             )}
           </div>
           <span

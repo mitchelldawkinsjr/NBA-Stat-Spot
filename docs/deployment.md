@@ -160,7 +160,7 @@ Quick start:
 |----------|---------|-------------|
 | `DATABASE_URL` | `sqlite:///./nba_props.db` | Database connection string |
 | `ENVIRONMENT` | `development` | Environment name (development/production) |
-| `REDIS_URL` | - | Redis connection (for Celery/caching) |
+| `REDIS_URL` | - | Redis connection (for caching) |
 | `API_RATE_LIMIT` | - | Request rate limit per minute |
 | `LOG_LEVEL` | `INFO` | Logging level |
 
@@ -251,7 +251,7 @@ curl http://localhost:5173
 - Use a process manager (e.g., Gunicorn with Uvicorn workers)
 - Implement connection pooling for database
 - Use Redis for distributed caching
-- Consider Celery for background job processing
+- Background jobs: use cron (e.g. supercronic) to call admin refresh endpoints via curl; no separate task queue required
 
 ### Frontend Scaling
 - Static files can be served via CDN

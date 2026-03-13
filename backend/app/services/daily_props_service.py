@@ -248,7 +248,8 @@ class DailyPropsService:
         Returns:
             Dictionary with "items" list of top props
         """
-        season = season or "2025-26"  # Default to 2025-26 season
+        from ..utils.season import get_current_season
+        season = season or get_current_season()
         
         # Get the date for game_date field - use provided date or today in UTC
         from datetime import datetime, timezone

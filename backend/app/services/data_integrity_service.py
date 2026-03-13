@@ -146,7 +146,8 @@ class DataIntegrityService:
                 source_players = NBADataService.fetch_all_players_including_rookies()
                 players_to_check = [p.get("id") for p in source_players[:20] if p.get("id") and p.get("team_id")]
             
-            season_to_use = season or "2025-26"
+            from ..utils.season import get_current_season
+            season_to_use = season or get_current_season()
             
             for pid in players_to_check:
                 try:

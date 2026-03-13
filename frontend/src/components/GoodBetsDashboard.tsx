@@ -306,7 +306,7 @@ export function GoodBetsDashboard() {
     staleTime: 15 * 60 * 1000,
     gcTime: 60 * 60 * 1000,
   })
-  const hotFormItems = (hotFormData?.items ?? []) as any[]
+  const hotFormItems = (hotFormData?.items ?? []) as SuggestionItem[]
   
   // Fetch league-wide stat leaders so "All" toggle has data; fetch on load so both All and Today show data
   const { data: leagueStatLeadersData, isLoading: leagueStatLeadersLoading, error: leagueStatLeadersError } = useQuery({
@@ -424,7 +424,7 @@ export function GoodBetsDashboard() {
   // Unified Top Picks — uses the new /top-picks endpoint
   const topPicks = useMemo(() => {
     if (games.length === 0) return []
-    const items = (topPicksData?.items ?? []) as any[]
+    const items = (topPicksData?.items ?? []) as SuggestionItem[]
     return items
       .filter((item) => {
         const d = item.gameDate || item.game_date
@@ -437,7 +437,7 @@ export function GoodBetsDashboard() {
   const bestBets = useMemo(() => {
     if (topPicks.length > 0) return topPicks
     if (games.length === 0) return []
-    const items = (dailyData?.items ?? []) as any[]
+    const items = (dailyData?.items ?? []) as SuggestionItem[]
     return items
       .filter((item) => {
         const d = item.gameDate || item.game_date
@@ -448,13 +448,13 @@ export function GoodBetsDashboard() {
 
   // Top Insights: picks with matchup_score, sorted by score (top 5)
   const topInsights = useMemo(() => {
-    const withScore = (bestBets as any[]).filter((b) => b.matchup_score != null)
+    const withScore = bestBets.filter((b) => b.matchup_score != null)
     return [...withScore].sort((a, b) => (b.matchup_score ?? 0) - (a.matchup_score ?? 0)).slice(0, 5)
   }, [bestBets])
 
   const playersToWatch = useMemo(() => {
     if (games.length === 0) return []
-    const items = (dailyData?.items ?? []) as any[]
+    const items = (dailyData?.items ?? []) as SuggestionItem[]
     if (!items.length) return []
     const normalizeDate = (d: string | null | undefined) => (!d ? null : d.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? d)
     const todayNorm = normalizeDate(today) || today
@@ -466,7 +466,7 @@ export function GoodBetsDashboard() {
       return norm === todayNorm || itemDate === today || String(itemDate).startsWith(today)
     })
     if (todayItems.length === 0 && items.length > 0) todayItems = items
-    const byPlayer = new Map<number, { id: number; name: string; tags: string[]; highlight: any; confidence: number }>()
+    const byPlayer = new Map<number, { id: number; name: string; tags: string[]; highlight: SuggestionItem; confidence: number }>()
     for (const s of todayItems) {
       if (!s.playerId) continue
       const entry = byPlayer.get(s.playerId) || { id: s.playerId, name: s.playerName || 'Player', tags: [] as string[], highlight: s, confidence: s.confidence ?? 0 }
@@ -485,12 +485,12 @@ export function GoodBetsDashboard() {
 
   // Hot players: from hot-form-only props (same tag logic as Players to Watch, backend isHot filter)
   const hotPlayers = useMemo(() => {
-    const items = (hotFormData?.items ?? []) as any[]
+    const items = (hotFormData?.items ?? []) as SuggestionItem[]
     const todayItems = items.filter((item) => {
       const itemDate = item.gameDate || item.game_date
       return itemDate && (itemDate === today || itemDate.startsWith(today))
     })
-    const byPlayer = new Map<number, { id: number; name: string; tags: string[]; highlight: any; confidence: number }>()
+    const byPlayer = new Map<number, { id: number; name: string; tags: string[]; highlight: SuggestionItem; confidence: number }>()
     for (const s of todayItems) {
       if (!s.playerId) continue
       const entry = byPlayer.get(s.playerId) || { id: s.playerId, name: s.playerName || 'Player', tags: [] as string[], highlight: s, confidence: s.confidence ?? 0 }
@@ -516,13 +516,13 @@ export function GoodBetsDashboard() {
   // Add prop to bet tracker from dashboard suggestions
   const { addToTracker, isAdding: isAddingToTracker } = useAddPropToTracker()
   const buildTrackerPayload = (s: SuggestionItem): AddPropPayload | null => {
-    const playerId = s.playerId ?? (s as any).player_id
-    const playerName = s.playerName ?? (s as any).player_name
+    const playerId = s.playerId ?? s.player_id
+    const playerName = s.playerName ?? s.player_name
     if (playerId == null || !playerName || !s.type) return null
     const line = s.marketLine ?? s.fairLine
     if (line == null) return null
     const dir = s.suggestion || s.chosenDirection || ((s.fairLine != null && s.marketLine != null && s.fairLine >= s.marketLine) ? 'over' : 'under')
-    const gameDate = s.gameDate ?? (s as any).game_date ?? today
+    const gameDate = s.gameDate ?? s.game_date ?? today
     return {
       player_id: Number(playerId),
       player_name: String(playerName),
@@ -574,7 +574,7 @@ export function GoodBetsDashboard() {
       }
     }
     // "Today" = top props per category from today's daily props
-    const items = (dailyData?.items ?? []) as any[]
+    const items = (dailyData?.items ?? []) as SuggestionItem[]
     if (!items.length) return empty
     const normalizeDate = (dateStr: string | null | undefined): string | null => {
       if (!dateStr) return null
@@ -1021,9 +1021,9 @@ export function GoodBetsDashboard() {
                         {Math.round(Number(pickOfTheDay.confidence))}% confidence
                       </div>
                     )}
-                    {(pickOfTheDay as any).matchup_explanation && (
+                    {pickOfTheDay.matchup_explanation && (
                       <p className="mt-1.5 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 rounded p-2 border border-amber-200 dark:border-amber-800/50">
-                        {(pickOfTheDay as any).matchup_explanation}
+                        {pickOfTheDay.matchup_explanation}
                       </p>
                     )}
                   </div>

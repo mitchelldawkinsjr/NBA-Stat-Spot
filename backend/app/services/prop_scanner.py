@@ -8,13 +8,14 @@ from datetime import datetime
 from .nba_api_service import NBADataService
 from .prop_engine import PropBetEngine
 from .stats_calculator import StatsCalculator
+from ..utils.season import get_current_season
 
 
 class PropScannerService:
     """Scans players playing today and identifies high-confidence prop bets"""
     
     @staticmethod
-    def scan_best_bets_for_today(season: str = "2025-26", min_confidence: float = 65.0, limit: int = 50) -> List[Dict[str, Any]]:
+    def scan_best_bets_for_today(season: Optional[str] = None, min_confidence: float = 65.0, limit: int = 50) -> List[Dict[str, Any]]:
         """
         Main scanning function:
         1. Gets today's games
@@ -23,6 +24,7 @@ class PropScannerService:
         4. Identifies stats they're doing well in
         5. Suggests props around those stats with high confidence
         """
+        season = season or get_current_season()
         try:
             # Get today's games
             games = NBADataService.fetch_todays_games()
@@ -203,10 +205,10 @@ class PropScannerService:
             return []
     
     @staticmethod
-    def scan_player_stats_trends(player_id: int, season: str = "2025-26") -> Dict[str, Any]:
+    def scan_player_stats_trends(player_id: int, season: Optional[str] = None) -> Dict[str, Any]:
         """Analyze a specific player's stat trends to identify hot streaks"""
         try:
-            logs = NBADataService.fetch_player_game_log(player_id, season)
+            logs = NBADataService.fetch_player_game_log(player_id, season or get_current_season())
             
             if len(logs) < 5:
                 return {"error": "Insufficient data"}

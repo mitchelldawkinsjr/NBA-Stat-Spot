@@ -17,6 +17,7 @@ from typing import Dict, List, Optional, Any
 from datetime import date, datetime
 import re as _re
 import structlog
+from ..utils.season import get_current_season
 from .context_collector import ContextCollector
 from .team_stats_service import TeamStatsService
 from .cache_service import get_cache_service
@@ -139,7 +140,7 @@ class GamePredictionService:
             return []
 
         teams_by_abbr = _get_teams_by_abbr()
-        season = "2025-26"
+        season = get_current_season()
         def_ranks = ContextCollector._calculate_defensive_ranks(season)
         off_ranks = ContextCollector._calculate_offensive_ranks(season)
         if not def_ranks and not off_ranks:
@@ -298,7 +299,7 @@ class GamePredictionService:
             away_team = teams_by_abbr.get(away_abbr)
             home_id = int(home_team["id"]) if home_team and home_team.get("id") is not None else None
             away_id = int(away_team["id"]) if away_team and away_team.get("id") is not None else None
-            season = "2025-26"
+            season = get_current_season()
             def_ranks = ContextCollector._calculate_defensive_ranks(season) or {}
             off_ranks = ContextCollector._calculate_offensive_ranks(season) or {}
             if not def_ranks or not off_ranks:
@@ -375,7 +376,7 @@ class GamePredictionService:
         if not one:
             return None
 
-        season = "2025-26"
+        season = get_current_season()
         home_id = one.get("home_team_id")
         away_id = one.get("away_team_id")
         home_abbr = one["home"]

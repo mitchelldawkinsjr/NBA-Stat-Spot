@@ -1,11 +1,15 @@
 from __future__ import annotations
+import os
 from typing import List, Dict, Optional
 from datetime import date
 from .stats_calculator import StatsCalculator
-from .feature_engineer import FeatureEngineer
-from .ml_models.model_server import get_model_server
 from .rationale_generator import get_rationale_generator
 from .nba_api_service import NBADataService
+
+
+def _ml_enabled() -> bool:
+    """True when ML_ENABLED env is set to true/1 (default false to avoid loading unused ML stack)."""
+    return os.getenv("ML_ENABLED", "false").strip().lower() in ("true", "1")
 
 
 class PropBetEngine:
@@ -156,8 +160,10 @@ class PropBetEngine:
         ml_predicted_line = None
         ml_available = False
 
-        if player_id and game_date:
+        if player_id and game_date and _ml_enabled():
             try:
+                from .feature_engineer import FeatureEngineer
+                from .ml_models.model_server import get_model_server
                 model_server = get_model_server()
                 feature_set = FeatureEngineer.build_feature_set(
                     player_id=player_id,

@@ -11,6 +11,7 @@ import { useAddPropToTracker } from '../hooks/useAddPropToTracker'
 import { PropCard } from '../components/PropCard'
 import { calculateConfidenceBasic } from '../utils/confidence'
 import { TrendChart } from '../components/TrendChart'
+import { CollapsibleProbabilityView } from '../components/StatDistributionChart'
 import { SplitsTable } from '../components/SplitsTable'
 import { MatchupCard } from '../components/MatchupCard'
 // import { PropHistoryRow } from '../components/PropHistory'
@@ -1658,9 +1659,15 @@ export default function PlayerProfile() {
             />
           </div>
 
-          
-
-          
+          {/* Probability view (distribution vs line) */}
+          {id && (
+            <CollapsibleProbabilityView
+              playerId={Number(id)}
+              defaultStat={hrStat === 'PTS' ? 'pts' : hrStat === 'REB' ? 'reb' : hrStat === 'AST' ? 'ast' : hrStat === '3PM' ? 'tpm' : 'pts'}
+              defaultLine={hrLine ? Number(hrLine) : undefined}
+              season={season || undefined}
+            />
+          )}
 
           {/* Evaluated suggestion */}
           {selectedSuggestion && (

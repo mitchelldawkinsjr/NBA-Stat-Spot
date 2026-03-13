@@ -55,3 +55,27 @@ class PickOfTheDayRecord(Base):
     push = Column(Boolean, nullable=True, default=False)  # actual == line
     created_at = Column(DateTime, server_default=func.now())
     settled_at = Column(DateTime, nullable=True)
+
+
+class PropPredictionRecord(Base):
+    """One record per generated prop pick (for self-improving pipeline). Settled with actual_value and error."""
+    __tablename__ = "prop_prediction_records"
+    __table_args__ = (
+        Index("idx_prop_pred_date", "record_date"),
+        Index("idx_prop_pred_settled", "actual_value"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    record_date = Column(Date, nullable=False, index=True)
+    player_id = Column(Integer, nullable=False, index=True)
+    player_name = Column(String(128), nullable=True)
+    stat_type = Column(String(16), nullable=False)
+    line_value = Column(Float, nullable=False)
+    direction = Column(String(8), nullable=False)
+    confidence = Column(Float, nullable=True)
+    predicted_value = Column(Float, nullable=True)
+    actual_value = Column(Float, nullable=True)
+    error = Column(Float, nullable=True)
+    model_version = Column(String(64), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    settled_at = Column(DateTime, nullable=True)

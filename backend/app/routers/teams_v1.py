@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional
 from ..services.nba_api_service import NBADataService
 from ..services.team_player_service import TeamPlayerService
 from ..services.context_collector import ContextCollector
+from ..utils.season import get_current_season
 
 router = APIRouter(prefix="/api/v1/teams", tags=["teams_v1"])
 logger = structlog.get_logger()
@@ -53,11 +54,11 @@ def list_teams():
     tags=["teams_v1"]
 )
 def get_team_stats_ranks(
-    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+    season: Optional[str] = Query(None, description="Season (e.g. 2025-26). Defaults to current season.")
 ):
     """Get team-level defense and offense ranks for all teams. Uses player-stats fallback when primary ranks are empty."""
     try:
-        season_str = season or "2025-26"
+        season_str = season or get_current_season()
         teams = NBADataService.fetch_all_teams() or []
         def_ranks = ContextCollector._calculate_defensive_ranks(season_str)
         off_ranks = ContextCollector._calculate_offensive_ranks(season_str)
@@ -94,7 +95,7 @@ def get_team_stats_ranks(
                 "pace_rank": p.get("pace_rank"),
                 "possessions_per_game": p.get("possessions"),
             })
-        return {"season": season or "2025-26", "items": items}
+        return {"season": season_str, "items": items}
     except Exception as e:
         logger.error("team-stats ranks failed", error=str(e), exc_info=True)
         raise HTTPException(
@@ -111,11 +112,11 @@ def get_team_stats_ranks(
     tags=["teams_v1"]
 )
 def get_position_defense_ranks(
-    season: Optional[str] = Query("2025-26", description="Season (e.g. 2025-26)")
+    season: Optional[str] = Query(None, description="Season (e.g. 2025-26). Defaults to current season.")
 ):
     """Get position-based defensive rankings for all teams."""
     try:
-        season_str = season or "2025-26"
+        season_str = season or get_current_season()
         pos_ranks = ContextCollector._calculate_position_defensive_ranks(season_str)
         teams = NBADataService.fetch_all_teams() or []
         team_lookup = {t.get("id"): t for t in teams if t.get("id")}

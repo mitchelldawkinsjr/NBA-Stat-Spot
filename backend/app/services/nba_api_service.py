@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from ..services.cache_service import get_cache_service
+from ..utils.season import get_current_season
 
 
 def _load_rookie_merge_list() -> List[Dict[str, Any]]:
@@ -443,7 +444,7 @@ class NBADataService:
         logger = structlog.get_logger()
         
         # Default to current season if not provided
-        season_to_use = season or "2025-26"
+        season_to_use = season or get_current_season()
         
         max_retries = 1
         base_delay = 1.0
@@ -657,7 +658,7 @@ class NBADataService:
         """
         import structlog
         log = structlog.get_logger()
-        season_to_use = season or "2025-26"
+        season_to_use = season or get_current_season()
         today_str = datetime.now().date().isoformat()
         cache_key = f"nba_api:player_game_log:{player_id}:{season_to_use}:{today_str}"
         cache = get_cache_service()

@@ -12,6 +12,8 @@ from ..services.best_picks_service import BestPicksService
 from ..services.stats_calculator import StatsCalculator
 from ..services.settings_service import SettingsService
 from ..services.cache_service import get_cache_service
+from ..services.stat_distribution import compute_distribution as compute_stat_distribution
+from ..utils.season import get_current_season
 from ..core.rate_limiter import limiter
 
 router = APIRouter(prefix="/api/v1/props", tags=["props_v1"])
@@ -112,7 +114,7 @@ class PlayerSuggestResponse(BaseModel):
 @limiter.limit("30/minute")  # Rate limit: 30 requests per minute per IP
 def suggest_player_props(request: Request, req: PlayerSuggestRequest, db: Session = Depends(get_db)):
     # Default season fallback
-    season = req.season or "2025-26"
+    season = req.season or get_current_season()
     try:
         logs = NBADataService.fetch_player_game_log(req.playerId, season)
     except Exception:
@@ -446,7 +448,7 @@ def daily_props(
                     "cached": True,
                     "fallback": True,
                     "date": yesterday,
-                    "season": season or "2025-26",
+                    "season": season or get_current_season(),
                     "error": "Using previous day's data due to generation error"
                 }
         except Exception:
@@ -458,7 +460,7 @@ def daily_props(
             "total": 0,
             "returned": 0,
             "date": date or datetime.now().strftime("%Y-%m-%d"),
-            "season": season or "2025-26",
+            "season": season or get_current_season(),
             "error": "Request failed. Please try again.",
             "cached": False
         }
@@ -499,7 +501,7 @@ def pick_of_the_day(
         try:
             result = DailyPropsService.get_top_props_for_date(
                 date=target_date,
-                season="2025-26",
+                season=get_current_season(),
                 min_confidence=50.0,
                 limit=200,
                 last_n=10,
@@ -565,6 +567,26 @@ def player_props(
 ):
     sugs = build_suggestions_for_player(player_id, season)
     return {"items": sugs}
+
+
+@router.get(
+    "/distribution/{player_id}",
+    summary="Get probability distribution for a stat",
+    description="Fit Normal (PTS/AST/PRA) or Poisson (REB/3PM) to recent games, run Monte Carlo, return P(over) and P(under) vs the given line.",
+)
+def get_distribution(
+    player_id: int = Path(..., description="NBA player ID"),
+    stat: str = Query("pts", description="Stat: pts, reb, ast, tpm, pra"),
+    line: float = Query(..., description="Line value (e.g. 25.5)"),
+    season: Optional[str] = Query(None, description="Season (default: current)"),
+):
+    season_to_use = season or get_current_season()
+    logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
+    if not logs or len(logs) < 3:
+        return {"error": "Insufficient game log data", "items": []}
+    result = compute_stat_distribution(logs, stat, line)
+    return result
+
 
 @router.get("/game/{game_id}")
 def game_props(

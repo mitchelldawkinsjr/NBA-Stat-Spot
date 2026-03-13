@@ -5,6 +5,7 @@ from datetime import date
 from ..services.nba_api_service import NBADataService
 from ..services.stats_calculator import StatsCalculator
 from ..services.context_collector import ContextCollector
+from ..utils.season import get_current_season, get_previous_season
 from ..services.live_game_service import LiveGameService
 from ..services.live_game_context_service import get_live_game_context_service
 from ..core.rate_limiter import limiter
@@ -95,7 +96,7 @@ def stat_leaders(
 
     # Cold-start: only use players whose game logs are already cached.
     # Never block the request on slow external API calls.
-    season_to_use = season or "2025-26"
+    season_to_use = season or get_current_season()
     players = NBADataService.fetch_all_players_including_rookies()
     active_players = [p for p in players if p.get("team_id") and p.get("team_id") != 0]
 
@@ -230,7 +231,7 @@ def stats(
     refresh: bool = Query(False, description="If true, bypass cache and fetch fresh data from NBA API (slower)")
 ):
     try:
-        season_to_use = season or "2025-26"
+        season_to_use = season or get_current_season()
         # Use cache by default so page loads are fast; ?refresh=true for explicit refresh
         logs = NBADataService.fetch_player_game_log(player_id, season_to_use, force_refresh=refresh)
         if logs is None:
@@ -241,11 +242,12 @@ def stats(
             import structlog
             logger = structlog.get_logger()
             logger.info("No logs found for season, trying fallback seasons", player_id=player_id, season=season_to_use)
-            logs = NBADataService.fetch_player_game_log(player_id, "2024-25", force_refresh=False)
+            logs = NBADataService.fetch_player_game_log(player_id, get_previous_season(season_to_use) or "2024-25", force_refresh=False)
             if logs is None:
                 logs = []
             if len(logs) == 0:
-                logs = NBADataService.fetch_player_game_log(player_id, "2023-24", force_refresh=False)
+                prev2 = get_previous_season(get_previous_season(season_to_use) or "2024-25")
+                logs = NBADataService.fetch_player_game_log(player_id, prev2 or "2023-24", force_refresh=False)
                 if logs is None:
                     logs = []
         
@@ -385,12 +387,21 @@ def trends(
     stat_type: str = Query("pts", description="Stat type to analyze: pts, reb, ast, tpm, etc.", example="pts"),
     season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26")
 ):
-    season_to_use = season or "2025-26"
+    season_to_use = season or get_current_season()
     logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
     last = logs[-20:]
     avg10 = StatsCalculator.calculate_rolling_average(last, stat_type, 10)
     avg5 = StatsCalculator.calculate_rolling_average(last, stat_type, 5)
-    return {"stat": stat_type, "avg5": avg5, "avg10": avg10, "items": last}
+    heat_index = StatsCalculator.calculate_heat_index(last, stat_type, 10)
+    volatility_index = StatsCalculator.calculate_volatility_index(last, stat_type, 10)
+    return {
+        "stat": stat_type,
+        "avg5": avg5,
+        "avg10": avg10,
+        "heat_index": round(heat_index, 2),
+        "volatility_index": volatility_index,
+        "items": last,
+    }
 
 
 @router.get(
@@ -404,7 +415,7 @@ def get_player_streaks(
     season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26")
 ):
     """Return consecutive-game streak data for PTS, REB, AST, 3PM vs season average."""
-    season_to_use = season or "2025-26"
+    season_to_use = season or get_current_season()
     logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
     if len(logs) < 3:
         return {"player_id": player_id, "streaks": {}}
@@ -477,7 +488,7 @@ def get_player_context(
             game_date=game_date_obj,
             opponent_team_id=opponent_team_id,
             is_home_game=is_home_game,
-            season=season or "2025-26"
+            season=season or get_current_season()
         )
         
         # Enrich with full team performance for opponent (def_rank_3pm, offense ranks)
@@ -491,7 +502,7 @@ def get_player_context(
         if context.opponent_team_id:
             try:
                 opp_perf = ContextCollector.get_team_performance(
-                    context.opponent_team_id, season=season or "2025-26"
+                    context.opponent_team_id, season=season or get_current_season()
                 )
                 opponent_defense["rank_3pm"] = opp_perf.get("def_rank_3pm")
                 opponent_offense = {
@@ -509,7 +520,7 @@ def get_player_context(
                 player = next((p for p in all_players if p.get("id") == player_id), None)
                 position = _normalize_position(player.get("position") if player else None)
                 if position:
-                    pos_ranks = ContextCollector._calculate_position_defensive_ranks(season or "2025-26") or {}
+                    pos_ranks = ContextCollector._calculate_position_defensive_ranks(season or get_current_season()) or {}
                     opp_pos_ranks = pos_ranks.get(position, {}).get(int(context.opponent_team_id), {})
                     if opp_pos_ranks:
                         opponent_defense_vs_position = {
@@ -525,9 +536,9 @@ def get_player_context(
         # Matchup advantage score: player season avg − opponent's avg allowed
         matchup_advantage: Dict[str, Any] = {}
         try:
-            logs = NBADataService.fetch_player_game_log(player_id, season or "2025-26")
+            logs = NBADataService.fetch_player_game_log(player_id, season or get_current_season())
             if logs and context.opponent_team_id:
-                def_avgs = ContextCollector.get_defensive_averages(season or "2025-26")
+                def_avgs = ContextCollector.get_defensive_averages(season or get_current_season())
                 opp_avgs = def_avgs.get(int(context.opponent_team_id)) or {}
                 n = len(logs)
                 if n >= 5 and opp_avgs:
