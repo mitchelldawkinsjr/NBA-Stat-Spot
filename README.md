@@ -94,6 +94,7 @@ cd backend && python3 verify_setup.py
 
 ### Core Capabilities
 - **Player Prop Analysis**: Suggestions for PTS, REB, AST, 3PM, PRA with confidence and rationale
+- **Top Picks of the Day**: Good Bets dashboard with a horizontal strip of best props (LOCK/STRONG/LEAN) and **Top Insights by matchup** — top 5 picks by matchup score with short narratives and “View matchup” links. See [Insight Generation Engine](docs/insight-generation-engine.md).
 - **Rationale & AI**: Optional LLM-generated explanations (OpenAI gpt-4o-mini or Ollama llama3.2); rule-based fallback when no LLM. See [Rationale and LLM](docs/rationale-and-llm.md).
 - **Over/Under Analysis**: Live game total predictions with pace adjustments
 - **Parlay Builder**: Multi-leg parlays with confidence

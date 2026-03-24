@@ -3,7 +3,7 @@ Accuracy Tracking Service - Record and settle game predictions and AI pick-of-th
 """
 from __future__ import annotations
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 import structlog
@@ -17,6 +17,21 @@ logger = structlog.get_logger()
 
 # Map API stat type to game log key
 STAT_TO_GAME_LOG_KEY = {"PTS": "pts", "REB": "reb", "AST": "ast", "3PM": "tpm"}
+
+
+def _normalize_game_log_date_iso(raw: Union[str, None]) -> str:
+    """Normalize NBA game log date to YYYY-MM-DD for comparison with record_date."""
+    if raw is None:
+        return ""
+    s = str(raw).strip()
+    if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+        return s[:10]
+    try:
+        if "T" in s:
+            return datetime.fromisoformat(s.replace("Z", "+00:00").split("T")[0]).date().isoformat()
+    except (ValueError, TypeError):
+        pass
+    return s[:10] if len(s) >= 10 else s
 
 
 def _get_db() -> Session:
@@ -74,9 +89,12 @@ def record_game_predictions(target_date: date, predictions: List[Dict[str, Any]]
 def record_pick_of_the_day(target_date: date, pick: Dict[str, Any]) -> bool:
     """
     Insert one pick-of-the-day record (idempotent: skip if record exists for that date).
-    Call when we set pick_of_the_day in cache.
+    Call when we set pick_of_the_day in cache (admin warm or public pick-of-the-day endpoint).
     """
-    if not pick or pick.get("playerId") is None:
+    pid = pick.get("playerId") if pick else None
+    if pid is None and pick:
+        pid = pick.get("player_id")
+    if not pick or pid is None:
         return False
     db = _get_db()
     try:
@@ -100,7 +118,7 @@ def record_pick_of_the_day(target_date: date, pick: Dict[str, Any]) -> bool:
             suggestion = "over"
         r = PickOfTheDayRecord(
             record_date=target_date,
-            player_id=int(pick["playerId"]),
+            player_id=int(pid),
             player_name=(pick.get("playerName") or "Unknown")[:128],
             stat_type=stat_type,
             line_value=line_value,
@@ -209,7 +227,7 @@ def settle_pick_of_the_day(target_date: date, season: Optional[str] = None) -> D
         game_log_key = STAT_TO_GAME_LOG_KEY.get(record.stat_type, "pts")
         actual_value = None
         for g in logs:
-            gd = (g.get("game_date") or g.get("GAME_DATE") or "")[:10]
+            gd = _normalize_game_log_date_iso(g.get("game_date") or g.get("GAME_DATE"))
             if gd == date_str:
                 raw = g.get(game_log_key) or g.get(game_log_key.upper())
                 if raw is not None:
@@ -357,26 +375,39 @@ def get_accuracy_history(
         game_total_all = len(game_all)
         game_pct = round(100.0 * game_correct / game_total_settled, 1) if game_total_settled else None
 
-        # Pick of the day: only settled (exclude push for hit rate)
-        pick_q = db.query(PickOfTheDayRecord).filter(
-            PickOfTheDayRecord.record_date >= from_date,
-            PickOfTheDayRecord.record_date <= to_date,
-            PickOfTheDayRecord.actual_value.isnot(None),
-        ).order_by(PickOfTheDayRecord.record_date.desc())
-        pick_records = pick_q.all()
-        pick_hits = sum(1 for r in pick_records if r.hit is True)
-        pick_push = sum(1 for r in pick_records if r.push)
-        pick_miss = sum(1 for r in pick_records if r.hit is False)
-        pick_total = len(pick_records)
-        pick_hit_rate = round(100.0 * pick_hits / (pick_total - pick_push), 1) if (pick_total - pick_push) > 0 else None
+        # Pick of the day: all rows in range for history table; settled subset for rates
+        pick_all = (
+            db.query(PickOfTheDayRecord)
+            .filter(
+                PickOfTheDayRecord.record_date >= from_date,
+                PickOfTheDayRecord.record_date <= to_date,
+            )
+            .order_by(PickOfTheDayRecord.record_date.desc())
+            .all()
+        )
+        pick_settled = [r for r in pick_all if r.actual_value is not None]
+        pick_pending_count = len(pick_all) - len(pick_settled)
+        pick_hits = sum(1 for r in pick_settled if r.hit is True)
+        pick_push = sum(1 for r in pick_settled if r.push)
+        pick_miss = sum(1 for r in pick_settled if r.hit is False)
+        pick_settled_count = len(pick_settled)
+        pick_non_push = pick_settled_count - pick_push
+        pick_hit_rate = round(100.0 * pick_hits / pick_non_push, 1) if pick_non_push > 0 else None
 
         # MAE and RMSE for pick-of-the-day (exclude pushes)
         pick_errors = []
-        for r in pick_records:
+        for r in pick_settled:
             if r.actual_value is not None and not r.push:
                 pick_errors.append(abs(float(r.actual_value) - float(r.line_value)))
         pick_mae = round(sum(pick_errors) / len(pick_errors), 2) if pick_errors else None
         pick_rmse = round((sum(e * e for e in pick_errors) / len(pick_errors)) ** 0.5, 2) if pick_errors else None
+
+        # Combined: settled game winners + settled AI picks (non-push), one point each
+        combined_total = game_total_settled + pick_non_push
+        combined_correct = game_correct + pick_hits
+        combined_accuracy_pct = (
+            round(100.0 * combined_correct / combined_total, 1) if combined_total > 0 else None
+        )
 
         # Per-record list for UI (all records, with status)
         game_by_date = []
@@ -396,7 +427,8 @@ def get_accuracy_history(
                 "insight_summary": r.insight_summary,
             })
         pick_by_date = []
-        for r in pick_records:
+        for r in pick_all:
+            p_status = "graded" if r.actual_value is not None else "pending"
             pick_by_date.append({
                 "date": r.record_date.isoformat(),
                 "player_name": r.player_name,
@@ -407,6 +439,7 @@ def get_accuracy_history(
                 "hit": r.hit,
                 "push": r.push,
                 "confidence": r.confidence,
+                "status": p_status,
             })
         model_version = None
         try:
@@ -421,6 +454,13 @@ def get_accuracy_history(
             "from_date": from_date.isoformat(),
             "to_date": to_date.isoformat(),
             "model_version": model_version,
+            "combined_accuracy": {
+                "accuracy_pct": combined_accuracy_pct,
+                "correct": combined_correct,
+                "total": combined_total,
+                "game_settled": game_total_settled,
+                "ai_pick_graded_non_push": pick_non_push,
+            },
             "game_predictions": {
                 "total": game_total_all,
                 "total_settled": game_total_settled,
@@ -431,7 +471,9 @@ def get_accuracy_history(
                 "records": game_by_date,
             },
             "pick_of_the_day": {
-                "total": pick_total,
+                "total": len(pick_all),
+                "settled": pick_settled_count,
+                "pending": pick_pending_count,
                 "hits": pick_hits,
                 "misses": pick_miss,
                 "pushes": pick_push,

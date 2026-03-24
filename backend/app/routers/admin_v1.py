@@ -839,7 +839,8 @@ def warm_dashboard(request: Request):
                 _cache.set(f"pick_of_the_day:{today_str}", pick, ttl=86400)
                 try:
                     from ..services.accuracy_tracking_service import record_pick_of_the_day
-                    record_pick_of_the_day(date.today(), pick)
+
+                    record_pick_of_the_day(date.fromisoformat(today_str), pick)
                 except Exception:
                     pass
                 results["pickOfTheDay"] = 1

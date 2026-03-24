@@ -27,12 +27,20 @@ type PickRecord = {
   hit: boolean | null
   push: boolean | null
   confidence: number | null
+  status?: 'graded' | 'pending'
 }
 
 type AccuracyResponse = {
   from_date: string
   to_date: string
   model_version?: string | null
+  combined_accuracy?: {
+    accuracy_pct: number | null
+    correct: number
+    total: number
+    game_settled?: number
+    ai_pick_graded_non_push?: number
+  }
   game_predictions: {
     total: number
     total_settled?: number
@@ -44,6 +52,8 @@ type AccuracyResponse = {
   }
   pick_of_the_day: {
     total: number
+    settled?: number
+    pending?: number
     hits: number
     misses: number
     pushes: number
@@ -113,7 +123,7 @@ export default function AccuracyPage() {
       </div>
 
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Game predictions are saved automatically when the morning warm runs. Results are graded after games complete (run &quot;Settle accuracy&quot; in Admin, or use the daily cron).
+        Match predictions are saved when game predictions are cached. AI pick of the day is saved when the pick is first loaded (cache miss) or when Admin warms the dashboard. Run <strong>Settle accuracy</strong> in Admin after games to grade both (or use the daily cron).
       </p>
 
       {loading && (
@@ -133,47 +143,61 @@ export default function AccuracyPage() {
               <span className="ml-2 text-slate-500 dark:text-slate-400">(last retrain)</span>
             </div>
           )}
-          {/* Summary cards */}
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Summary cards: matches, AI pick, combined */}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Game predictions</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Predicted winner vs actual winner (win % on settled only)</p>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Match predictions</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Game winner: predicted vs actual (settled games only)</p>
               {data.game_predictions.total === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">No predictions in this range.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">No games recorded in this range.</p>
               ) : (
                 <>
                   <div className="flex items-baseline gap-2 flex-wrap">
                     <span className="text-3xl font-bold text-gray-900 dark:text-slate-100">
-                      {data.game_predictions.accuracy_pct ?? 0}%
+                      {data.game_predictions.total_settled ? (data.game_predictions.accuracy_pct ?? '—') : '—'}
+                      {data.game_predictions.total_settled ? '%' : ''}
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                      win rate
+                      {data.game_predictions.total_settled ? 'accuracy' : 'no settled yet'}
                     </span>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
-                    <span>Total: <strong className="text-gray-900 dark:text-slate-100">{data.game_predictions.total}</strong></span>
+                    <span>Recorded: <strong className="text-gray-900 dark:text-slate-100">{data.game_predictions.total}</strong></span>
+                    <span>Settled: <strong className="text-gray-900 dark:text-slate-100">{data.game_predictions.total_settled ?? 0}</strong></span>
                     <span>Correct: <strong className="text-emerald-600 dark:text-emerald-400">{data.game_predictions.correct}</strong></span>
-                    <span>Incorrect: <strong className="text-rose-600 dark:text-rose-400">{data.game_predictions.incorrect ?? 0}</strong></span>
-                    <span>Pending: <strong className="text-amber-600 dark:text-amber-400">{data.game_predictions.pending ?? 0}</strong></span>
+                    <span>Wrong: <strong className="text-rose-600 dark:text-rose-400">{data.game_predictions.incorrect ?? 0}</strong></span>
+                    <span className="col-span-2">Pending: <strong className="text-amber-600 dark:text-amber-400">{data.game_predictions.pending ?? 0}</strong></span>
                   </div>
                 </>
               )}
             </div>
             <div className="rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">AI pick of the day</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Over/under vs actual stat (pushes excluded from rate)</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Prop O/U vs actual (pushes excluded from win rate)</p>
               {data.pick_of_the_day.total === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">No settled picks in this range.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">No picks recorded in this range. Open the dashboard or warm cache so picks are saved.</p>
               ) : (
                 <>
                   <div className="flex items-baseline gap-2 flex-wrap">
                     <span className="text-3xl font-bold text-gray-900 dark:text-slate-100">
-                      {data.pick_of_the_day.hit_rate_pct ?? 0}%
+                      {(data.pick_of_the_day.settled ?? 0) > 0 && (data.pick_of_the_day.hits + data.pick_of_the_day.misses) > 0
+                        ? (data.pick_of_the_day.hit_rate_pct ?? '—')
+                        : '—'}
+                      {(data.pick_of_the_day.settled ?? 0) > 0 && (data.pick_of_the_day.hits + data.pick_of_the_day.misses) > 0 ? '%' : ''}
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {data.pick_of_the_day.hits}W – {data.pick_of_the_day.misses}L
+                      {(data.pick_of_the_day.settled ?? 0) > 0 && (data.pick_of_the_day.hits + data.pick_of_the_day.misses) > 0
+                        ? `${data.pick_of_the_day.hits}W – ${data.pick_of_the_day.misses}L`
+                        : 'awaiting grade'}
                       {data.pick_of_the_day.pushes > 0 && ` (${data.pick_of_the_day.pushes} push)`}
                     </span>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                    <span>Recorded: <strong className="text-gray-900 dark:text-slate-100">{data.pick_of_the_day.total}</strong></span>
+                    <span className="mx-2">·</span>
+                    <span>Settled: <strong className="text-gray-900 dark:text-slate-100">{data.pick_of_the_day.settled ?? 0}</strong></span>
+                    <span className="mx-2">·</span>
+                    <span>Pending: <strong className="text-amber-600 dark:text-amber-400">{data.pick_of_the_day.pending ?? 0}</strong></span>
                   </div>
                   {(data.pick_of_the_day.mae != null || data.pick_of_the_day.rmse != null) && (
                     <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
@@ -185,13 +209,36 @@ export default function AccuracyPage() {
                 </>
               )}
             </div>
+            <div className="rounded-xl bg-white dark:bg-slate-800 border border-violet-200 dark:border-violet-800/50 shadow-sm p-4 sm:p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Combined</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Every settled match + every graded AI pick (non-push) counts as one trial</p>
+              {data.combined_accuracy && data.combined_accuracy.total > 0 ? (
+                <>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-3xl font-bold text-violet-700 dark:text-violet-300">
+                      {data.combined_accuracy.accuracy_pct ?? 0}%
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {data.combined_accuracy.correct} / {data.combined_accuracy.total} correct
+                    </span>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                    Matches: <strong>{data.combined_accuracy.game_settled ?? 0}</strong> graded
+                    <span className="mx-2">·</span>
+                    AI props: <strong>{data.combined_accuracy.ai_pick_graded_non_push ?? 0}</strong> graded (excl. push)
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No combined trials yet (need at least one settled match or graded pick).</p>
+              )}
+            </div>
           </div>
 
           {/* Win rate by stat type (Pick of the day) */}
           {data.pick_of_the_day.records.length > 0 && (() => {
             const byStat: Record<string, { hits: number; total: number }> = {}
             for (const r of data.pick_of_the_day.records) {
-              if (r.push) continue
+              if (r.status === 'pending' || r.push) continue
               const st = r.stat_type || 'PTS'
               if (!byStat[st]) byStat[st] = { hits: 0, total: 0 }
               byStat[st].total += 1
@@ -264,8 +311,11 @@ export default function AccuracyPage() {
           {/* Pick of the day history table */}
           <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">AI pick of the day history</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Rows appear when a pick is first generated for that date. <strong>Pending</strong> clears after Admin <strong>Settle accuracy</strong> for that date.
+            </p>
             {data.pick_of_the_day.records.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">No records.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">No picks on file in this range.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs sm:text-sm text-left border-collapse">
@@ -276,7 +326,7 @@ export default function AccuracyPage() {
                       <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Prop</th>
                       <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Line</th>
                       <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Actual</th>
-                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-center">Hit</th>
+                      <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-center">Result</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -288,12 +338,14 @@ export default function AccuracyPage() {
                         <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{r.line_value}</td>
                         <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{r.actual_value ?? '—'}</td>
                         <td className="py-1.5 px-2 text-center">
-                          {r.push ? (
+                          {r.status === 'pending' || (r.actual_value == null && r.hit == null && !r.push) ? (
+                            <span className="text-amber-600 dark:text-amber-400 font-medium">Pending</span>
+                          ) : r.push ? (
                             <span className="text-amber-600 dark:text-amber-400 font-semibold">Push</span>
                           ) : r.hit ? (
-                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Yes</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Hit</span>
                           ) : r.hit === false ? (
-                            <span className="text-rose-600 dark:text-rose-400 font-semibold">No</span>
+                            <span className="text-rose-600 dark:text-rose-400 font-semibold">Miss</span>
                           ) : (
                             <span className="text-gray-400">—</span>
                           )}
@@ -309,7 +361,7 @@ export default function AccuracyPage() {
       )}
 
       <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">
-        <p>Predictions are recorded when the dashboard is warmed. Run <strong>Settle accuracy</strong> in Admin to grade a date (default: yesterday). A daily cron can run this automatically after the morning warm.</p>
+        <p>Match predictions and AI picks are saved when caches are warmed or when the pick-of-the-day endpoint runs (cache miss). Run <strong>Settle accuracy</strong> in Admin to grade a date (default: yesterday). A daily cron can run this automatically after games.</p>
       </div>
       <div className="mt-4">
         <Link to="/admin" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Go to Admin</Link>

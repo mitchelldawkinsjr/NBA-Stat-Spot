@@ -543,6 +543,13 @@ def pick_of_the_day(
         "supporting_metrics": best.get("supporting_metrics"),
     }
     cache.set(cache_key, pick, ttl=86400)
+    try:
+        from datetime import date as date_cls
+        from ..services.accuracy_tracking_service import record_pick_of_the_day
+
+        record_pick_of_the_day(date_cls.fromisoformat(target_date[:10]), pick)
+    except Exception:
+        pass
     return {"pick": pick, "cached": False, "date": target_date}
 
 

@@ -39,7 +39,18 @@ This document describes the enhanced insight generation engine: turning raw stat
 
 ---
 
-## 4. Insight Strength Score Formula
+## 4. Frontend display (current)
+
+The **Good Bets** dashboard shows:
+
+- **Top Picks of the Day** – Horizontal scroll strip of best props (from `/api/v1/props/top-picks` or daily props), with tier badges (LOCK / STRONG / LEAN), direction, rationale, and “Add to tracker.”
+- **Top Insights by matchup** – When any pick has `matchup_score` or `matchup_explanation`, the top 5 (by score) are shown in a separate horizontal strip above the main Top Picks. Cards show matchup explanation and “View matchup” link. The list supports both camelCase and snake_case API fields.
+
+Layout: the Top Picks content area and the Top Insights block use `min-w-0` so horizontal scrolling works correctly in flex/grid. `SuggestionCards` in horizontal mode uses stable keys (`playerId-type-idx`) and `overflow-y-visible` so card content is not clipped.
+
+---
+
+## 5. Insight Strength Score Formula
 
 ```
 Matchup Score =
@@ -60,7 +71,7 @@ Result: single **matchup_score** 0–100; rank insights across all games by this
 
 ---
 
-## 5. Insight Categories
+## 6. Insight Categories
 
 | Category | When to assign |
 |----------|----------------|
@@ -75,7 +86,7 @@ Result: single **matchup_score** 0–100; rank insights across all games by this
 
 ---
 
-## 6. Example Insight Output
+## 7. Example Insight Output
 
 **Input:** Trae Young (PG) vs Chicago Bulls.
 
@@ -91,7 +102,7 @@ Result: single **matchup_score** 0–100; rank insights across all games by this
 
 ---
 
-## 7. Implementation Order
+## 8. Implementation Order
 
 1. **Position defense in best_picks** — Resolve player position; load pos_ranks; pass opponent position-def ranks into _scan_player; blend with team def rank in line/confidence.
 2. **Matchup score + categories** — Add insight_scoring module; compute matchup_score and insight_type per pick; attach to top-picks items; add pace (and optional usage) to pipeline.
@@ -101,7 +112,7 @@ Result: single **matchup_score** 0–100; rank insights across all games by this
 
 ---
 
-## 8. Files to Touch
+## 9. Files to Touch
 
 | Area | Files |
 |------|--------|
@@ -115,7 +126,7 @@ Result: single **matchup_score** 0–100; rank insights across all games by this
 
 ---
 
-## 9. Relation to Other Docs
+## 10. Relation to Other Docs
 
 - **Analytics engine design** ([analytics-engine-design.md](analytics-engine-design.md)): Defines raw stats, derived metrics (including Position Defense Rank, Opponent Weakness Score, Pace Impact Score), and matchup advantage formulas. This insight engine **implements** those concepts in the Top Picks pipeline and adds the unified matchup score and categories.
 - **Rationale and LLM** ([rationale-and-llm.md](rationale-and-llm.md)): Optional LLM pass for polishing matchup narrative reuses the same rationale/LLM pattern as prop evaluation.
