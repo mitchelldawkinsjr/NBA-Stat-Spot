@@ -456,6 +456,24 @@ export function GoodBetsDashboard() {
       .slice(0, 5)
   }, [bestBets])
 
+  // Main strip: same picks were listed twice (insights row + full row); exclude insight picks from the second row
+  const bestBetsForMainStrip = useMemo(() => {
+    const pickKey = (b: SuggestionItem) => {
+      const pid = b.playerId ?? (b as Record<string, unknown>).player_id
+      const t = String(b.type ?? '')
+      const line =
+        b.marketLine ??
+        (b as Record<string, unknown>).market_line ??
+        b.fairLine ??
+        (b as Record<string, unknown>).fair_line ??
+        ''
+      return `${pid}-${t}-${String(line)}`
+    }
+    if (topInsights.length === 0) return bestBets
+    const insightKeys = new Set(topInsights.map(pickKey))
+    return bestBets.filter((b) => !insightKeys.has(pickKey(b)))
+  }, [bestBets, topInsights])
+
   const playersToWatch = useMemo(() => {
     if (games.length === 0) return []
     const items = (dailyData?.items ?? []) as SuggestionItem[]
@@ -722,7 +740,9 @@ export function GoodBetsDashboard() {
                   </div>
                 </div>
               )}
-              <SuggestionCards suggestions={bestBets} horizontal={true} onAddToTracker={handleAddToTracker} isAddingToTracker={isAddingToTracker} />
+              {bestBetsForMainStrip.length > 0 && (
+                <SuggestionCards suggestions={bestBetsForMainStrip} horizontal={true} onAddToTracker={handleAddToTracker} isAddingToTracker={isAddingToTracker} />
+              )}
             </>
           )}
         </div>
