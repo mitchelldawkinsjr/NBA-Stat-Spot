@@ -406,12 +406,31 @@ class GamePredictionService:
 
         _hid = int(home_id) if home_id is not None else None
         _aid = int(away_id) if away_id is not None else None
-        home_def_full = (def_ranks.get(_hid) or def_ranks.get(home_id)) if (_hid or home_id) else {}
-        away_def_full = (def_ranks.get(_aid) or def_ranks.get(away_id)) if (_aid or away_id) else {}
-        home_off_full = (off_ranks.get(_hid) or off_ranks.get(home_id)) if (_hid or home_id) else {}
-        away_off_full = (off_ranks.get(_aid) or off_ranks.get(away_id)) if (_aid or away_id) else {}
-        home_pace_data = pace_ranks.get(home_id, {}) if home_id else {}
-        away_pace_data = pace_ranks.get(away_id, {}) if away_id else {}
+        # Use trailing `or {}`: `(None or None)` and falsy `{}` must not become Python None (JSON null) on the client
+        home_def_full = ((def_ranks.get(_hid) or def_ranks.get(home_id)) or {}) if (_hid or home_id) else {}
+        away_def_full = ((def_ranks.get(_aid) or def_ranks.get(away_id)) or {}) if (_aid or away_id) else {}
+        home_off_full = ((off_ranks.get(_hid) or off_ranks.get(home_id)) or {}) if (_hid or home_id) else {}
+        away_off_full = ((off_ranks.get(_aid) or off_ranks.get(away_id)) or {}) if (_aid or away_id) else {}
+        # If league tables omitted PTS rows but the scoreboard prediction has scalar ranks, merge so charts are not empty
+        if home_def_full.get("pts") is None and one.get("home_def_rank_pts") is not None:
+            home_def_full = {**home_def_full, "pts": one["home_def_rank_pts"]}
+        if away_def_full.get("pts") is None and one.get("away_def_rank_pts") is not None:
+            away_def_full = {**away_def_full, "pts": one["away_def_rank_pts"]}
+        if home_off_full.get("pts") is None and one.get("home_off_rank_pts") is not None:
+            home_off_full = {**home_off_full, "pts": one["home_off_rank_pts"]}
+        if away_off_full.get("pts") is None and one.get("away_off_rank_pts") is not None:
+            away_off_full = {**away_off_full, "pts": one["away_off_rank_pts"]}
+        # Pace / position defense dicts use int team_id keys; JSON cache may deserialize ids as str — use _hid/_aid first
+        home_pace_data = (
+            (pace_ranks.get(_hid) or pace_ranks.get(home_id) or {})
+            if (_hid is not None or home_id)
+            else {}
+        )
+        away_pace_data = (
+            (pace_ranks.get(_aid) or pace_ranks.get(away_id) or {})
+            if (_aid is not None or away_id)
+            else {}
+        )
 
         # Position defense: how each team defends each position
         positions = ["PG", "SG", "SF", "PF", "C"]
@@ -419,10 +438,10 @@ class GamePredictionService:
         away_pos_defense = {}
         for pos in positions:
             pos_data = pos_ranks.get(pos, {})
-            if home_id:
-                home_pos_defense[pos] = pos_data.get(home_id, {})
-            if away_id:
-                away_pos_defense[pos] = pos_data.get(away_id, {})
+            if _hid is not None or home_id:
+                home_pos_defense[pos] = pos_data.get(_hid) or pos_data.get(home_id) or {}
+            if _aid is not None or away_id:
+                away_pos_defense[pos] = pos_data.get(_aid) or pos_data.get(away_id) or {}
 
         # --- Key players ---
         home_key_players = _get_team_key_players(home_id, season)

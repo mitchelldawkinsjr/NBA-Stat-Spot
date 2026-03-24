@@ -69,7 +69,7 @@ export default function AccuracyPage() {
   const [data, setData] = useState<AccuracyResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [days, setDays] = useState(30)
+  const [days, setDays] = useState(7)
 
   useEffect(() => {
     let cancelled = false
@@ -116,6 +116,7 @@ export default function AccuracyPage() {
             className="rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value={7}>7 days</option>
+            <option value={14}>14 days</option>
             <option value={30}>30 days</option>
             <option value={90}>90 days</option>
           </select>
