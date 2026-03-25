@@ -7,6 +7,10 @@ This guide documents the operational scripts and commands for:
 - Settling accuracy for a specific date/season
 - Verifying API payloads after backfill/settle
 
+## Production server access
+
+**`vps ssh`** takes you to the production host (interactive shell). App directory is typically **`/opt/nba-stat-spot`**. Then run `docker compose` / `docker exec` as in [Production container examples](#production-container-examples) below. See Cursor rule **`prod-vps-ssh`** for agent behavior.
+
 ## Script: `backend/scripts/backfill_accuracy_history.py`
 
 Run from repo root unless noted.
