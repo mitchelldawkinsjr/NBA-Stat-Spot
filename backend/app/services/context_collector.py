@@ -29,6 +29,10 @@ def _normalize_rank_keys(ranks: Dict[Any, Dict[str, int]]) -> Dict[int, Dict[str
         return {}
     return {int(k): v for k, v in ranks.items()}
 
+
+# Idempotent guard: only one background recompute runs at a time
+_ranks_recomputing: threading.Event = threading.Event()
+
 # Minutes threshold: treat as "did not play" if minutes is 0 or missing (DNP)
 MIN_MINUTES_PLAYED_THRESHOLD = 0.5
 # If most recent game or last 2 games have no minutes, infer possible injury
@@ -600,27 +604,43 @@ class ContextCollector:
                     if len(players_by_team[team_id]) < players_per_team:
                         players_by_team[team_id].append(p)
 
-            for team_id, team_players in players_by_team.items():
-                if team_id not in team_game_totals:
-                    continue
-                for player in team_players:
-                    player_id = player.get("id")
-                    if not player_id:
-                        continue
+            def _fetch_off_player(args):
+                pid, tid, season_str, n_games = args
+                try:
+                    logs = NBADataService.fetch_player_game_log(pid, season_str)
+                    return (tid, logs[:n_games])
+                except Exception:
+                    return (tid, [])
+
+            off_tasks = [
+                (player.get("id"), team_id, season_to_use, games_per_player)
+                for team_id, team_players in players_by_team.items()
+                if team_id in team_game_totals
+                for player in team_players
+                if player.get("id")
+            ]
+            off_results = []
+            with ThreadPoolExecutor(max_workers=10) as pool:
+                futs = {pool.submit(_fetch_off_player, t): t for t in off_tasks}
+                for future in as_completed(futs):
                     try:
-                        logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
-                    except Exception:
+                        off_results.append(future.result(timeout=60.0))
+                    except FutureTimeoutError:
+                        logger.warning("Task timed out in offensive ranks calculation")
+                    except Exception as exc:
+                        logger.warning("Error processing task in offensive ranks", error=str(exc))
+
+            for team_id, logs in off_results:
+                for g in logs:
+                    gd = g.get("game_date")
+                    if not gd:
                         continue
-                    for g in logs[:games_per_player]:
-                        gd = g.get("game_date")
-                        if not gd:
-                            continue
-                        if gd not in team_game_totals[team_id]:
-                            team_game_totals[team_id][gd] = {"pts": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0}
-                        team_game_totals[team_id][gd]["pts"] += float(g.get("pts", 0) or 0)
-                        team_game_totals[team_id][gd]["reb"] += float(g.get("reb", 0) or 0)
-                        team_game_totals[team_id][gd]["ast"] += float(g.get("ast", 0) or 0)
-                        team_game_totals[team_id][gd]["3pm"] += float(g.get("tpm", 0) or 0)
+                    if gd not in team_game_totals[team_id]:
+                        team_game_totals[team_id][gd] = {"pts": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0}
+                    team_game_totals[team_id][gd]["pts"] += float(g.get("pts", 0) or 0)
+                    team_game_totals[team_id][gd]["reb"] += float(g.get("reb", 0) or 0)
+                    team_game_totals[team_id][gd]["ast"] += float(g.get("ast", 0) or 0)
+                    team_game_totals[team_id][gd]["3pm"] += float(g.get("tpm", 0) or 0)
 
             # Averages per team (one value per game, then average)
             team_averages: Dict[int, Dict[str, float]] = {}
@@ -959,27 +979,43 @@ class ContextCollector:
                 if tid:
                     team_game_poss[tid] = {}
 
-            for team_id, team_players in players_by_team.items():
-                if team_id not in team_game_poss:
-                    continue
-                for player in team_players:
-                    pid = player.get("id")
-                    if not pid:
-                        continue
+            def _fetch_pace_player(args):
+                pid, tid, season_str, n_games = args
+                try:
+                    logs = NBADataService.fetch_player_game_log(pid, season_str)
+                    return (tid, logs[:n_games])
+                except Exception:
+                    return (tid, [])
+
+            pace_tasks = [
+                (player.get("id"), team_id, season_to_use, games_per_player)
+                for team_id, team_players in players_by_team.items()
+                if team_id in team_game_poss
+                for player in team_players
+                if player.get("id")
+            ]
+            pace_results = []
+            with ThreadPoolExecutor(max_workers=10) as pool:
+                futs = {pool.submit(_fetch_pace_player, t): t for t in pace_tasks}
+                for future in as_completed(futs):
                     try:
-                        logs = NBADataService.fetch_player_game_log(pid, season_to_use)
-                    except Exception:
+                        pace_results.append(future.result(timeout=60.0))
+                    except FutureTimeoutError:
+                        logger.warning("Task timed out in pace ranks calculation")
+                    except Exception as exc:
+                        logger.warning("Error processing task in pace ranks", error=str(exc))
+
+            for team_id, logs in pace_results:
+                for g in logs:
+                    gd = g.get("game_date")
+                    if not gd:
                         continue
-                    for g in logs[:games_per_player]:
-                        gd = g.get("game_date")
-                        if not gd:
-                            continue
-                        if gd not in team_game_poss[team_id]:
-                            team_game_poss[team_id][gd] = {"fga": 0.0, "fta": 0.0, "tov": 0.0, "oreb": 0.0}
-                        team_game_poss[team_id][gd]["fga"] += float(g.get("fga", 0) or 0)
-                        team_game_poss[team_id][gd]["fta"] += float(g.get("fta", 0) or 0)
-                        team_game_poss[team_id][gd]["tov"] += float(g.get("tov", 0) or 0)
-                        team_game_poss[team_id][gd]["oreb"] += float(g.get("oreb", 0) or 0)
+                    if gd not in team_game_poss[team_id]:
+                        team_game_poss[team_id][gd] = {"fga": 0.0, "fta": 0.0, "tov": 0.0, "oreb": 0.0}
+                    team_game_poss[team_id][gd]["fga"] += float(g.get("fga", 0) or 0)
+                    team_game_poss[team_id][gd]["fta"] += float(g.get("fta", 0) or 0)
+                    team_game_poss[team_id][gd]["tov"] += float(g.get("tov", 0) or 0)
+                    team_game_poss[team_id][gd]["oreb"] += float(g.get("oreb", 0) or 0)
 
             team_avg_poss: Dict[int, float] = {}
             for team_id, games_map in team_game_poss.items():
@@ -1049,54 +1085,79 @@ class ContextCollector:
 
             import re as _re
 
-            def _get_opponent_id(matchup: str) -> Optional[int]:
-                """Parse opponent team abbreviation from matchup string and return team_id."""
+            def _normalize_pos(raw_pos: str) -> Optional[str]:
+                raw = (raw_pos or "").upper().strip()
+                if raw in ("G", "PG", "GUARD"):
+                    return "PG"
+                if raw in ("SG", "SHOOTING GUARD"):
+                    return "SG"
+                if raw in ("SF", "SMALL FORWARD", "F", "FORWARD", "G-F", "F-G"):
+                    return "SF"
+                if raw in ("PF", "POWER FORWARD", "F-C", "C-F"):
+                    return "PF"
+                if raw in ("C", "CENTER"):
+                    return "C"
+                return None
+
+            def _get_opponent_id_pos(matchup: str, tba: Dict) -> Optional[int]:
                 if not matchup:
                     return None
                 mu = matchup.upper().strip()
                 m = _re.search(r'([A-Z]{2,4})\s+(?:VS\.?|@|V\.?)\s+([A-Z]{2,4})', mu)
                 if m:
                     opp_abbr = m.group(2).strip(" .")
-                    team = teams_by_abbr.get(opp_abbr)
+                    team = tba.get(opp_abbr)
                     if team:
                         return team.get("id")
                 return None
 
+            def _fetch_pos_player(args):
+                pid, position, season_str, n_games, tba = args
+                entries = []
+                try:
+                    logs = NBADataService.fetch_player_game_log(pid, season_str)
+                    for g in logs[:n_games]:
+                        opp_id = _get_opponent_id_pos(g.get("matchup", ""), tba)
+                        if not opp_id:
+                            continue
+                        entries.append((
+                            position, opp_id,
+                            float(g.get("pts", 0) or 0),
+                            float(g.get("reb", 0) or 0),
+                            float(g.get("ast", 0) or 0),
+                            float(g.get("tpm", 0) or 0),
+                        ))
+                except Exception:
+                    pass
+                return entries
+
+            pos_tasks = []
             for team_id, team_players in players_by_team.items():
                 for player in team_players:
                     pid = player.get("id")
-                    raw_pos = (player.get("position") or "").upper().strip()
-                    # Normalize to one of the 5 positions
-                    if raw_pos in ("G", "PG", "GUARD"):
-                        position = "PG"
-                    elif raw_pos in ("SG", "SHOOTING GUARD"):
-                        position = "SG"
-                    elif raw_pos in ("SF", "SMALL FORWARD", "F", "FORWARD", "G-F", "F-G"):
-                        position = "SF"
-                    elif raw_pos in ("PF", "POWER FORWARD", "F-C", "C-F"):
-                        position = "PF"
-                    elif raw_pos in ("C", "CENTER"):
-                        position = "C"
-                    else:
-                        continue  # skip players with unknown position
-
                     if not pid:
                         continue
-                    try:
-                        logs = NBADataService.fetch_player_game_log(pid, season_to_use)
-                    except Exception:
+                    pos = _normalize_pos(player.get("position", ""))
+                    if not pos:
                         continue
+                    pos_tasks.append((pid, pos, season_to_use, games_per_player, teams_by_abbr))
 
-                    for g in logs[:games_per_player]:
-                        opp_id = _get_opponent_id(g.get("matchup", ""))
-                        if not opp_id:
-                            continue
-                        if opp_id not in pos_def_stats[position]:
-                            pos_def_stats[position][opp_id] = {"pts": [], "reb": [], "ast": [], "3pm": []}
-                        pos_def_stats[position][opp_id]["pts"].append(float(g.get("pts", 0) or 0))
-                        pos_def_stats[position][opp_id]["reb"].append(float(g.get("reb", 0) or 0))
-                        pos_def_stats[position][opp_id]["ast"].append(float(g.get("ast", 0) or 0))
-                        pos_def_stats[position][opp_id]["3pm"].append(float(g.get("tpm", 0) or 0))
+            with ThreadPoolExecutor(max_workers=10) as pool:
+                futs = {pool.submit(_fetch_pos_player, t): t for t in pos_tasks}
+                for future in as_completed(futs):
+                    try:
+                        entries = future.result(timeout=60.0)
+                        for position, opp_id, pts, reb, ast, tpm in entries:
+                            if opp_id not in pos_def_stats[position]:
+                                pos_def_stats[position][opp_id] = {"pts": [], "reb": [], "ast": [], "3pm": []}
+                            pos_def_stats[position][opp_id]["pts"].append(pts)
+                            pos_def_stats[position][opp_id]["reb"].append(reb)
+                            pos_def_stats[position][opp_id]["ast"].append(ast)
+                            pos_def_stats[position][opp_id]["3pm"].append(tpm)
+                    except FutureTimeoutError:
+                        logger.warning("Task timed out in position defensive ranks calculation")
+                    except Exception as exc:
+                        logger.warning("Error processing task in position defensive ranks", error=str(exc))
 
             result: Dict[str, Dict[int, Dict[str, int]]] = {}
             for pos in POSITIONS:
@@ -1136,6 +1197,87 @@ class ContextCollector:
         except Exception as e:
             logger.warning("Error calculating position defensive ranks", season=season, error=str(e))
             return {}
+
+    # ------------------------------------------------------------------
+    # Cache-only helpers: read from cache without triggering computation
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def get_cached_defensive_ranks(season: Optional[str] = None) -> Dict[int, Dict[str, int]]:
+        """Return defensive ranks from cache only; {} if not yet computed."""
+        try:
+            season_to_use = season or get_current_season()
+            cached = get_cache_service().get(f"defensive_ranks:{season_to_use}:24h")
+            return _normalize_rank_keys(cached) if cached is not None else {}
+        except Exception:
+            return {}
+
+    @staticmethod
+    def get_cached_offensive_ranks(season: Optional[str] = None) -> Dict[int, Dict[str, int]]:
+        """Return offensive ranks from cache only; {} if not yet computed."""
+        try:
+            season_to_use = season or get_current_season()
+            cached = get_cache_service().get(f"offensive_ranks:{season_to_use}:24h")
+            return _normalize_rank_keys(cached) if cached is not None else {}
+        except Exception:
+            return {}
+
+    @staticmethod
+    def get_cached_pace_ranks(season: Optional[str] = None) -> Dict[int, Dict[str, Any]]:
+        """Return pace ranks from cache only; {} if not yet computed."""
+        try:
+            season_to_use = season or get_current_season()
+            cached = get_cache_service().get(f"pace_ranks:{season_to_use}:24h")
+            return _normalize_rank_keys(cached) if cached is not None else {}
+        except Exception:
+            return {}
+
+    @staticmethod
+    def get_cached_position_ranks(season: Optional[str] = None) -> Dict[str, Dict[int, Dict[str, int]]]:
+        """Return position defensive ranks from cache only; {} if not yet computed."""
+        try:
+            season_to_use = season or get_current_season()
+            cached = get_cache_service().get(f"position_def_ranks:{season_to_use}:24h")
+            if cached is None:
+                return {}
+            return {pos: _normalize_rank_keys(v) for pos, v in cached.items()}
+        except Exception:
+            return {}
+
+    @staticmethod
+    def get_cached_team_ranks_fallback(season: Optional[str] = None) -> tuple:
+        """Return (def_ranks, off_ranks) from fallback cache only; ({}, {}) if not computed."""
+        try:
+            season_to_use = season or get_current_season()
+            cached = get_cache_service().get(f"team_ranks_from_players_fallback:{season_to_use}:24h")
+            if cached is None:
+                return {}, {}
+            return _normalize_rank_keys(cached.get("def", {})), _normalize_rank_keys(cached.get("off", {}))
+        except Exception:
+            return {}, {}
+
+    @staticmethod
+    def _trigger_background_rank_refresh(season: Optional[str] = None) -> None:
+        """Fire-and-forget: recompute all rank caches in a background thread (idempotent)."""
+        if _ranks_recomputing.is_set():
+            return
+        _ranks_recomputing.set()
+        season_to_use = season or get_current_season()
+
+        def _compute():
+            try:
+                logger.info("Background rank refresh started", season=season_to_use)
+                ContextCollector._calculate_defensive_ranks(season_to_use)
+                ContextCollector._calculate_offensive_ranks(season_to_use)
+                ContextCollector._calculate_pace_ranks(season_to_use)
+                ContextCollector._calculate_position_defensive_ranks(season_to_use)
+                logger.info("Background rank refresh complete", season=season_to_use)
+            except Exception as exc:
+                logger.warning("Background rank refresh error", error=str(exc))
+            finally:
+                _ranks_recomputing.clear()
+
+        threading.Thread(target=_compute, daemon=True).start()
 
     @staticmethod
     def get_team_performance(team_id: int, games: int = 10, season: Optional[str] = None) -> Dict[str, Any]:

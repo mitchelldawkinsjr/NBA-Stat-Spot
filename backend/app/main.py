@@ -132,6 +132,23 @@ app = FastAPI(
 )
 Base.metadata.create_all(bind=engine)
 
+# Pre-warm rank caches in the background on startup so the first game-detail
+# request doesn't block on cold computation.
+import threading as _threading
+def _startup_warm_ranks():
+    try:
+        from .utils.season import get_current_season
+        from .services.context_collector import ContextCollector
+        season = get_current_season()
+        ContextCollector._calculate_defensive_ranks(season)
+        ContextCollector._calculate_offensive_ranks(season)
+        ContextCollector._calculate_pace_ranks(season)
+        ContextCollector._calculate_position_defensive_ranks(season)
+    except Exception:
+        pass  # never crash startup
+
+_threading.Thread(target=_startup_warm_ranks, daemon=True).start()
+
 # Error handling
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError

@@ -4,7 +4,7 @@ Uses team-level metrics (def/off ranks, pace, PPG), matchup advantages, and LLM 
 
 Cache (24h TTL):
   - game_predictions:{date}  → list of predictions for that date (from ESPN scoreboard + def/off ranks + team stats)
-  - game_prediction_detail:{game_id}  → full detail for one game
+  - game_prediction_detail:v2:{game_id}  → full detail for one game
 Warm: /admin/warm-dashboard calls get_todays_predictions(). Clear: POST /admin/cache/clear/game-predictions.
 
 Data sources: ESPN scoreboard (games), ContextCollector def/off ranks, TeamStatsService (ppg/pace from NBA API or
@@ -44,6 +44,34 @@ def _get_teams_by_abbr() -> Dict[str, Dict[str, Any]]:
         if abbr:
             out[abbr] = {"id": t.get("id"), "full_name": t.get("full_name"), "abbreviation": abbr}
     return out
+
+
+def _resolve_team(teams_by_abbr: Dict[str, Dict[str, Any]], espn_abbr: str) -> Optional[Dict[str, Any]]:
+    """
+    Map ESPN scoreboard abbreviation to NBA static team row.
+    ESPN uses SA (Spurs), NO (Pelicans), GS (Warriors), NY (Knicks); NBA API uses SAS, NOP, GSW, NYK.
+    """
+    if not espn_abbr:
+        return None
+    u = espn_abbr.strip().upper()
+    if u in teams_by_abbr:
+        return teams_by_abbr[u]
+    # Common short forms not present on nba_api team list
+    alias_to_nba = {
+        "SA": "SAS",
+        "NO": "NOP",
+        "GS": "GSW",
+        "NY": "NYK",
+    }
+    alt = alias_to_nba.get(u)
+    if alt and alt in teams_by_abbr:
+        return teams_by_abbr[alt]
+    tid = NBADataService.ESPN_ABBR_TO_NBA_ID.get(u)
+    if tid is not None:
+        for info in teams_by_abbr.values():
+            if info.get("id") == tid:
+                return info
+    return None
 
 
 def _win_probability_from_ranks(
@@ -169,8 +197,8 @@ class GamePredictionService:
                 if not home_abbr or not away_abbr:
                     continue
 
-                home_team = teams_by_abbr.get(home_abbr)
-                away_team = teams_by_abbr.get(away_abbr)
+                home_team = _resolve_team(teams_by_abbr, home_abbr)
+                away_team = _resolve_team(teams_by_abbr, away_abbr)
                 home_id = int(home_team["id"]) if home_team and home_team.get("id") is not None else None
                 away_id = int(away_team["id"]) if away_team and away_team.get("id") is not None else None
 
@@ -179,8 +207,10 @@ class GamePredictionService:
                 away_def = def_ranks.get(away_id, {}) if away_id else {}
                 away_off = off_ranks.get(away_id, {}) if away_id else {}
 
-                home_stats = self._team_stats.get_team_stats(home_abbr)
-                away_stats = self._team_stats.get_team_stats(away_abbr)
+                home_abbr_nba = (home_team or {}).get("abbreviation") or home_abbr
+                away_abbr_nba = (away_team or {}).get("abbreviation") or away_abbr
+                home_stats = self._team_stats.get_team_stats(home_abbr_nba)
+                away_stats = self._team_stats.get_team_stats(away_abbr_nba)
                 default_ppg = 112.5
                 default_pace = 100.0
                 home_ppg = getattr(home_stats, "ppg", default_ppg) or default_ppg
@@ -295,8 +325,8 @@ class GamePredictionService:
             if not home_abbr or not away_abbr:
                 return None
             teams_by_abbr = _get_teams_by_abbr()
-            home_team = teams_by_abbr.get(home_abbr)
-            away_team = teams_by_abbr.get(away_abbr)
+            home_team = _resolve_team(teams_by_abbr, home_abbr)
+            away_team = _resolve_team(teams_by_abbr, away_abbr)
             home_id = int(home_team["id"]) if home_team and home_team.get("id") is not None else None
             away_id = int(away_team["id"]) if away_team and away_team.get("id") is not None else None
             season = get_current_season()
@@ -312,8 +342,10 @@ class GamePredictionService:
             away_def = def_ranks.get(away_id, {}) if away_id else {}
             home_off = off_ranks.get(home_id, {}) if home_id else {}
             away_off = off_ranks.get(away_id, {}) if away_id else {}
-            home_stats = self._team_stats.get_team_stats(home_abbr)
-            away_stats = self._team_stats.get_team_stats(away_abbr)
+            home_abbr_nba = (home_team or {}).get("abbreviation") or home_abbr
+            away_abbr_nba = (away_team or {}).get("abbreviation") or away_abbr
+            home_stats = self._team_stats.get_team_stats(home_abbr_nba)
+            away_stats = self._team_stats.get_team_stats(away_abbr_nba)
             default_ppg, default_pace = 112.5, 100.0
             home_ppg = getattr(home_stats, "ppg", default_ppg) or default_ppg
             away_ppg = getattr(away_stats, "ppg", default_ppg) or default_ppg
@@ -364,7 +396,8 @@ class GamePredictionService:
     def get_game_prediction_detail(self, game_id: str, target_date: Optional[date] = None) -> Optional[Dict[str, Any]]:
         """Get full prediction and detail for one game (for game detail page)."""
         target_date = target_date or date.today()
-        cache_key = f"game_prediction_detail:{game_id}"
+        # v2: resolve ESPN abbreviations (e.g. SA→SAS) so away_team_id and def ranks populate
+        cache_key = f"game_prediction_detail:v2:{game_id}"
         cached = self.cache.get(cache_key)
         if cached is not None:
             return cached
@@ -382,13 +415,19 @@ class GamePredictionService:
         home_abbr = one["home"]
         away_abbr = one["away"]
 
-        # --- Full rank data --- (use player-stats fallback when primary is empty or team missing)
-        def_ranks = ContextCollector._calculate_defensive_ranks(season) or {}
-        off_ranks = ContextCollector._calculate_offensive_ranks(season) or {}
-        need_def = not def_ranks or (home_id is not None and def_ranks.get(int(home_id) if home_id is not None else None) is None) or (away_id is not None and def_ranks.get(int(away_id) if away_id is not None else None) is None)
-        need_off = not off_ranks or (home_id is not None and off_ranks.get(int(home_id) if home_id is not None else None) is None) or (away_id is not None and off_ranks.get(int(away_id) if away_id is not None else None) is None)
+        # --- Read ranks from cache only — never block the request on live computation ---
+        def_ranks = ContextCollector.get_cached_defensive_ranks(season)
+        off_ranks = ContextCollector.get_cached_offensive_ranks(season)
+        pace_ranks = ContextCollector.get_cached_pace_ranks(season)
+        pos_ranks = ContextCollector.get_cached_position_ranks(season)
+
+        # If primary tables are still empty, try the fallback (also cache-backed, instant when warm)
+        _hid_check = int(home_id) if home_id is not None else None
+        _aid_check = int(away_id) if away_id is not None else None
+        need_def = not def_ranks or (_hid_check and def_ranks.get(_hid_check) is None) or (_aid_check and def_ranks.get(_aid_check) is None)
+        need_off = not off_ranks or (_hid_check and off_ranks.get(_hid_check) is None) or (_aid_check and off_ranks.get(_aid_check) is None)
         if need_def or need_off:
-            def_fb, off_fb = ContextCollector._calculate_team_ranks_from_player_stats(season)
+            def_fb, off_fb = ContextCollector.get_cached_team_ranks_fallback(season)
             if need_def and def_fb:
                 def_ranks = dict(def_ranks)
                 for tid, r in def_fb.items():
@@ -401,8 +440,10 @@ class GamePredictionService:
                     tid_int = int(tid) if tid is not None else None
                     if tid_int is not None and (tid_int not in off_ranks or not off_ranks.get(tid_int)):
                         off_ranks[tid_int] = r
-        pace_ranks = ContextCollector._calculate_pace_ranks(season) or {}
-        pos_ranks = ContextCollector._calculate_position_defensive_ranks(season) or {}
+
+        # Kick off a background recompute if any ranks are cold (non-blocking)
+        if not def_ranks or not off_ranks or not pace_ranks or not pos_ranks:
+            ContextCollector._trigger_background_rank_refresh(season)
 
         _hid = int(home_id) if home_id is not None else None
         _aid = int(away_id) if away_id is not None else None
