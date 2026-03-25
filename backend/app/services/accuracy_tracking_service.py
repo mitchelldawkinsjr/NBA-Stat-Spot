@@ -2,10 +2,10 @@
 Accuracy Tracking Service - Record and settle game predictions and AI pick-of-the-day for historical accuracy.
 """
 from __future__ import annotations
+from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional, Tuple, Union
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
 import structlog
 
 from ..database import get_db
@@ -15,8 +15,210 @@ from .nba_api_service import NBADataService
 
 logger = structlog.get_logger()
 
-# Map API stat type to game log key
+# Map API stat type to game log key (aligned with best_picks_service / PropBetEngine)
 STAT_TO_GAME_LOG_KEY = {"PTS": "pts", "REB": "reb", "AST": "ast", "3PM": "tpm"}
+# Top picks may include PRA; actuals come from pts+reb+ast on the game log row
+ALLOWED_PROP_STAT_TYPES = frozenset({"PTS", "REB", "AST", "3PM", "PRA"})
+
+# Confidence tiers — same thresholds as BestPicksService (TIER_LOCK / TIER_STRONG)
+TIER_LOCK_THRESHOLD = 78
+TIER_STRONG_THRESHOLD = 62
+
+
+def _confidence_to_tier(confidence: Optional[float]) -> str:
+    if confidence is None:
+        return "lean"
+    try:
+        c = float(confidence)
+    except (TypeError, ValueError):
+        return "lean"
+    if c >= TIER_LOCK_THRESHOLD:
+        return "lock"
+    if c >= TIER_STRONG_THRESHOLD:
+        return "strong"
+    return "lean"
+
+
+def _confidence_to_band(confidence: Optional[float]) -> str:
+    if confidence is None:
+        return "unknown"
+    try:
+        c = float(confidence)
+    except (TypeError, ValueError):
+        return "unknown"
+    if c >= 95:
+        return "95-100"
+    if c >= 90:
+        return "90-94"
+    if c >= 85:
+        return "85-89"
+    if c >= 80:
+        return "80-84"
+    if c >= 75:
+        return "75-79"
+    if c >= 70:
+        return "70-74"
+    if c >= 65:
+        return "65-69"
+    return "<65"
+
+
+def _new_prop_bucket() -> Dict[str, int]:
+    return {"hits": 0, "misses": 0, "pushes": 0, "settled": 0, "pending": 0}
+
+
+def _bucket_hit_rate_pct(b: Dict[str, int]) -> Optional[float]:
+    graded = b["hits"] + b["misses"]
+    if graded <= 0:
+        return None
+    return round(100.0 * b["hits"] / graded, 1)
+
+
+def _finalize_bucket(b: Dict[str, int]) -> Dict[str, Any]:
+    return {
+        "hits": b["hits"],
+        "misses": b["misses"],
+        "pushes": b["pushes"],
+        "settled": b["settled"],
+        "pending": b["pending"],
+        "hit_rate_pct": _bucket_hit_rate_pct(b),
+        "graded_non_push": b["hits"] + b["misses"],
+    }
+
+
+def _prop_outcome(
+    actual_value: Optional[float], line_value: float, direction: str
+) -> Tuple[str, Optional[bool], bool]:
+    """Return (status, hit_or_none_if_push, push)."""
+    if actual_value is None:
+        return "pending", None, False
+    try:
+        a = float(actual_value)
+        line = float(line_value)
+    except (TypeError, ValueError):
+        return "pending", None, False
+    d = (direction or "over").lower().strip()
+    if d not in ("over", "under"):
+        d = "over"
+    if a == line:
+        return "graded", None, True
+    if d == "over":
+        return "graded", a > line, False
+    return "graded", a < line, False
+
+
+def _actual_from_game_row(stat_type: str, g: Dict[str, Any]) -> Optional[float]:
+    st = (stat_type or "PTS").upper().strip()
+    if st == "PRA":
+        try:
+            return (
+                float(g.get("pts") or 0)
+                + float(g.get("reb") or 0)
+                + float(g.get("ast") or 0)
+            )
+        except (TypeError, ValueError):
+            return None
+    key = STAT_TO_GAME_LOG_KEY.get(st, "pts")
+    raw = g.get(key)
+    if raw is None and key:
+        raw = g.get(key.upper())
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _aggregate_prop_records(prop_rows: List[PropPredictionRecord]) -> Dict[str, Any]:
+    """Build summary + breakdown dicts from prop rows (DB models)."""
+    overall = _new_prop_bucket()
+    by_tier: Dict[str, Dict[str, int]] = defaultdict(_new_prop_bucket)
+    by_band: Dict[str, Dict[str, int]] = defaultdict(_new_prop_bucket)
+    by_stat: Dict[str, Dict[str, int]] = defaultdict(_new_prop_bucket)
+    by_direction: Dict[str, Dict[str, int]] = defaultdict(_new_prop_bucket)
+    tier_stat: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
+        lambda: defaultdict(_new_prop_bucket)
+    )
+    tier_direction: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
+        lambda: defaultdict(_new_prop_bucket)
+    )
+
+    for r in prop_rows:
+        tier = _confidence_to_tier(r.confidence)
+        band = _confidence_to_band(r.confidence)
+        st_key = (r.stat_type or "PTS").upper().strip()
+        dir_key = (r.direction or "over").lower().strip()
+        if dir_key not in ("over", "under"):
+            dir_key = "over"
+
+        status, hit, push = _prop_outcome(r.actual_value, r.line_value, r.direction or "over")
+        if status == "pending":
+            overall["pending"] += 1
+            for m in (by_tier[tier], by_band[band], by_stat[st_key], by_direction[dir_key]):
+                m["pending"] += 1
+            tier_stat[tier][st_key]["pending"] += 1
+            tier_direction[tier][dir_key]["pending"] += 1
+            continue
+
+        overall["settled"] += 1
+        if push:
+            overall["pushes"] += 1
+        elif hit:
+            overall["hits"] += 1
+        else:
+            overall["misses"] += 1
+
+        def _add(b: Dict[str, int]) -> None:
+            b["settled"] += 1
+            if push:
+                b["pushes"] += 1
+            elif hit:
+                b["hits"] += 1
+            else:
+                b["misses"] += 1
+
+        _add(by_tier[tier])
+        _add(by_band[band])
+        _add(by_stat[st_key])
+        _add(by_direction[dir_key])
+        _add(tier_stat[tier][st_key])
+        _add(tier_direction[tier][dir_key])
+
+    non_push = overall["hits"] + overall["misses"]
+    overall_hit_rate = round(100.0 * overall["hits"] / non_push, 1) if non_push > 0 else None
+
+    lock_b = by_tier.get("lock", _new_prop_bucket())
+    lock_non_push = lock_b["hits"] + lock_b["misses"]
+    lock_hit_rate_pct = round(100.0 * lock_b["hits"] / lock_non_push, 1) if lock_non_push > 0 else None
+
+    def _finalize_nested(
+        d: Dict[str, Dict[str, int]]
+    ) -> Dict[str, Dict[str, Any]]:
+        return {k: _finalize_bucket(v) for k, v in sorted(d.items())}
+
+    def _finalize_tier_nested(
+        d: Dict[str, Dict[str, Dict[str, int]]]
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        out: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        for tier_k in sorted(d.keys()):
+            out[tier_k] = {sk: _finalize_bucket(bv) for sk, bv in sorted(d[tier_k].items())}
+        return out
+
+    return {
+        "overall": {
+            **_finalize_bucket(overall),
+            "total": len(prop_rows),
+            "hit_rate_pct": overall_hit_rate,
+            "lock_hit_rate_pct": lock_hit_rate_pct,
+        },
+        "by_tier": _finalize_nested(dict(by_tier)),
+        "by_confidence_band": _finalize_nested(dict(by_band)),
+        "by_stat": _finalize_nested(dict(by_stat)),
+        "by_direction": _finalize_nested(dict(by_direction)),
+        "tier_x_stat": _finalize_tier_nested(dict(tier_stat)),
+        "tier_x_direction": _finalize_tier_nested(dict(tier_direction)),
+    }
 
 
 def _normalize_game_log_date_iso(raw: Union[str, None]) -> str:
@@ -270,14 +472,84 @@ def settle_pick_of_the_day(target_date: date, season: Optional[str] = None) -> D
         db.close()
 
 
+def settle_top_picks_for_date(target_date: date, season: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Settle all Top Picks (prop_prediction_records) for a date using player game logs.
+    Returns { settled, not_found, errors, not_found_sample }.
+    """
+    season = season or get_current_season()
+    db = _get_db()
+    settled = 0
+    not_found = 0
+    errors: List[str] = []
+    not_found_sample: List[Dict[str, Any]] = []
+    try:
+        records = (
+            db.query(PropPredictionRecord)
+            .filter(
+                PropPredictionRecord.record_date == target_date,
+                PropPredictionRecord.actual_value.is_(None),
+            )
+            .all()
+        )
+        date_str = target_date.isoformat()
+        for record in records:
+            try:
+                logs = NBADataService.fetch_player_game_log(record.player_id, season)
+            except Exception as e:
+                errors.append(f"player {record.player_id}: {e}")
+                continue
+            actual_value: Optional[float] = None
+            for g in logs or []:
+                gd = _normalize_game_log_date_iso(g.get("game_date") or g.get("GAME_DATE"))
+                if gd == date_str:
+                    actual_value = _actual_from_game_row(record.stat_type, g)
+                    break
+            if actual_value is None:
+                not_found += 1
+                if len(not_found_sample) < 40:
+                    not_found_sample.append(
+                        {
+                            "player_id": record.player_id,
+                            "player_name": record.player_name,
+                            "stat_type": record.stat_type,
+                            "reason": "game_not_in_log",
+                        }
+                    )
+                continue
+            record.actual_value = actual_value
+            pred = record.predicted_value if record.predicted_value is not None else record.line_value
+            try:
+                record.error = float(actual_value) - float(pred) if pred is not None else None
+            except (TypeError, ValueError):
+                record.error = None
+            record.settled_at = datetime.utcnow()
+            settled += 1
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        errors.append(str(e))
+        logger.warning("settle_top_picks_for_date failed", date=target_date.isoformat(), error=str(e))
+    finally:
+        db.close()
+    return {
+        "settled": settled,
+        "not_found": not_found,
+        "errors": errors,
+        "not_found_sample": not_found_sample,
+    }
+
+
 def settle_all_for_date(target_date: date, season: Optional[str] = None) -> Dict[str, Any]:
-    """Run both game prediction settlement and pick-of-the-day settlement for a date."""
+    """Run game predictions, pick-of-the-day, and Top Picks (prop) settlement for a date."""
     game_result = settle_game_predictions(target_date)
     pick_result = settle_pick_of_the_day(target_date, season=season)
+    top_picks_result = settle_top_picks_for_date(target_date, season=season)
     return {
         "date": target_date.isoformat(),
         "game_predictions": game_result,
         "pick_of_the_day": pick_result,
+        "top_picks": top_picks_result,
     }
 
 
@@ -295,12 +567,19 @@ def record_prop_predictions(target_date: date, picks: List[Dict[str, Any]], mode
     db = _get_db()
     inserted = 0
     try:
+        # One batch per calendar day — avoid duplicate rows on repeated cache refreshes
+        if (
+            db.query(PropPredictionRecord.id)
+            .filter(PropPredictionRecord.record_date == date_obj)
+            .first()
+        ):
+            return 0
         for p in picks:
             player_id = p.get("playerId") or p.get("player_id")
             if player_id is None:
                 continue
             stat_type = (p.get("type") or "PTS").upper().strip()
-            if stat_type not in STAT_TO_GAME_LOG_KEY:
+            if stat_type not in ALLOWED_PROP_STAT_TYPES:
                 continue
             line_val = p.get("marketLine") or p.get("fairLine")
             if line_val is None:
@@ -441,6 +720,38 @@ def get_accuracy_history(
                 "confidence": r.confidence,
                 "status": p_status,
             })
+
+        prop_all = (
+            db.query(PropPredictionRecord)
+            .filter(
+                PropPredictionRecord.record_date >= from_date,
+                PropPredictionRecord.record_date <= to_date,
+            )
+            .order_by(PropPredictionRecord.record_date.desc(), PropPredictionRecord.id)
+            .all()
+        )
+        top_picks_summary = _aggregate_prop_records(prop_all)
+        top_picks_records: List[Dict[str, Any]] = []
+        for r in prop_all:
+            status, hit, push = _prop_outcome(r.actual_value, r.line_value, r.direction or "over")
+            top_picks_records.append({
+                "id": r.id,
+                "date": r.record_date.isoformat(),
+                "player_id": r.player_id,
+                "player_name": r.player_name or "",
+                "stat_type": r.stat_type,
+                "direction": r.direction,
+                "line_value": r.line_value,
+                "confidence": r.confidence,
+                "tier": _confidence_to_tier(r.confidence),
+                "confidence_band": _confidence_to_band(r.confidence),
+                "actual_value": r.actual_value,
+                "error": r.error,
+                "hit": hit,
+                "push": push,
+                "status": status,
+            })
+
         model_version = None
         try:
             from ..models.app_settings import AppSettings
@@ -482,6 +793,10 @@ def get_accuracy_history(
                 "rmse": pick_rmse,
                 "win_rate": pick_hit_rate,
                 "records": pick_by_date,
+            },
+            "top_picks": {
+                **top_picks_summary,
+                "records": top_picks_records,
             },
         }
     finally:

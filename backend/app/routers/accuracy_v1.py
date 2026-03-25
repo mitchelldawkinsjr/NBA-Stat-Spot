@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/v1/accuracy", tags=["accuracy_v1"])
 @router.get(
     "/history",
     summary="Get prediction accuracy history",
-    description="Returns historical accuracy for game predictions and AI pick of the day over a date range.",
+    description="Returns historical accuracy for game predictions, AI pick of the day, and Top Picks (props) over a date range.",
 )
 def accuracy_history(
     from_date: Optional[str] = Query(None, description="Start date YYYY-MM-DD"),

@@ -1001,7 +1001,7 @@ def settle_accuracy(
     settle_date: Optional[str] = Query(None, description="Date to settle YYYY-MM-DD (default: yesterday)"),
     season: Optional[str] = Query(None, description="Season for player game logs when settling (defaults to current season)"),
 ):
-    """Settle game prediction and AI pick-of-the-day accuracy for a date (e.g. run daily after games complete)."""
+    """Settle game predictions, AI pick-of-the-day, and Top Picks (prop) accuracy for a date (e.g. after games complete)."""
     from ..services.accuracy_tracking_service import settle_all_for_date
     target = date.fromisoformat(settle_date) if settle_date else (date.today() - timedelta(days=1))
     try:

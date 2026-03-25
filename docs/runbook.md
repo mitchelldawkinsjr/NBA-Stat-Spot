@@ -20,3 +20,9 @@
 ## Common Issues
 - nba_api upstream slow → rely on cache; increase TTL temporarily.
 - Schedule endpoint down → dashboard falls back to league-wide suggestions.
+
+## Accuracy Commands
+
+Use the dedicated command guide for backfill and settlement operations:
+
+- [Accuracy Operations](accuracy-operations.md)

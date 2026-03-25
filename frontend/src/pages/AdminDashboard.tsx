@@ -118,8 +118,11 @@ async function clearGamePredictionsCache() {
   return apiPost('/api/v1/admin/cache/clear/game-predictions')
 }
 
-async function settleAccuracy(settleDate?: string) {
-  const q = settleDate ? `?settle_date=${encodeURIComponent(settleDate)}` : ''
+async function settleAccuracy(settleDate?: string, season?: string) {
+  const params = new URLSearchParams()
+  if (settleDate) params.set('settle_date', settleDate)
+  if (season) params.set('season', season)
+  const q = params.toString() ? `?${params.toString()}` : ''
   return apiPost(`/api/v1/admin/settle-accuracy${q}`)
 }
 
@@ -150,6 +153,8 @@ interface ActivityLog {
 export default function AdminDashboard() {
   const queryClient = useQueryClient()
   const [integritySeason, setIntegritySeason] = useState('2025-26')
+  const [settleDateInput, setSettleDateInput] = useState('')
+  const [settleSeasonInput, setSettleSeasonInput] = useState('2025-26')
   const [dailyPropsParams, setDailyPropsParams] = useState({ minConfidence: 50, limit: 50 })
   const [activityLog, setActivityLog] = useState<ActivityLog[]>([])
   const logEndRef = useRef<HTMLDivElement>(null)
@@ -563,18 +568,27 @@ export default function AdminDashboard() {
   })
 
   const settleAccuracyMutation = useMutation({
-    mutationFn: () => settleAccuracy(),
+    mutationFn: () => settleAccuracy(settleDateInput || undefined, settleSeasonInput || undefined),
     onMutate: () => {
-      addActivityLog('info', 'Settling prediction accuracy for yesterday...')
+      addActivityLog(
+        'info',
+        `Settling prediction accuracy${settleDateInput ? ` for ${settleDateInput}` : ' for yesterday'}...`,
+        settleSeasonInput ? `Season: ${settleSeasonInput}` : undefined
+      )
     },
     onSuccess: (data: { status?: string; result?: any }) => {
       const r = data?.result
       const gp = r?.game_predictions
       const pick = r?.pick_of_the_day
+      const tp = r?.top_picks
+      const tpDetail =
+        tp != null
+          ? `Top picks: ${tp?.settled ?? 0} settled, ${tp?.not_found ?? 0} not in log${(tp?.errors?.length ?? 0) > 0 ? `, ${tp.errors.length} errors` : ''}`
+          : ''
       addActivityLog(
         'success',
         'Accuracy settled',
-        `Games: ${gp?.settled ?? 0} settled, ${gp?.not_found ?? 0} not found. Pick: ${pick?.settled ? 'settled' : pick?.reason ?? '—'}`
+        `Games: ${gp?.settled ?? 0} settled, ${gp?.not_found ?? 0} not found. Pick: ${pick?.settled ? 'settled' : pick?.reason ?? '—'}.${tpDetail ? ` ${tpDetail}.` : ''}`
       )
     },
     onError: (error: Error) => {
@@ -1324,6 +1338,23 @@ export default function AdminDashboard() {
 
         <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700">
           <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 transition-colors duration-200">Accuracy</div>
+          <div className="flex flex-wrap items-center gap-2 mb-1.5">
+            <label className="text-[10px] text-gray-500 dark:text-gray-400">Settle date</label>
+            <input
+              type="date"
+              value={settleDateInput}
+              onChange={(e) => setSettleDateInput(e.target.value)}
+              className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+              title="Leave empty to settle yesterday"
+            />
+            <label className="text-[10px] text-gray-500 dark:text-gray-400">Season</label>
+            <input
+              value={settleSeasonInput}
+              onChange={(e) => setSettleSeasonInput(e.target.value)}
+              className="w-20 px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+              placeholder="2025-26"
+            />
+          </div>
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => settleAccuracyMutation.mutate()}

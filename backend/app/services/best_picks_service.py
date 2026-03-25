@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime, timezone
+from datetime import date as date_cls, datetime, timezone
 from typing import Any, Dict, List, Optional
+
+import pytz
 
 
 def _game_date_sort_key(g: Dict) -> Any:
@@ -298,8 +300,13 @@ class BestPicksService:
     ) -> Dict[str, Any]:
         season = season or get_current_season()
         target_date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-        games = NBADataService.fetch_todays_games() or []
+        target_date_obj = date_cls.fromisoformat(target_date[:10])
+        et_tz = pytz.timezone("America/New_York")
+        today_et = datetime.now(et_tz).date()
+        if target_date_obj == today_et:
+            games = NBADataService.fetch_todays_games() or []
+        else:
+            games = NBADataService.fetch_games_for_date(target_date_obj) or []
         games = [g for g in games if g.get("home") and g.get("away")]
         if not games:
             return {
@@ -461,7 +468,7 @@ class BestPicksService:
         top = all_picks[:limit]
 
         try:
-            target_date_obj = date.fromisoformat(target_date[:10])
+            target_date_obj = date_cls.fromisoformat(target_date[:10])
             record_prop_predictions(target_date_obj, top)
         except Exception:
             pass

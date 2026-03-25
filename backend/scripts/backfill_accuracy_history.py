@@ -19,6 +19,7 @@ Flags:
   --pick-of-the-day / --no-pick-of-the-day   Backfill AI pick rows (default: on)
   --game-predictions                        Also backfill game_prediction_records
   --settle / --no-settle                    Run settle_all_for_date per day (default: on)
+  --top-picks                               Hybrid Top Picks: if no prop_prediction rows for a date, run BestPicksService.get_top_picks for that day
   --dry-run                                 Log actions only; no DB writes
 """
 from __future__ import annotations
@@ -127,6 +128,11 @@ def main() -> int:
         help="Skip settle_all_for_date after backfill",
     )
     parser.add_argument(
+        "--top-picks",
+        action="store_true",
+        help="If prop_prediction_records are missing for a date, run BestPicksService.get_top_picks (historical scoreboard)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print planned actions only; no database writes",
@@ -181,7 +187,7 @@ def main() -> int:
     print(
         f"Range: {start.isoformat()} .. {end.isoformat()} ({sum(1 for _ in _iter_dates(start, end))} days)"
         f" dry_run={args.dry_run} pick_of_the_day={args.pick_of_the_day} "
-        f"game_predictions={args.game_predictions} settle={args.settle}"
+        f"game_predictions={args.game_predictions} top_picks={args.top_picks} settle={args.settle}"
     )
 
     for d in _iter_dates(start, end):
@@ -210,6 +216,32 @@ def main() -> int:
                 n = record_game_predictions(d, preds)  # type: ignore[misc]
                 print(f"  [games] record_game_predictions -> {n} new rows (0 if already had rows for date)")
 
+        if args.top_picks:
+            if args.dry_run:
+                print(f"  [top-picks] would check prop_prediction_records for {ds}; if empty, BestPicksService.get_top_picks")
+            else:
+                from app.database import get_db
+                from app.models.prediction_accuracy import PropPredictionRecord
+                from app.services.best_picks_service import BestPicksService
+
+                db = next(get_db())
+                try:
+                    n_existing = (
+                        db.query(PropPredictionRecord)
+                        .filter(PropPredictionRecord.record_date == d)
+                        .count()
+                    )
+                finally:
+                    db.close()
+                if n_existing > 0:
+                    print(f"  [top-picks] {n_existing} prop row(s) already exist — skip")
+                else:
+                    try:
+                        BestPicksService.get_top_picks(date=ds, season=season)
+                        print(f"  [top-picks] get_top_picks completed for {ds}")
+                    except Exception as e:
+                        print(f"  [top-picks] get_top_picks failed: {e}")
+
         if args.settle:
             if args.dry_run:
                 print(f"  [settle] would settle_all_for_date({ds})")
@@ -217,8 +249,9 @@ def main() -> int:
                 out = settle_all_for_date(d, season=season)  # type: ignore[misc]
                 gp = out.get("game_predictions") or {}
                 pd = out.get("pick_of_the_day") or {}
+                tp = out.get("top_picks") or {}
                 print(
-                    f"  [settle] game_settled={gp.get('settled')} pick={pd}"
+                    f"  [settle] game_settled={gp.get('settled')} pick={pd} top_picks={tp}"
                 )
 
     print("\nDone.")

@@ -30,6 +30,45 @@ type PickRecord = {
   status?: 'graded' | 'pending'
 }
 
+type PropBucket = {
+  hits: number
+  misses: number
+  pushes: number
+  settled: number
+  pending: number
+  hit_rate_pct: number | null
+  graded_non_push?: number
+}
+
+type TopPickRecordRow = {
+  id: number
+  date: string
+  player_id: number
+  player_name: string
+  stat_type: string
+  direction: string
+  line_value: number
+  confidence: number | null
+  tier: string
+  confidence_band: string
+  actual_value: number | null
+  error: number | null
+  hit: boolean | null
+  push: boolean
+  status: string
+}
+
+type TopPicksBlock = {
+  overall: PropBucket & { total?: number; lock_hit_rate_pct?: number | null }
+  by_tier: Record<string, PropBucket>
+  by_confidence_band: Record<string, PropBucket>
+  by_stat: Record<string, PropBucket>
+  by_direction: Record<string, PropBucket>
+  tier_x_stat: Record<string, Record<string, PropBucket>>
+  tier_x_direction: Record<string, Record<string, PropBucket>>
+  records: TopPickRecordRow[]
+}
+
 type AccuracyResponse = {
   from_date: string
   to_date: string
@@ -63,6 +102,7 @@ type AccuracyResponse = {
     win_rate?: number | null
     records: PickRecord[]
   }
+  top_picks?: TopPicksBlock
 }
 
 export default function AccuracyPage() {
@@ -124,7 +164,7 @@ export default function AccuracyPage() {
       </div>
 
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Match predictions are saved when game predictions are cached. AI pick of the day is saved when the pick is first loaded (cache miss) or when Admin warms the dashboard. Run <strong>Settle accuracy</strong> in Admin after games to grade both (or use the daily cron).
+        Match predictions are saved when game predictions are cached. AI pick of the day is saved when the pick is first loaded (cache miss) or when Admin warms the dashboard. Top Picks rows are saved when the homepage loads Top Picks (first request per day). Run <strong>Settle accuracy</strong> in Admin after games to grade matches, AI pick, and Top Picks (or use the daily cron).
       </p>
 
       {loading && (
@@ -144,8 +184,8 @@ export default function AccuracyPage() {
               <span className="ml-2 text-slate-500 dark:text-slate-400">(last retrain)</span>
             </div>
           )}
-          {/* Summary cards: matches, AI pick, combined */}
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Summary cards: matches, AI pick, Top picks, combined */}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Match predictions</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Game winner: predicted vs actual (settled games only)</p>
@@ -210,6 +250,45 @@ export default function AccuracyPage() {
                 </>
               )}
             </div>
+            <div className="rounded-xl bg-white dark:bg-slate-800 border border-teal-200 dark:border-teal-800/50 shadow-sm p-4 sm:p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Top Picks of the Day</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Homepage props (lock / strong / lean tiers from confidence)</p>
+              {data.top_picks && (data.top_picks.overall.total ?? data.top_picks.records.length) > 0 ? (
+                <>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-3xl font-bold text-gray-900 dark:text-slate-100">
+                      {(data.top_picks.overall.hits + data.top_picks.overall.misses) > 0
+                        ? (data.top_picks.overall.hit_rate_pct ?? '—')
+                        : '—'}
+                      {(data.top_picks.overall.hits + data.top_picks.overall.misses) > 0 ? '%' : ''}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      overall (excl. push)
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm text-teal-700 dark:text-teal-300">
+                    Lock tier hit:{' '}
+                    <strong>
+                      {data.top_picks.overall.lock_hit_rate_pct != null
+                        ? `${data.top_picks.overall.lock_hit_rate_pct}%`
+                        : '—'}
+                    </strong>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                    <span>Rows: <strong className="text-gray-900 dark:text-slate-100">{data.top_picks.overall.total ?? data.top_picks.records.length}</strong></span>
+                    <span>Settled: <strong className="text-gray-900 dark:text-slate-100">{data.top_picks.overall.settled}</strong></span>
+                    <span>Hits / Miss: <strong className="text-emerald-600 dark:text-emerald-400">{data.top_picks.overall.hits}</strong>
+                      {' / '}
+                      <strong className="text-rose-600 dark:text-rose-400">{data.top_picks.overall.misses}</strong>
+                    </span>
+                    <span>Pushes: <strong className="text-amber-600 dark:text-amber-400">{data.top_picks.overall.pushes}</strong></span>
+                    <span className="col-span-2">Pending: <strong className="text-amber-600 dark:text-amber-400">{data.top_picks.overall.pending}</strong></span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No Top Picks rows in this range. Load the home dashboard on game days so picks are recorded.</p>
+              )}
+            </div>
             <div className="rounded-xl bg-white dark:bg-slate-800 border border-violet-200 dark:border-violet-800/50 shadow-sm p-4 sm:p-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Combined</h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Every settled match + every graded AI pick (non-push) counts as one trial</p>
@@ -234,6 +313,230 @@ export default function AccuracyPage() {
               )}
             </div>
           </div>
+
+          {/* Top Picks: granular breakdowns */}
+          {data.top_picks && data.top_picks.records.length > 0 && (() => {
+            const tp = data.top_picks
+            const tierOrder = ['lock', 'strong', 'lean'] as const
+            const tierChart = tierOrder
+              .map((t) => {
+                const b = tp.by_tier[t]
+                if (!b || (b.hits + b.misses) < 1) return null
+                return {
+                  label: t,
+                  winRate: b.hit_rate_pct ?? 0,
+                  n: b.hits + b.misses,
+                }
+              })
+              .filter((x) => x != null)
+            const bandOrder = ['95-100', '90-94', '85-89', '80-84', '75-79', '70-74', '65-69', '<65', 'unknown'] as const
+            const bandChart = bandOrder
+              .map((band) => {
+                const b = tp.by_confidence_band[band]
+                if (!b || (b.hits + b.misses) < 1) return null
+                return { band, winRate: b.hit_rate_pct ?? 0, n: b.hits + b.misses }
+              })
+              .filter((x) => x != null)
+            return (
+              <>
+                <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Top Picks — hit rate by tier</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Lock ≥78, Strong ≥62, Lean &lt;62 confidence (same as homepage)</p>
+                  {tierChart.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No graded non-push picks in this range.</p>
+                  ) : (
+                    <div className="h-52 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={tierChart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                          <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
+                          <Tooltip formatter={(value: number) => [`${value}%`, 'Hit rate']} labelFormatter={(l) => `Tier: ${l}`} />
+                          <Bar dataKey="winRate" fill="rgb(20 184 166)" name="Hit rate" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </section>
+                <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Top Picks — hit rate by confidence band</h2>
+                  {bandChart.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No graded data by band.</p>
+                  ) : (
+                    <div className="h-56 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={bandChart} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                          <XAxis dataKey="band" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" height={48} />
+                          <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
+                          <Tooltip formatter={(value: number) => [`${value}%`, 'Hit rate']} />
+                          <Bar dataKey="winRate" fill="rgb(59 130 246)" name="Hit rate" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </section>
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <section className="rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-slate-100 mb-2">By stat type</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 dark:bg-slate-700">
+                            <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Stat</th>
+                            <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Hit %</th>
+                            <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Graded</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(tp.by_stat).map(([k, b]) => (
+                            <tr key={k} className="border-t border-gray-100 dark:border-slate-700">
+                              <td className="py-1.5 px-2 text-gray-800 dark:text-slate-200">{k}</td>
+                              <td className="py-1.5 px-2 text-right text-gray-600 dark:text-gray-400">{b.hit_rate_pct != null ? `${b.hit_rate_pct}%` : '—'}</td>
+                              <td className="py-1.5 px-2 text-right text-gray-500 dark:text-gray-500">{b.hits + b.misses}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                  <section className="rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-slate-100 mb-2">By direction</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 dark:bg-slate-700">
+                            <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Side</th>
+                            <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Hit %</th>
+                            <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Graded</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(tp.by_direction).map(([k, b]) => (
+                            <tr key={k} className="border-t border-gray-100 dark:border-slate-700">
+                              <td className="py-1.5 px-2 text-gray-800 dark:text-slate-200 uppercase">{k}</td>
+                              <td className="py-1.5 px-2 text-right text-gray-600 dark:text-gray-400">{b.hit_rate_pct != null ? `${b.hit_rate_pct}%` : '—'}</td>
+                              <td className="py-1.5 px-2 text-right text-gray-500 dark:text-gray-500">{b.hits + b.misses}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                </div>
+                <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-slate-100 mb-2">Tier × stat</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 dark:bg-slate-700">
+                          <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Tier</th>
+                          <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Stat</th>
+                          <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Hit %</th>
+                          <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Graded</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tierOrder.flatMap((tier) => {
+                          const inner = tp.tier_x_stat[tier]
+                          if (!inner) return []
+                          return Object.entries(inner).map(([st, b]) => (
+                            <tr key={`${tier}-${st}`} className="border-t border-gray-100 dark:border-slate-700">
+                              <td className="py-1.5 px-2 text-gray-800 dark:text-slate-200 capitalize">{tier}</td>
+                              <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{st}</td>
+                              <td className="py-1.5 px-2 text-right text-gray-600 dark:text-gray-400">{b.hit_rate_pct != null ? `${b.hit_rate_pct}%` : '—'}</td>
+                              <td className="py-1.5 px-2 text-right text-gray-500 dark:text-gray-500">{b.hits + b.misses}</td>
+                            </tr>
+                          ))
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+                <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-slate-100 mb-2">Tier × direction</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 dark:bg-slate-700">
+                          <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Tier</th>
+                          <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Direction</th>
+                          <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Hit %</th>
+                          <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Graded</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tierOrder.flatMap((tier) => {
+                          const inner = tp.tier_x_direction[tier]
+                          if (!inner) return []
+                          return Object.entries(inner).map(([d, b]) => (
+                            <tr key={`${tier}-${d}`} className="border-t border-gray-100 dark:border-slate-700">
+                              <td className="py-1.5 px-2 text-gray-800 dark:text-slate-200 capitalize">{tier}</td>
+                              <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300 uppercase">{d}</td>
+                              <td className="py-1.5 px-2 text-right text-gray-600 dark:text-gray-400">{b.hit_rate_pct != null ? `${b.hit_rate_pct}%` : '—'}</td>
+                              <td className="py-1.5 px-2 text-right text-gray-500 dark:text-gray-500">{b.hits + b.misses}</td>
+                            </tr>
+                          ))
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+                <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3">Top Picks history</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    One row per saved pick. <strong>Pending</strong> clears after <strong>Settle accuracy</strong> for that date.
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs sm:text-sm text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 dark:bg-slate-700">
+                          <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Date</th>
+                          <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Player</th>
+                          <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Prop</th>
+                          <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-right">Conf.</th>
+                          <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Tier</th>
+                          <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Band</th>
+                          <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-right">Line</th>
+                          <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-right">Actual</th>
+                          <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-center">Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tp.records.map((r) => (
+                          <tr key={r.id} className="border-t border-gray-100 dark:border-slate-700">
+                            <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">{r.date}</td>
+                            <td className="py-1.5 px-2 font-medium text-gray-900 dark:text-slate-100">{r.player_name}</td>
+                            <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                              {r.stat_type} {r.direction}
+                            </td>
+                            <td className="py-1.5 px-2 text-right text-gray-500 dark:text-gray-400">
+                              {r.confidence != null ? `${Math.round(r.confidence * 10) / 10}%` : '—'}
+                            </td>
+                            <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300 capitalize">{r.tier}</td>
+                            <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400 text-xs">{r.confidence_band}</td>
+                            <td className="py-1.5 px-2 text-right text-gray-600 dark:text-gray-400">{r.line_value}</td>
+                            <td className="py-1.5 px-2 text-right text-gray-600 dark:text-gray-400">{r.actual_value ?? '—'}</td>
+                            <td className="py-1.5 px-2 text-center">
+                              {r.status === 'pending' ? (
+                                <span className="text-amber-600 dark:text-amber-400 font-medium">Pending</span>
+                              ) : r.push ? (
+                                <span className="text-amber-600 dark:text-amber-400 font-semibold">Push</span>
+                              ) : r.hit ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Hit</span>
+                              ) : r.hit === false ? (
+                                <span className="text-rose-600 dark:text-rose-400 font-semibold">Miss</span>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </>
+            )
+          })()}
 
           {/* Win rate by stat type (Pick of the day) */}
           {data.pick_of_the_day.records.length > 0 && (() => {
@@ -362,7 +665,7 @@ export default function AccuracyPage() {
       )}
 
       <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">
-        <p>Match predictions and AI picks are saved when caches are warmed or when the pick-of-the-day endpoint runs (cache miss). Run <strong>Settle accuracy</strong> in Admin to grade a date (default: yesterday). A daily cron can run this automatically after games.</p>
+        <p>Match predictions, AI picks, and Top Picks rows are saved when caches are warmed or when the dashboard loads Top Picks for that day. Run <strong>Settle accuracy</strong> in Admin to grade a date (default: yesterday), including Top Picks props. A daily cron can run this automatically after games.</p>
       </div>
       <div className="mt-4">
         <Link to="/admin" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Go to Admin</Link>

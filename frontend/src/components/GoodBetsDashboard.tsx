@@ -741,7 +741,10 @@ export function GoodBetsDashboard() {
                 </div>
               )}
               {bestBetsForMainStrip.length > 0 && (
-                <SuggestionCards suggestions={bestBetsForMainStrip} horizontal={true} onAddToTracker={handleAddToTracker} isAddingToTracker={isAddingToTracker} />
+                <> 
+                  <h4 className="text-xs font-bold text-amber-800 dark:text-amber-200 mb-1.5">Top Insights by stat</h4>
+                  <SuggestionCards suggestions={bestBetsForMainStrip} horizontal={true} onAddToTracker={handleAddToTracker} isAddingToTracker={isAddingToTracker} />
+                </>
               )}
             </>
           )}
