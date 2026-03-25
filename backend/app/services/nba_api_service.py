@@ -650,10 +650,70 @@ class NBADataService:
         return True
     
     @staticmethod
+    def _persist_game_log_to_db(player_id: int, season: str, data: List[Dict[str, Any]]) -> None:
+        """Upsert a player's game log rows into player_game_log_cache (best-effort, never raises)."""
+        if not data:
+            return
+        try:
+            from ..database import SessionLocal
+            from ..models.player_game_log_cache import PlayerGameLogCache
+            db = SessionLocal()
+            try:
+                # Replace all rows for this player+season — clean and simple
+                db.query(PlayerGameLogCache).filter_by(
+                    player_id=player_id, season=season
+                ).delete(synchronize_session=False)
+                for row in data:
+                    db.add(PlayerGameLogCache(
+                        player_id=player_id,
+                        season=season,
+                        game_id=str(row.get("game_id", "")),
+                        game_date=str(row.get("game_date", "")),
+                        matchup=str(row.get("matchup", "")),
+                        pts=float(row.get("pts", 0) or 0),
+                        reb=float(row.get("reb", 0) or 0),
+                        ast=float(row.get("ast", 0) or 0),
+                        tpm=float(row.get("tpm", 0) or 0),
+                        minutes=float(row.get("minutes", 0) or 0),
+                        fga=float(row.get("fga", 0) or 0),
+                        fta=float(row.get("fta", 0) or 0),
+                        tov=float(row.get("tov", 0) or 0),
+                        oreb=float(row.get("oreb", 0) or 0),
+                        stl=float(row.get("stl", 0) or 0),
+                        blk=float(row.get("blk", 0) or 0),
+                    ))
+                db.commit()
+            finally:
+                db.close()
+        except Exception:
+            pass  # DB persistence is best-effort; never break the main flow
+
+    @staticmethod
+    def _get_game_log_from_db(player_id: int, season: str) -> List[Dict[str, Any]]:
+        """Read a player's game log from the DB cache (fallback when Redis is cold)."""
+        try:
+            from ..database import SessionLocal
+            from ..models.player_game_log_cache import PlayerGameLogCache
+            db = SessionLocal()
+            try:
+                rows = (
+                    db.query(PlayerGameLogCache)
+                    .filter_by(player_id=player_id, season=season)
+                    .order_by(PlayerGameLogCache.game_date.desc())
+                    .all()
+                )
+                return [r.to_dict() for r in rows] if rows else []
+            finally:
+                db.close()
+        except Exception:
+            return []
+
+    @staticmethod
     def fetch_player_game_log(player_id: int, season: Optional[str] = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """
-        Fetch player game log with 24-hour caching.
-        Cascade: try nba_api, then ESPN, then retry nba_api, then retry ESPN until good data or exhausted.
+        Fetch player game log with 24-hour Redis caching + DB persistence.
+        Read order: Redis → DB → ESPN → NBA API.
+        On any fresh fetch from the external APIs, results are written to both Redis and the DB.
         Good data = non-empty list with valid entries (game_id, game_date, matchup, pts, reb, ast).
         """
         import structlog
@@ -664,9 +724,22 @@ class NBADataService:
         cache = get_cache_service()
 
         if not force_refresh:
+            # 1. Redis (fastest)
             cached_data = cache.get(cache_key)
             if cached_data is not None:
                 return cached_data
+
+            # 2. DB fallback — no API call needed, re-warm Redis while we're here
+            db_data = NBADataService._get_game_log_from_db(player_id, season_to_use)
+            if db_data:
+                log.debug("Player game log from DB cache", player_id=player_id, count=len(db_data))
+                cache.set(cache_key, db_data, ttl=86400)
+                return db_data
+
+        def _store(result: List[Dict[str, Any]]) -> None:
+            """Write to Redis + DB in one call."""
+            cache.set(cache_key, result, ttl=86400)
+            NBADataService._persist_game_log_to_db(player_id, season_to_use, result)
 
         def try_nba_api() -> List[Dict[str, Any]]:
             return NBADataService._fetch_player_game_log_impl(player_id, season)
@@ -687,7 +760,7 @@ class NBADataService:
         attempts.append(r1 or [])
         if NBADataService._is_good_game_log(r1):
             log.info("Player game log from espn", player_id=player_id, count=len(r1))
-            cache.set(cache_key, r1, ttl=86400)
+            _store(r1)
             return r1
 
         # Step 2: nba_api (single attempt — skip if stats.nba.com is unreachable)
@@ -695,7 +768,7 @@ class NBADataService:
         attempts.append(r2 or [])
         if NBADataService._is_good_game_log(r2):
             log.info("Player game log from nba_api", player_id=player_id, count=len(r2))
-            cache.set(cache_key, r2, ttl=86400)
+            _store(r2)
             return r2
 
         # Step 3: retry ESPN (no more NBA API retries — they just burn time)
@@ -703,7 +776,7 @@ class NBADataService:
         attempts.append(r3 or [])
         if NBADataService._is_good_game_log(r3):
             log.info("Player game log from espn_retry", player_id=player_id, count=len(r3))
-            cache.set(cache_key, r3, ttl=86400)
+            _store(r3)
             return r3
 
         best = max(attempts, key=len) if attempts else []
@@ -711,7 +784,7 @@ class NBADataService:
             log.warning("No good game log data after cascade", player_id=player_id)
         else:
             log.info("Player game log best of cascade", player_id=player_id, count=len(best))
-        cache.set(cache_key, best, ttl=86400)
+        _store(best)
         return best
 
     @staticmethod

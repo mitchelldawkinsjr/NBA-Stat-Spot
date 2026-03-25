@@ -8,6 +8,7 @@ load_dotenv()
 
 from .database import Base, engine
 from .models import user_bets, user_parlays, player_context, market_context, ai_features, app_settings  # Import models so tables are created (prediction_accuracy via __init__)
+from .models.player_game_log_cache import PlayerGameLogCache  # ensures table is created on startup
 from .services.cache_service import CacheEntry  # Import cache model so table is created
 from .routers.props_v1 import router as props_v1_router
 from .routers.players_v1 import router as players_v1_router
