@@ -16,6 +16,8 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Any
 from datetime import date, datetime
 import re as _re
+import threading
+import time
 import structlog
 from ..utils.season import get_current_season
 from .context_collector import ContextCollector
@@ -37,12 +39,18 @@ HOME_COURT_ADVANTAGE = 0.04
 
 def _get_teams_by_abbr() -> Dict[str, Dict[str, Any]]:
     """Return map of uppercase abbreviation -> {id, full_name, abbreviation}."""
+    cache = get_cache_service()
+    cache_key = "nba:teams_by_abbr:1h"
+    cached = cache.get(cache_key)
+    if isinstance(cached, dict) and cached:
+        return cached
     teams = NBADataService.fetch_all_teams() or []
-    out = {}
+    out: Dict[str, Dict[str, Any]] = {}
     for t in teams:
         abbr = (t.get("abbreviation") or "").strip().upper()
         if abbr:
             out[abbr] = {"id": t.get("id"), "full_name": t.get("full_name"), "abbreviation": abbr}
+    cache.set(cache_key, out, ttl=3600)
     return out
 
 
@@ -147,6 +155,161 @@ class GamePredictionService:
         self.cache = get_cache_service()
         self._team_stats = TeamStatsService()
 
+    def _build_prediction_payload(
+        self,
+        game_id: str,
+        home_abbr: str,
+        away_abbr: str,
+        event_date: str,
+        teams_by_abbr: Dict[str, Dict[str, Any]],
+        def_ranks: Dict[int, Dict[str, Any]],
+        off_ranks: Dict[int, Dict[str, Any]],
+        season: str,
+    ) -> Dict[str, Any]:
+        home_team = _resolve_team(teams_by_abbr, home_abbr)
+        away_team = _resolve_team(teams_by_abbr, away_abbr)
+        home_id = int(home_team["id"]) if home_team and home_team.get("id") is not None else None
+        away_id = int(away_team["id"]) if away_team and away_team.get("id") is not None else None
+
+        home_def = def_ranks.get(home_id, {}) if home_id else {}
+        home_off = off_ranks.get(home_id, {}) if home_id else {}
+        away_def = def_ranks.get(away_id, {}) if away_id else {}
+        away_off = off_ranks.get(away_id, {}) if away_id else {}
+
+        home_abbr_nba = (home_team or {}).get("abbreviation") or home_abbr
+        away_abbr_nba = (away_team or {}).get("abbreviation") or away_abbr
+        home_stats = self._team_stats.get_team_stats(home_abbr_nba)
+        away_stats = self._team_stats.get_team_stats(away_abbr_nba)
+        default_ppg = 112.5
+        default_pace = 100.0
+        home_ppg = getattr(home_stats, "ppg", default_ppg) or default_ppg
+        away_ppg = getattr(away_stats, "ppg", default_ppg) or default_ppg
+        home_pace = getattr(home_stats, "pace", default_pace) or default_pace
+        away_pace = getattr(away_stats, "pace", default_pace) or default_pace
+
+        try:
+            pace_ranks = ContextCollector.get_cached_pace_ranks(season)
+            if home_id and (home_pace is None or home_pace == default_pace):
+                p = pace_ranks.get(home_id, {})
+                if p.get("possessions"):
+                    home_pace = float(p["possessions"])
+            if away_id and (away_pace is None or away_pace == default_pace):
+                p = pace_ranks.get(away_id, {})
+                if p.get("possessions"):
+                    away_pace = float(p["possessions"])
+        except Exception:
+            pass
+
+        if home_ppg == default_ppg or away_ppg == default_ppg:
+            try:
+                team_ppg_from_logs = ContextCollector._get_team_ppg_from_player_logs(season)
+                if home_id and home_ppg == default_ppg and home_id in team_ppg_from_logs:
+                    home_ppg = team_ppg_from_logs[home_id]
+                if away_id and away_ppg == default_ppg and away_id in team_ppg_from_logs:
+                    away_ppg = team_ppg_from_logs[away_id]
+            except Exception:
+                pass
+
+        prob_home = _win_probability_from_ranks(
+            home_off.get("pts"),
+            home_def.get("pts"),
+            away_off.get("pts"),
+            away_def.get("pts"),
+            home_ppg,
+            away_ppg,
+        )
+        prob_away = 1.0 - prob_home
+        predicted_winner_abbr = home_abbr if prob_home >= 0.5 else away_abbr
+        predicted_winner_name = (
+            (home_team or {}).get("full_name") or home_abbr
+            if predicted_winner_abbr == home_abbr
+            else (away_team or {}).get("full_name") or away_abbr
+        )
+
+        key_adv = _key_advantages(
+            predicted_winner_abbr,
+            home_abbr,
+            away_abbr,
+            home_off,
+            home_def,
+            away_off,
+            away_def,
+            home_ppg,
+            away_ppg,
+            home_pace,
+            away_pace,
+        )
+        key_advantage_summary = " and ".join(key_adv) if key_adv else "balanced matchup"
+        return {
+            "gameId": game_id,
+            "home": home_abbr,
+            "away": away_abbr,
+            "home_team_id": home_id,
+            "away_team_id": away_id,
+            "home_full_name": (home_team or {}).get("full_name") or home_abbr,
+            "away_full_name": (away_team or {}).get("full_name") or away_abbr,
+            "predicted_winner": predicted_winner_abbr,
+            "predicted_winner_name": predicted_winner_name,
+            "win_probability_home": round(prob_home * 100, 1),
+            "win_probability_away": round(prob_away * 100, 1),
+            "key_advantage_summary": key_advantage_summary,
+            "outlook_summary": None,
+            "game_time_utc": event_date,
+            "home_off_rank_pts": home_off.get("pts"),
+            "home_def_rank_pts": home_def.get("pts"),
+            "away_off_rank_pts": away_off.get("pts"),
+            "away_def_rank_pts": away_def.get("pts"),
+            "home_ppg": home_ppg,
+            "away_ppg": away_ppg,
+            "home_pace": home_pace,
+            "away_pace": away_pace,
+        }
+
+    def _populate_prediction_summaries_async(self, cache_key: str, predictions: List[Dict[str, Any]]) -> None:
+        """Fill outlook_summary in background so request path stays fast."""
+        if not predictions:
+            return
+
+        def _run() -> None:
+            started = time.perf_counter()
+            try:
+                cached = self.cache.get(cache_key)
+                rows = list(cached) if isinstance(cached, list) else list(predictions)
+                updated = False
+                for row in rows:
+                    if row.get("outlook_summary"):
+                        continue
+                    pred = row.get("predicted_winner") or ""
+                    win_pct = int(
+                        row.get("win_probability_home", 50)
+                        if pred == row.get("home")
+                        else row.get("win_probability_away", 50)
+                    )
+                    row["outlook_summary"] = self._generate_prediction_summary(
+                        row.get("home") or "",
+                        row.get("away") or "",
+                        pred,
+                        win_pct,
+                        row.get("key_advantage_summary") or "balanced matchup",
+                        float(row.get("home_ppg") or 112.5),
+                        float(row.get("away_ppg") or 112.5),
+                        float(row.get("home_pace") or 100.0),
+                        float(row.get("away_pace") or 100.0),
+                    )
+                    updated = True
+                if updated:
+                    self.cache.set(cache_key, rows, ttl=86400)
+            except Exception as exc:
+                logger.debug("Background prediction summaries failed", error=str(exc))
+            finally:
+                logger.info(
+                    "Prediction summaries background task complete",
+                    cache_key=cache_key,
+                    elapsed_ms=round((time.perf_counter() - started) * 1000, 1),
+                )
+
+        threading.Thread(target=_run, daemon=True).start()
+
     def get_todays_predictions(self, target_date: Optional[date] = None) -> List[Dict[str, Any]]:
         """
         Get predictions for all games on the given date (default today).
@@ -158,10 +321,21 @@ class GamePredictionService:
         if cached is not None:
             return cached
 
+        request_started = time.perf_counter()
         from .espn_api_service import get_espn_service
         espn = get_espn_service()
         date_str = target_date.strftime("%Y%m%d")
-        scoreboard = espn.get_scoreboard(date=date_str)
+        scoreboard_started = time.perf_counter()
+        try:
+            scoreboard = espn.get_scoreboard(date=date_str)
+        except Exception as e:
+            logger.warning("Scoreboard fetch failed", date=target_date.isoformat(), error=str(e))
+            scoreboard = None
+        logger.info(
+            "Scoreboard fetch complete",
+            date=target_date.isoformat(),
+            elapsed_ms=round((time.perf_counter() - scoreboard_started) * 1000, 1),
+        )
         if not scoreboard or not isinstance(scoreboard.get("events"), list):
             logger.warning("No scoreboard events for date", date=target_date.isoformat())
             self.cache.set(cache_key, [], ttl=3600)
@@ -169,14 +343,26 @@ class GamePredictionService:
 
         teams_by_abbr = _get_teams_by_abbr()
         season = get_current_season()
-        def_ranks = ContextCollector._calculate_defensive_ranks(season)
-        off_ranks = ContextCollector._calculate_offensive_ranks(season)
-        if not def_ranks and not off_ranks:
-            def_fb, off_fb = ContextCollector._calculate_team_ranks_from_player_stats(season)
-            if not def_ranks:
-                def_ranks = def_fb or {}
-            if not off_ranks:
-                off_ranks = off_fb or {}
+        ranks_started = time.perf_counter()
+        def_ranks = ContextCollector.get_cached_defensive_ranks(season)
+        off_ranks = ContextCollector.get_cached_offensive_ranks(season)
+        if not def_ranks or not off_ranks:
+            def_fb, off_fb = ContextCollector.get_cached_team_ranks_fallback(season)
+            if not def_ranks and def_fb:
+                def_ranks = def_fb
+            if not off_ranks and off_fb:
+                off_ranks = off_fb
+            warming_key = f"ranks_warming:{season}:60s"
+            if self.cache.get(warming_key) is None:
+                self.cache.set(warming_key, True, ttl=60)
+                ContextCollector._trigger_background_rank_refresh(season)
+        logger.info(
+            "Rank lookup complete",
+            season=season,
+            has_def=bool(def_ranks),
+            has_off=bool(off_ranks),
+            elapsed_ms=round((time.perf_counter() - ranks_started) * 1000, 1),
+        )
 
         predictions = []
         for event in scoreboard["events"]:
@@ -197,108 +383,35 @@ class GamePredictionService:
                 if not home_abbr or not away_abbr:
                     continue
 
-                home_team = _resolve_team(teams_by_abbr, home_abbr)
-                away_team = _resolve_team(teams_by_abbr, away_abbr)
-                home_id = int(home_team["id"]) if home_team and home_team.get("id") is not None else None
-                away_id = int(away_team["id"]) if away_team and away_team.get("id") is not None else None
-
-                home_def = def_ranks.get(home_id, {}) if home_id else {}
-                home_off = off_ranks.get(home_id, {}) if home_id else {}
-                away_def = def_ranks.get(away_id, {}) if away_id else {}
-                away_off = off_ranks.get(away_id, {}) if away_id else {}
-
-                home_abbr_nba = (home_team or {}).get("abbreviation") or home_abbr
-                away_abbr_nba = (away_team or {}).get("abbreviation") or away_abbr
-                home_stats = self._team_stats.get_team_stats(home_abbr_nba)
-                away_stats = self._team_stats.get_team_stats(away_abbr_nba)
-                default_ppg = 112.5
-                default_pace = 100.0
-                home_ppg = getattr(home_stats, "ppg", default_ppg) or default_ppg
-                away_ppg = getattr(away_stats, "ppg", default_ppg) or default_ppg
-                home_pace = getattr(home_stats, "pace", default_pace) or default_pace
-                away_pace = getattr(away_stats, "pace", default_pace) or default_pace
-                # When NBA API returns defaults, use our game-log-based PPG and pace so team comparison shows real data
-                try:
-                    pace_ranks = ContextCollector._calculate_pace_ranks(season)
-                    if home_id and (home_pace is None or home_pace == default_pace):
-                        p = pace_ranks.get(home_id, {})
-                        if p.get("possessions"):
-                            home_pace = float(p["possessions"])
-                    if away_id and (away_pace is None or away_pace == default_pace):
-                        p = pace_ranks.get(away_id, {})
-                        if p.get("possessions"):
-                            away_pace = float(p["possessions"])
-                except Exception:
-                    pass
-                if home_ppg == default_ppg or away_ppg == default_ppg:
-                    try:
-                        team_ppg_from_logs = ContextCollector._get_team_ppg_from_player_logs(season)
-                        if home_id and home_ppg == default_ppg and home_id in team_ppg_from_logs:
-                            home_ppg = team_ppg_from_logs[home_id]
-                        if away_id and away_ppg == default_ppg and away_id in team_ppg_from_logs:
-                            away_ppg = team_ppg_from_logs[away_id]
-                    except Exception:
-                        pass
-
-                prob_home = _win_probability_from_ranks(
-                    home_off.get("pts"), home_def.get("pts"),
-                    away_off.get("pts"), away_def.get("pts"),
-                    home_ppg, away_ppg,
+                predictions.append(
+                    self._build_prediction_payload(
+                        game_id=game_id,
+                        home_abbr=home_abbr,
+                        away_abbr=away_abbr,
+                        event_date=event.get("date") or "",
+                        teams_by_abbr=teams_by_abbr,
+                        def_ranks=def_ranks,
+                        off_ranks=off_ranks,
+                        season=season,
+                    )
                 )
-                prob_away = 1.0 - prob_home
-                predicted_winner_abbr = home_abbr if prob_home >= 0.5 else away_abbr
-                predicted_winner_name = (home_team or {}).get("full_name") or home_abbr if predicted_winner_abbr == home_abbr else (away_team or {}).get("full_name") or away_abbr
-
-                key_adv = _key_advantages(
-                    predicted_winner_abbr, home_abbr, away_abbr,
-                    home_off, home_def, away_off, away_def,
-                    home_ppg, away_ppg, home_pace, away_pace,
-                )
-                key_advantage_summary = " and ".join(key_adv) if key_adv else "balanced matchup"
-
-                # Optional LLM summary (can be sync or async; keep short for list view)
-                llm_summary = self._generate_prediction_summary(
-                    home_abbr, away_abbr,
-                    predicted_winner_abbr, round(prob_home * 100 if predicted_winner_abbr == home_abbr else prob_away * 100),
-                    key_advantage_summary,
-                    home_ppg, away_ppg, home_pace, away_pace,
-                )
-
-                event_date = event.get("date") or ""
-                predictions.append({
-                    "gameId": game_id,
-                    "home": home_abbr,
-                    "away": away_abbr,
-                    "home_team_id": home_id,
-                    "away_team_id": away_id,
-                    "home_full_name": (home_team or {}).get("full_name") or home_abbr,
-                    "away_full_name": (away_team or {}).get("full_name") or away_abbr,
-                    "predicted_winner": predicted_winner_abbr,
-                    "predicted_winner_name": predicted_winner_name,
-                    "win_probability_home": round(prob_home * 100, 1),
-                    "win_probability_away": round(prob_away * 100, 1),
-                    "key_advantage_summary": key_advantage_summary,
-                    "outlook_summary": llm_summary,
-                    "game_time_utc": event_date,
-                    "home_off_rank_pts": home_off.get("pts"),
-                    "home_def_rank_pts": home_def.get("pts"),
-                    "away_off_rank_pts": away_off.get("pts"),
-                    "away_def_rank_pts": away_def.get("pts"),
-                    "home_ppg": home_ppg,
-                    "away_ppg": away_ppg,
-                    "home_pace": home_pace,
-                    "away_pace": away_pace,
-                })
             except Exception as e:
                 logger.warning("Failed to build prediction for game", game_id=event.get("id"), error=str(e))
                 continue
 
         self.cache.set(cache_key, predictions, ttl=86400)
+        self._populate_prediction_summaries_async(cache_key, predictions)
         try:
             from .accuracy_tracking_service import record_game_predictions
             record_game_predictions(target_date, predictions)
         except Exception as e:
             logger.debug("record_game_predictions failed", date=target_date.isoformat(), error=str(e))
+        logger.info(
+            "Prediction request complete",
+            date=target_date.isoformat(),
+            games=len(predictions),
+            elapsed_ms=round((time.perf_counter() - request_started) * 1000, 1),
+        )
         return predictions
 
     def _resolve_game_from_espn(self, game_id: str) -> Optional[Dict[str, Any]]:
@@ -325,70 +438,26 @@ class GamePredictionService:
             if not home_abbr or not away_abbr:
                 return None
             teams_by_abbr = _get_teams_by_abbr()
-            home_team = _resolve_team(teams_by_abbr, home_abbr)
-            away_team = _resolve_team(teams_by_abbr, away_abbr)
-            home_id = int(home_team["id"]) if home_team and home_team.get("id") is not None else None
-            away_id = int(away_team["id"]) if away_team and away_team.get("id") is not None else None
             season = get_current_season()
-            def_ranks = ContextCollector._calculate_defensive_ranks(season) or {}
-            off_ranks = ContextCollector._calculate_offensive_ranks(season) or {}
+            def_ranks = ContextCollector.get_cached_defensive_ranks(season) or {}
+            off_ranks = ContextCollector.get_cached_offensive_ranks(season) or {}
             if not def_ranks or not off_ranks:
-                def_fb, off_fb = ContextCollector._calculate_team_ranks_from_player_stats(season)
+                def_fb, off_fb = ContextCollector.get_cached_team_ranks_fallback(season)
                 if not def_ranks and def_fb:
                     def_ranks = def_fb
                 if not off_ranks and off_fb:
                     off_ranks = off_fb
-            home_def = def_ranks.get(home_id, {}) if home_id else {}
-            away_def = def_ranks.get(away_id, {}) if away_id else {}
-            home_off = off_ranks.get(home_id, {}) if home_id else {}
-            away_off = off_ranks.get(away_id, {}) if away_id else {}
-            home_abbr_nba = (home_team or {}).get("abbreviation") or home_abbr
-            away_abbr_nba = (away_team or {}).get("abbreviation") or away_abbr
-            home_stats = self._team_stats.get_team_stats(home_abbr_nba)
-            away_stats = self._team_stats.get_team_stats(away_abbr_nba)
-            default_ppg, default_pace = 112.5, 100.0
-            home_ppg = getattr(home_stats, "ppg", default_ppg) or default_ppg
-            away_ppg = getattr(away_stats, "ppg", default_ppg) or default_ppg
-            prob_home = _win_probability_from_ranks(
-                home_off.get("pts"), home_def.get("pts"),
-                away_off.get("pts"), away_def.get("pts"),
-                home_ppg, away_ppg,
-            )
-            prob_away = 1.0 - prob_home
-            predicted_winner = home_abbr if prob_home >= 0.5 else away_abbr
-            key_adv = _key_advantages(
-                predicted_winner, home_abbr, away_abbr,
-                home_off, home_def, away_off, away_def,
-                home_ppg, away_ppg,
-                getattr(home_stats, "pace", default_pace) or default_pace,
-                getattr(away_stats, "pace", default_pace) or default_pace,
-            )
-            key_advantage_summary = " and ".join(key_adv) if key_adv else "balanced matchup"
             event_date = (comps[0].get("date") if comps else "") or comp.get("date") or ""
-            return {
-                "gameId": game_id,
-                "home": home_abbr,
-                "away": away_abbr,
-                "home_team_id": home_id,
-                "away_team_id": away_id,
-                "home_full_name": (home_team or {}).get("full_name") or home_abbr,
-                "away_full_name": (away_team or {}).get("full_name") or away_abbr,
-                "predicted_winner": predicted_winner,
-                "predicted_winner_name": (home_team or {}).get("full_name") if predicted_winner == home_abbr else (away_team or {}).get("full_name"),
-                "win_probability_home": round(prob_home * 100, 1),
-                "win_probability_away": round(prob_away * 100, 1),
-                "key_advantage_summary": key_advantage_summary,
-                "outlook_summary": None,
-                "game_time_utc": event_date,
-                "home_off_rank_pts": home_off.get("pts"),
-                "home_def_rank_pts": home_def.get("pts"),
-                "away_off_rank_pts": away_off.get("pts"),
-                "away_def_rank_pts": away_def.get("pts"),
-                "home_ppg": home_ppg,
-                "away_ppg": away_ppg,
-                "home_pace": getattr(home_stats, "pace", default_pace) or default_pace,
-                "away_pace": getattr(away_stats, "pace", default_pace) or default_pace,
-            }
+            return self._build_prediction_payload(
+                game_id=game_id,
+                home_abbr=home_abbr,
+                away_abbr=away_abbr,
+                event_date=event_date,
+                teams_by_abbr=teams_by_abbr,
+                def_ranks=def_ranks,
+                off_ranks=off_ranks,
+                season=season,
+            )
         except Exception as e:
             logger.debug("Resolve game from ESPN failed", game_id=game_id, error=str(e))
             return None
@@ -721,6 +790,11 @@ def _get_team_key_players(
     if not team_id:
         return []
     try:
+        cache = get_cache_service()
+        cache_key = f"team_key_players:{team_id}:{season}:{limit}:24h"
+        cached = cache.get(cache_key)
+        if isinstance(cached, list):
+            return cached
         all_players = NBADataService.fetch_all_players_including_rookies() or []
         team_players = [p for p in all_players if int(p.get("team_id") or -1) == team_id]
         results = []
@@ -768,7 +842,9 @@ def _get_team_key_players(
             except Exception:
                 continue
         results.sort(key=lambda x: (x.get("season_pts") or 0), reverse=True)
-        return results[:limit]
+        out = results[:limit]
+        cache.set(cache_key, out, ttl=86400)
+        return out
     except Exception as e:
         logger.debug("_get_team_key_players failed", team_id=team_id, error=str(e))
         return []

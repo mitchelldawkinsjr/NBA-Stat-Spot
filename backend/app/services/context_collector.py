@@ -4,6 +4,7 @@ Context Collector Service - Gathers contextual information about players for AI 
 from __future__ import annotations
 from typing import Dict, List, Optional, Any
 from datetime import date, datetime, timedelta
+import re as _re
 from sqlalchemy.orm import Session
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutureTimeoutError
 from ..database import get_db
@@ -245,322 +246,13 @@ class ContextCollector:
     
     @staticmethod
     def _calculate_defensive_ranks(season: Optional[str] = None) -> Dict[int, Dict[str, int]]:
-        """
-        Calculate defensive rankings for all teams based on what opponents score against them.
-        Uses parallel processing to avoid blocking the endpoint.
-        
-        Args:
-            season: Season string (e.g., "2025-26")
-            
-        Returns:
-            Dictionary mapping team_id to defensive ranks: {team_id: {"pts": rank, "reb": rank, "ast": rank}}
-        """
+        """Return defensive ranks, computing all team ranks in one shared pass on cache miss."""
         try:
-            cache = get_cache_service()
             season_to_use = season or get_current_season()
-            cache_key = f"defensive_ranks:{season_to_use}:24h"
-            
-            # Check cache first (JSON round-trip may have string keys; normalize to int)
-            cached_ranks = cache.get(cache_key)
-            if cached_ranks is not None:
-                return _normalize_rank_keys(cached_ranks)
-            
-            # Get all teams
-            teams = NBADataService.fetch_all_teams()
-            if not teams:
-                return {}
-            
-            # Create team lookup by abbreviation
-            teams_by_abbr = {t.get("abbreviation", "").upper(): t for t in teams if t.get("abbreviation")}
-            
-            # Dictionary to store what each team allows (opponent stats)
-            # Structure: {team_id: {"pts": [...], "reb": [...], "ast": [...], "3pm": [...]}}
-            team_defensive_stats: Dict[int, Dict[str, List[float]]] = {}
-            stats_lock = threading.Lock()
-            
-            # Initialize for all teams
-            for team in teams:
-                team_id = team.get("id")
-                if team_id:
-                    team_defensive_stats[team_id] = {"pts": [], "reb": [], "ast": [], "3pm": []}
-            
-            # Sample size: 3 players per team, 15 games per player for better coverage
-            players_per_team = 3
-            games_per_player = 15
-            all_players = NBADataService.fetch_all_players_including_rookies()
-            
-            # Group players by team - get more players for better coverage
-            players_by_team: Dict[int, List[Dict[str, Any]]] = {}
-            for player in all_players:
-                team_id = player.get("team_id")
-                if team_id:
-                    if team_id not in players_by_team:
-                        players_by_team[team_id] = []
-                    if len(players_by_team[team_id]) < players_per_team:
-                        players_by_team[team_id].append(player)
-            
-            logger.info("Grouped players by team", teams_with_players=len(players_by_team), players_per_team=players_per_team, total_teams=len(teams))
-            
-            # Log teams without players for debugging
-            teams_without_players = [t.get("id") for t in teams if t.get("id") and t.get("id") not in players_by_team]
-            if teams_without_players:
-                logger.warning("Teams without players found", count=len(teams_without_players), team_ids=teams_without_players[:10])
-            
-            def process_team_player(args):
-                """Process a single team-player combination to get defensive stats"""
-                team_id, player_id, season_str = args
-                try:
-                    # Get player's game logs
-                    logs = NBADataService.fetch_player_game_log(player_id, season_str)
-                    if not logs:
-                        return []
-                    
-                    game_stats = []
-                    games_processed = 0
-                    games_with_stats = 0
-                    
-                    # Process up to games_per_player games
-                    for game_log in logs[:games_per_player]:
-                        games_processed += 1
-                        matchup = game_log.get("matchup", "")
-                        if not matchup:
-                            continue
-                        
-                        matchup_upper = matchup.upper().strip()
-                        
-                        # Parse opponent from matchup - handle various formats
-                        # Formats: "LAL vs. BOS", "LAL @ BOS", "LAL VS BOS", "LAL v BOS", etc.
-                        opponent_abbr = None
-                        
-                        # Try different patterns - be more flexible with whitespace
-                        patterns = [
-                            (" VS. ", " VS. "),
-                            (" VS ", " VS "),
-                            (" V ", " V "),
-                            (" @ ", " @ "),
-                            (" VS.", " VS."),
-                            (" VS", " VS"),
-                        ]
-                        
-                        for pattern, split_pattern in patterns:
-                            if pattern in matchup_upper:
-                                parts = matchup_upper.split(split_pattern)
-                                if len(parts) == 2:
-                                    opponent_abbr = parts[1].strip()
-                                    break
-                        
-                        # If still no match, try regex-like approach
-                        if not opponent_abbr:
-                            import re
-                            # Match pattern like "TEAM1 vs TEAM2" or "TEAM1 @ TEAM2"
-                            match = re.search(r'([A-Z]{2,4})\s+(?:VS\.?|@|V\.?)\s+([A-Z]{2,4})', matchup_upper)
-                            if match:
-                                # Get the second team (opponent)
-                                opponent_abbr = match.group(2)
-                        
-                        if not opponent_abbr:
-                            continue
-                        
-                        # Clean up abbreviation (remove any trailing dots or spaces)
-                        opponent_abbr = opponent_abbr.strip(' .')
-                        
-                        # Find opponent team - try exact match first
-                        opponent_team = teams_by_abbr.get(opponent_abbr)
-                        
-                        # If not found, try partial match (for cases like "LAL" vs "L.A.")
-                        if not opponent_team:
-                            for abbr, team in teams_by_abbr.items():
-                                if abbr.startswith(opponent_abbr[:2]) or opponent_abbr.startswith(abbr[:2]):
-                                    opponent_team = team
-                                    break
-                        
-                        if not opponent_team:
-                            continue
-                        
-                        opponent_team_id = opponent_team.get("id")
-                        if not opponent_team_id:
-                            continue
-                        
-                        game_date = game_log.get("game_date")
-                        if not game_date:
-                            continue
-                        
-                        # Get stats from multiple opponent players for better accuracy
-                        # Use up to 2 opponent players to get a better sample
-                        opponent_players = players_by_team.get(opponent_team_id, [])
-                        if not opponent_players:
-                            continue
-                        
-                        # Sum stats from multiple opponent players
-                        opp_pts_total = 0.0
-                        opp_reb_total = 0.0
-                        opp_ast_total = 0.0
-                        opp_3pm_total = 0.0
-                        players_found = 0
-                        
-                        # Try to get stats from up to 2 opponent players
-                        for opponent_player in opponent_players[:2]:
-                            opponent_player_id = opponent_player.get("id")
-                            if not opponent_player_id:
-                                continue
-                            
-                            try:
-                                opponent_logs = NBADataService.fetch_player_game_log(opponent_player_id, season_str)
-                                if not opponent_logs:
-                                    continue
-                                
-                                matching_game = next(
-                                    (g for g in opponent_logs if g.get("game_date") == game_date),
-                                    None
-                                )
-                                
-                                if matching_game:
-                                    opp_pts_total += float(matching_game.get("pts", 0) or 0)
-                                    opp_reb_total += float(matching_game.get("reb", 0) or 0)
-                                    opp_ast_total += float(matching_game.get("ast", 0) or 0)
-                                    opp_3pm_total += float(matching_game.get("tpm", 0) or 0)
-                                    players_found += 1
-                            except Exception:
-                                continue
-                        
-                        # Only add if we found at least one opponent player's stats
-                        if players_found > 0:
-                            games_with_stats += 1
-                            game_stats.append({
-                                "team_id": team_id,
-                                "opp_pts": opp_pts_total,
-                                "opp_reb": opp_reb_total,
-                                "opp_ast": opp_ast_total,
-                                "opp_3pm": opp_3pm_total,
-                            })
-                    
-                    # Log per-player stats for debugging (only for first few players to avoid spam)
-                    if player_id % 100 == 0:  # Log every 100th player
-                        logger.debug("Processed player", player_id=player_id, games_processed=games_processed, games_with_stats=games_with_stats, stats_collected=len(game_stats))
-                    
-                    return game_stats
-                except Exception:
-                    return []
-            
-            # Prepare arguments for parallel processing
-            tasks = []
-            for team_id, team_players in players_by_team.items():
-                if not team_players:
-                    continue
-                for player in team_players[:players_per_team]:
-                    player_id = player.get("id")
-                    if player_id:
-                        tasks.append((team_id, player_id, season_to_use))
-            
-            if not tasks:
-                logger.warning("No tasks to process for defensive ranks calculation")
-                return {}
-            
-            # Process in parallel with ThreadPoolExecutor; run until all tasks complete (no overall timeout).
-            # UI (Admin or cron) waits for response and updates when done.
-            logger.info("Starting defensive ranks calculation", total_tasks=len(tasks), season=season_to_use)
-            per_task_timeout = 45.0  # per-task timeout so one stuck API call doesn't hang a worker forever
-
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                future_to_task = {
-                    executor.submit(process_team_player, task): task
-                    for task in tasks
-                }
-                completed = 0
-                for future in as_completed(future_to_task):
-                    try:
-                        game_stats = future.result(timeout=per_task_timeout)
-                        if game_stats:
-                            with stats_lock:
-                                for stat in game_stats:
-                                    team_id = stat["team_id"]
-                                    if team_id in team_defensive_stats:
-                                        team_defensive_stats[team_id]["pts"].append(stat["opp_pts"])
-                                        team_defensive_stats[team_id]["reb"].append(stat["opp_reb"])
-                                        team_defensive_stats[team_id]["ast"].append(stat["opp_ast"])
-                                        team_defensive_stats[team_id]["3pm"].append(stat.get("opp_3pm", 0.0))
-                        completed += 1
-                    except FutureTimeoutError:
-                        logger.warning("Task timed out in defensive ranks calculation")
-                        continue
-                    except Exception as e:
-                        logger.warning("Error processing task in defensive ranks", error=str(e))
-                        continue
-            
-            logger.info("Completed defensive ranks calculation", completed=completed, total=len(tasks))
-            
-            # Log how much data we collected
-            total_data_points = sum(len(stats["pts"]) for stats in team_defensive_stats.values())
-            teams_with_data = sum(1 for stats in team_defensive_stats.values() if stats["pts"])
-            logger.info("Defensive stats collected", total_data_points=total_data_points, teams_with_data=teams_with_data, total_teams=len(team_defensive_stats))
-            
-            # Calculate averages for each team
-            team_averages: Dict[int, Dict[str, float]] = {}
-            for team_id, stats in team_defensive_stats.items():
-                # Require at least 1 data point for a valid ranking
-                if stats["pts"] and len(stats["pts"]) >= 1:
-                    pts_avg = sum(stats["pts"]) / len(stats["pts"])
-                    reb_avg = sum(stats["reb"]) / len(stats["reb"]) if stats["reb"] else 0
-                    ast_avg = sum(stats["ast"]) / len(stats["ast"]) if stats["ast"] else 0
-                    threepm_avg = sum(stats["3pm"]) / len(stats["3pm"]) if stats["3pm"] else 0.0
-                    
-                    team_averages[team_id] = {
-                        "pts": pts_avg,
-                        "reb": reb_avg,
-                        "ast": ast_avg,
-                        "3pm": threepm_avg,
-                    }
-            
-            logger.info("Team averages calculated", teams_ranked=len(team_averages), min_data_points=1)
-            
-            # Rank teams (lower average = better defense = lower rank number)
-            pts_ranked = sorted(team_averages.items(), key=lambda x: x[1]["pts"])
-            reb_ranked = sorted(team_averages.items(), key=lambda x: x[1]["reb"])
-            ast_ranked = sorted(team_averages.items(), key=lambda x: x[1]["ast"])
-            threepm_ranked = sorted(team_averages.items(), key=lambda x: x[1]["3pm"])
-            
-            # Create rank dictionaries
-            defensive_ranks: Dict[int, Dict[str, int]] = {}
-            
-            for rank, (team_id, _) in enumerate(pts_ranked, start=1):
-                if team_id not in defensive_ranks:
-                    defensive_ranks[team_id] = {}
-                defensive_ranks[team_id]["pts"] = rank
-            
-            for rank, (team_id, _) in enumerate(reb_ranked, start=1):
-                if team_id not in defensive_ranks:
-                    defensive_ranks[team_id] = {}
-                defensive_ranks[team_id]["reb"] = rank
-            
-            for rank, (team_id, _) in enumerate(ast_ranked, start=1):
-                if team_id not in defensive_ranks:
-                    defensive_ranks[team_id] = {}
-                defensive_ranks[team_id]["ast"] = rank
-            
-            for rank, (team_id, _) in enumerate(threepm_ranked, start=1):
-                if team_id not in defensive_ranks:
-                    defensive_ranks[team_id] = {}
-                defensive_ranks[team_id]["3pm"] = rank
-            
-            # If we have fewer than 30 teams (e.g. due to earlier timeout or API gaps), fill missing from fallback
-            all_team_ids = {t.get("id") for t in teams if t.get("id")}
-            if all_team_ids and len(defensive_ranks) < len(all_team_ids):
-                try:
-                    def_fb, _ = ContextCollector._calculate_team_ranks_from_player_stats(season_to_use)
-                    for tid in all_team_ids:
-                        tid_int = int(tid)
-                        if tid_int not in defensive_ranks and tid_int in def_fb:
-                            defensive_ranks[tid_int] = def_fb[tid_int]
-                    logger.info("Filled missing defensive ranks from fallback", added=len(defensive_ranks) - len(team_averages), total_now=len(defensive_ranks))
-                except Exception as fb_err:
-                    logger.warning("Could not fill missing defensive ranks from fallback", error=str(fb_err))
-
-            # Cache for 24 hours
-            cache.set(cache_key, defensive_ranks, ttl=86400)
-            # Also cache raw averages for matchup advantage score computation
-            cache.set(f"defensive_avgs:{season_to_use}:24h", team_averages, ttl=86400)
-
-            logger.info("Defensive ranks calculation complete", teams_ranked=len(defensive_ranks))
+            cached = get_cache_service().get(f"defensive_ranks:{season_to_use}:24h")
+            if cached is not None:
+                return _normalize_rank_keys(cached)
+            defensive_ranks, _, _, _ = ContextCollector._calculate_all_team_ranks(season_to_use)
             return defensive_ranks
         except Exception as e:
             logger.warning("Error calculating defensive ranks", season=season, error=str(e))
@@ -568,119 +260,13 @@ class ContextCollector:
 
     @staticmethod
     def _calculate_offensive_ranks(season: Optional[str] = None) -> Dict[int, Dict[str, int]]:
-        """
-        Calculate offensive rankings for all teams based on what they score (from player game logs).
-        Higher scoring = better offense = rank 1. Cached 24h.
-        Returns: {team_id: {"pts": rank, "reb": rank, "ast": rank, "3pm": rank}}
-        """
+        """Return offensive ranks, computing all team ranks in one shared pass on cache miss."""
         try:
-            cache = get_cache_service()
             season_to_use = season or get_current_season()
-            cache_key = f"offensive_ranks:{season_to_use}:24h"
-            cached = cache.get(cache_key)
+            cached = get_cache_service().get(f"offensive_ranks:{season_to_use}:24h")
             if cached is not None:
                 return _normalize_rank_keys(cached)
-
-            teams = NBADataService.fetch_all_teams()
-            if not teams:
-                return {}
-
-            # Per-team per-game totals: team_id -> game_date -> {pts, reb, ast, 3pm}
-            team_game_totals: Dict[int, Dict[str, Dict[str, float]]] = {}
-            for t in teams:
-                tid = t.get("id")
-                if tid:
-                    team_game_totals[tid] = {}
-
-            players_per_team = 5
-            games_per_player = 20
-            all_players = NBADataService.fetch_all_players_including_rookies()
-            players_by_team: Dict[int, List[Dict[str, Any]]] = {}
-            for p in all_players:
-                team_id = p.get("team_id")
-                if team_id:
-                    if team_id not in players_by_team:
-                        players_by_team[team_id] = []
-                    if len(players_by_team[team_id]) < players_per_team:
-                        players_by_team[team_id].append(p)
-
-            def _fetch_off_player(args):
-                pid, tid, season_str, n_games = args
-                try:
-                    logs = NBADataService.fetch_player_game_log(pid, season_str)
-                    return (tid, logs[:n_games])
-                except Exception:
-                    return (tid, [])
-
-            off_tasks = [
-                (player.get("id"), team_id, season_to_use, games_per_player)
-                for team_id, team_players in players_by_team.items()
-                if team_id in team_game_totals
-                for player in team_players
-                if player.get("id")
-            ]
-            off_results = []
-            with ThreadPoolExecutor(max_workers=10) as pool:
-                futs = {pool.submit(_fetch_off_player, t): t for t in off_tasks}
-                for future in as_completed(futs):
-                    try:
-                        off_results.append(future.result(timeout=60.0))
-                    except FutureTimeoutError:
-                        logger.warning("Task timed out in offensive ranks calculation")
-                    except Exception as exc:
-                        logger.warning("Error processing task in offensive ranks", error=str(exc))
-
-            for team_id, logs in off_results:
-                for g in logs:
-                    gd = g.get("game_date")
-                    if not gd:
-                        continue
-                    if gd not in team_game_totals[team_id]:
-                        team_game_totals[team_id][gd] = {"pts": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0}
-                    team_game_totals[team_id][gd]["pts"] += float(g.get("pts", 0) or 0)
-                    team_game_totals[team_id][gd]["reb"] += float(g.get("reb", 0) or 0)
-                    team_game_totals[team_id][gd]["ast"] += float(g.get("ast", 0) or 0)
-                    team_game_totals[team_id][gd]["3pm"] += float(g.get("tpm", 0) or 0)
-
-            # Averages per team (one value per game, then average)
-            team_averages: Dict[int, Dict[str, float]] = {}
-            for team_id, games in team_game_totals.items():
-                if not games:
-                    continue
-                n = len(games)
-                team_averages[team_id] = {
-                    "pts": sum(x["pts"] for x in games.values()) / n,
-                    "reb": sum(x["reb"] for x in games.values()) / n,
-                    "ast": sum(x["ast"] for x in games.values()) / n,
-                    "3pm": sum(x["3pm"] for x in games.values()) / n,
-                }
-
-            # Rank: higher average = better = rank 1 (reverse sort)
-            pts_ranked = sorted(team_averages.items(), key=lambda x: -x[1]["pts"])
-            reb_ranked = sorted(team_averages.items(), key=lambda x: -x[1]["reb"])
-            ast_ranked = sorted(team_averages.items(), key=lambda x: -x[1]["ast"])
-            threepm_ranked = sorted(team_averages.items(), key=lambda x: -x[1]["3pm"])
-
-            offensive_ranks: Dict[int, Dict[str, int]] = {}
-            for rank, (tid, _) in enumerate(pts_ranked, start=1):
-                if tid not in offensive_ranks:
-                    offensive_ranks[tid] = {}
-                offensive_ranks[tid]["pts"] = rank
-            for rank, (tid, _) in enumerate(reb_ranked, start=1):
-                if tid not in offensive_ranks:
-                    offensive_ranks[tid] = {}
-                offensive_ranks[tid]["reb"] = rank
-            for rank, (tid, _) in enumerate(ast_ranked, start=1):
-                if tid not in offensive_ranks:
-                    offensive_ranks[tid] = {}
-                offensive_ranks[tid]["ast"] = rank
-            for rank, (tid, _) in enumerate(threepm_ranked, start=1):
-                if tid not in offensive_ranks:
-                    offensive_ranks[tid] = {}
-                offensive_ranks[tid]["3pm"] = rank
-
-            cache.set(cache_key, offensive_ranks, ttl=86400)
-            logger.info("Offensive ranks calculation complete", teams_ranked=len(offensive_ranks))
+            _, offensive_ranks, _, _ = ContextCollector._calculate_all_team_ranks(season_to_use)
             return offensive_ranks
         except Exception as e:
             logger.warning("Error calculating offensive ranks", season=season, error=str(e))
@@ -696,171 +282,216 @@ class ContextCollector:
         Returns (defensive_ranks, offensive_ranks); each is {team_id: {"pts": rank, "reb": rank, ...}}.
         """
         try:
-            cache = get_cache_service()
             season_to_use = season or get_current_season()
-            cache_key = f"team_ranks_from_players_fallback:{season_to_use}:24h"
-            cached = cache.get(cache_key)
+            cached = get_cache_service().get(f"team_ranks_from_players_fallback:{season_to_use}:24h")
             if cached is not None:
                 return _normalize_rank_keys(cached.get("def", {})), _normalize_rank_keys(cached.get("off", {}))
+            defensive_ranks, offensive_ranks, _, _ = ContextCollector._calculate_all_team_ranks(season_to_use)
+            return defensive_ranks, offensive_ranks
+        except Exception as e:
+            logger.warning("Team ranks from player stats fallback failed", season=season, error=str(e))
+            return {}, {}
+
+    @staticmethod
+    def _parse_matchup_opponent_abbr(matchup: str) -> Optional[str]:
+        """Parse opponent abbreviation from game-log matchup string."""
+        if not matchup:
+            return None
+        matchup_upper = matchup.upper().strip()
+        match = _re.search(r"([A-Z]{2,4})\s+(?:VS\.?|@|V\.?)\s+([A-Z]{2,4})", matchup_upper)
+        if not match:
+            return None
+        return match.group(2).strip(" .")
+
+    @staticmethod
+    def _rank_buckets(team_averages: Dict[int, Dict[str, float]], reverse: bool) -> Dict[int, Dict[str, int]]:
+        """Rank teams for pts/reb/ast/3pm (reverse=True means higher is better)."""
+        metrics = ("pts", "reb", "ast", "3pm")
+        out: Dict[int, Dict[str, int]] = {}
+        for metric in metrics:
+            ranked = sorted(
+                team_averages.items(),
+                key=lambda x: x[1].get(metric, 0.0),
+                reverse=reverse,
+            )
+            for rank, (team_id, _) in enumerate(ranked, start=1):
+                out.setdefault(team_id, {})[metric] = rank
+        return out
+
+    @staticmethod
+    def _calculate_all_team_ranks(
+        season: Optional[str] = None,
+    ) -> tuple[Dict[int, Dict[str, int]], Dict[int, Dict[str, int]], Dict[int, Dict[str, float]], Dict[int, Dict[str, float]]]:
+        """
+        Compute defensive+offensive ranks in one pass through player logs.
+        Defensive averages are derived from opponent team per-game totals (no nested opponent API calls).
+        """
+        t0 = datetime.utcnow()
+        try:
+            cache = get_cache_service()
+            season_to_use = season or get_current_season()
+            unified_key = f"team_ranks_all:{season_to_use}:24h"
+            cached = cache.get(unified_key)
+            if cached is not None:
+                return (
+                    _normalize_rank_keys(cached.get("def", {})),
+                    _normalize_rank_keys(cached.get("off", {})),
+                    {int(k): v for k, v in (cached.get("def_avg", {}) or {}).items()},
+                    {int(k): v for k, v in (cached.get("off_avg", {}) or {}).items()},
+                )
 
             teams = NBADataService.fetch_all_teams()
             if not teams:
-                return {}, {}
+                return {}, {}, {}, {}
 
             teams_by_abbr: Dict[str, Dict[str, Any]] = {}
+            team_game_totals: Dict[int, Dict[str, Dict[str, float]]] = {}
+            team_game_opponent: Dict[int, Dict[str, int]] = {}
             for t in teams:
+                tid = t.get("id")
                 abbr = (t.get("abbreviation") or "").strip().upper()
+                if tid:
+                    team_game_totals[int(tid)] = {}
+                    team_game_opponent[int(tid)] = {}
                 if abbr:
                     teams_by_abbr[abbr] = t
 
-            team_game_totals: Dict[int, Dict[str, Dict[str, float]]] = {}
-            team_defensive_lists: Dict[int, Dict[str, List[float]]] = {}
-            for t in teams:
-                tid = t.get("id")
-                if tid:
-                    team_game_totals[tid] = {}
-                    team_defensive_lists[tid] = {"pts": [], "reb": [], "ast": [], "3pm": []}
-
             players_per_team = 5
             games_per_player = 20
-            all_players = NBADataService.fetch_all_players_including_rookies()
+            all_players = NBADataService.fetch_all_players_including_rookies() or []
             players_by_team: Dict[int, List[Dict[str, Any]]] = {}
-            for p in all_players:
-                team_id = p.get("team_id")
-                if team_id:
-                    if team_id not in players_by_team:
-                        players_by_team[team_id] = []
-                    if len(players_by_team[team_id]) < players_per_team:
-                        players_by_team[team_id].append(p)
-
-            for team_id, team_players in players_by_team.items():
-                if team_id not in team_game_totals:
+            for player in all_players:
+                team_id = player.get("team_id")
+                if not team_id:
                     continue
-                for player in team_players:
-                    player_id = player.get("id")
-                    if not player_id:
-                        continue
-                    try:
-                        logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
-                    except Exception:
-                        continue
-                    try:
-                        for g in logs[:games_per_player]:
-                            gd = g.get("game_date")
-                            if not gd:
-                                continue
-                            if gd not in team_game_totals[team_id]:
-                                team_game_totals[team_id][gd] = {"pts": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0}
-                            team_game_totals[team_id][gd]["pts"] += float(g.get("pts", 0) or 0)
-                            team_game_totals[team_id][gd]["reb"] += float(g.get("reb", 0) or 0)
-                            team_game_totals[team_id][gd]["ast"] += float(g.get("ast", 0) or 0)
-                            team_game_totals[team_id][gd]["3pm"] += float(g.get("tpm", 0) or 0)
+                tid = int(team_id)
+                players_by_team.setdefault(tid, [])
+                if len(players_by_team[tid]) < players_per_team:
+                    players_by_team[tid].append(player)
 
-                            # Defense: this game's opponent scoring = points allowed by team_id
-                            matchup = (g.get("matchup") or "").upper()
-                            opponent_abbr = None
-                            for sep in [" VS. ", " VS ", " @ ", " V "]:
-                                if sep in matchup:
-                                    parts = matchup.split(sep)
-                                    if len(parts) == 2:
-                                        opponent_abbr = parts[1].strip().strip(" .")
-                                        break
-                            if not opponent_abbr and team_id in team_defensive_lists:
-                                import re
-                                match = re.search(r"([A-Z]{2,4})\s+(?:VS\.?|@|V\.?)\s+([A-Z]{2,4})", matchup)
-                                if match:
-                                    opponent_abbr = match.group(2).strip()
-                            if opponent_abbr:
-                                opponent_team = teams_by_abbr.get(opponent_abbr)
-                                if not opponent_team:
-                                    for abbr, ot in teams_by_abbr.items():
-                                        if abbr.startswith(opponent_abbr[:2]) or opponent_abbr.startswith(abbr[:2]):
-                                            opponent_team = ot
-                                            break
-                                if opponent_team:
-                                    opp_tid = opponent_team.get("id")
-                                    opp_players = players_by_team.get(opp_tid, [])[:2]
-                                    for opp_p in opp_players:
-                                        opp_pid = opp_p.get("id")
-                                        if not opp_pid:
-                                            continue
-                                        try:
-                                            opp_logs = NBADataService.fetch_player_game_log(opp_pid, season_to_use)
-                                            same_game = next((lg for lg in opp_logs if lg.get("game_date") == gd), None)
-                                            if same_game and team_id in team_defensive_lists:
-                                                team_defensive_lists[team_id]["pts"].append(float(same_game.get("pts", 0) or 0))
-                                                team_defensive_lists[team_id]["reb"].append(float(same_game.get("reb", 0) or 0))
-                                                team_defensive_lists[team_id]["ast"].append(float(same_game.get("ast", 0) or 0))
-                                                team_defensive_lists[team_id]["3pm"].append(float(same_game.get("tpm", 0) or 0))
-                                                break
-                                        except Exception:
-                                            continue
-                    except Exception:
+            def _fetch_player_logs(args: tuple[int, int, str, int]) -> tuple[int, List[Dict[str, Any]]]:
+                pid, tid, season_str, n_games = args
+                try:
+                    logs = NBADataService.fetch_player_game_log(pid, season_str)
+                    return tid, (logs or [])[:n_games]
+                except Exception:
+                    return tid, []
+
+            tasks = [
+                (int(player.get("id")), team_id, season_to_use, games_per_player)
+                for team_id, team_players in players_by_team.items()
+                if team_id in team_game_totals
+                for player in team_players
+                if player.get("id")
+            ]
+            task_started = datetime.utcnow()
+            with ThreadPoolExecutor(max_workers=10) as pool:
+                futures = {pool.submit(_fetch_player_logs, task): task for task in tasks}
+                for future in as_completed(futures):
+                    try:
+                        team_id, logs = future.result(timeout=45.0)
+                    except FutureTimeoutError:
+                        logger.warning("Task timed out in unified rank calculation")
                         continue
+                    except Exception as exc:
+                        logger.warning("Error processing unified rank task", error=str(exc))
+                        continue
+
+                    for g in logs:
+                        game_date = g.get("game_date")
+                        if not game_date:
+                            continue
+                        opp_abbr = ContextCollector._parse_matchup_opponent_abbr(g.get("matchup", ""))
+                        opp_tid: Optional[int] = None
+                        if opp_abbr:
+                            opp_team = teams_by_abbr.get(opp_abbr)
+                            if not opp_team:
+                                for abbr, team in teams_by_abbr.items():
+                                    if abbr.startswith(opp_abbr[:2]) or opp_abbr.startswith(abbr[:2]):
+                                        opp_team = team
+                                        break
+                            if opp_team and opp_team.get("id") is not None:
+                                opp_tid = int(opp_team["id"])
+
+                        totals = team_game_totals[team_id].setdefault(
+                            game_date,
+                            {"pts": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0},
+                        )
+                        totals["pts"] += float(g.get("pts", 0) or 0)
+                        totals["reb"] += float(g.get("reb", 0) or 0)
+                        totals["ast"] += float(g.get("ast", 0) or 0)
+                        totals["3pm"] += float(g.get("tpm", 0) or 0)
+                        if opp_tid is not None:
+                            team_game_opponent[team_id][game_date] = opp_tid
 
             # Offensive averages and ranks
             team_off_avg: Dict[int, Dict[str, float]] = {}
-            for tid, games in team_game_totals.items():
+            for team_id, games in team_game_totals.items():
                 if not games:
                     continue
                 n = len(games)
-                team_off_avg[tid] = {
+                team_off_avg[team_id] = {
                     "pts": sum(x["pts"] for x in games.values()) / n,
                     "reb": sum(x["reb"] for x in games.values()) / n,
                     "ast": sum(x["ast"] for x in games.values()) / n,
                     "3pm": sum(x["3pm"] for x in games.values()) / n,
                 }
-            pts_o = sorted(team_off_avg.items(), key=lambda x: -x[1]["pts"])
-            reb_o = sorted(team_off_avg.items(), key=lambda x: -x[1]["reb"])
-            ast_o = sorted(team_off_avg.items(), key=lambda x: -x[1]["ast"])
-            pm3_o = sorted(team_off_avg.items(), key=lambda x: -x[1]["3pm"])
-            offensive_ranks: Dict[int, Dict[str, int]] = {}
-            for rank, (tid, _) in enumerate(pts_o, start=1):
-                offensive_ranks.setdefault(tid, {})["pts"] = rank
-            for rank, (tid, _) in enumerate(reb_o, start=1):
-                offensive_ranks.setdefault(tid, {})["reb"] = rank
-            for rank, (tid, _) in enumerate(ast_o, start=1):
-                offensive_ranks.setdefault(tid, {})["ast"] = rank
-            for rank, (tid, _) in enumerate(pm3_o, start=1):
-                offensive_ranks.setdefault(tid, {})["3pm"] = rank
 
-            # Defensive averages (lower = better) and ranks
+            # Defensive averages from opponent team totals on matching date.
+            team_def_lists: Dict[int, Dict[str, List[float]]] = {
+                int(t.get("id")): {"pts": [], "reb": [], "ast": [], "3pm": []}
+                for t in teams if t.get("id") is not None
+            }
+            for team_id, game_map in team_game_opponent.items():
+                for game_date, opp_tid in game_map.items():
+                    opp_totals = team_game_totals.get(opp_tid, {}).get(game_date)
+                    if not opp_totals:
+                        continue
+                    team_def_lists[team_id]["pts"].append(float(opp_totals.get("pts", 0.0)))
+                    team_def_lists[team_id]["reb"].append(float(opp_totals.get("reb", 0.0)))
+                    team_def_lists[team_id]["ast"].append(float(opp_totals.get("ast", 0.0)))
+                    team_def_lists[team_id]["3pm"].append(float(opp_totals.get("3pm", 0.0)))
+
             team_def_avg: Dict[int, Dict[str, float]] = {}
-            for tid, lists in team_defensive_lists.items():
-                if not lists["pts"]:
+            for team_id, vals in team_def_lists.items():
+                if not vals["pts"]:
                     continue
-                n = len(lists["pts"])
-                team_def_avg[tid] = {
-                    "pts": sum(lists["pts"]) / n,
-                    "reb": sum(lists["reb"]) / n if lists["reb"] else 0,
-                    "ast": sum(lists["ast"]) / n if lists["ast"] else 0,
-                    "3pm": sum(lists["3pm"]) / n if lists["3pm"] else 0,
+                n = len(vals["pts"])
+                team_def_avg[team_id] = {
+                    "pts": sum(vals["pts"]) / n,
+                    "reb": sum(vals["reb"]) / n if vals["reb"] else 0.0,
+                    "ast": sum(vals["ast"]) / n if vals["ast"] else 0.0,
+                    "3pm": sum(vals["3pm"]) / n if vals["3pm"] else 0.0,
                 }
-            pts_d = sorted(team_def_avg.items(), key=lambda x: x[1]["pts"])
-            reb_d = sorted(team_def_avg.items(), key=lambda x: x[1]["reb"])
-            ast_d = sorted(team_def_avg.items(), key=lambda x: x[1]["ast"])
-            pm3_d = sorted(team_def_avg.items(), key=lambda x: x[1]["3pm"])
-            defensive_ranks: Dict[int, Dict[str, int]] = {}
-            for rank, (tid, _) in enumerate(pts_d, start=1):
-                defensive_ranks.setdefault(tid, {})["pts"] = rank
-            for rank, (tid, _) in enumerate(reb_d, start=1):
-                defensive_ranks.setdefault(tid, {})["reb"] = rank
-            for rank, (tid, _) in enumerate(ast_d, start=1):
-                defensive_ranks.setdefault(tid, {})["ast"] = rank
-            for rank, (tid, _) in enumerate(pm3_d, start=1):
-                defensive_ranks.setdefault(tid, {})["3pm"] = rank
 
-            cache.set(cache_key, {"def": defensive_ranks, "off": offensive_ranks}, ttl=86400)
+            offensive_ranks = ContextCollector._rank_buckets(team_off_avg, reverse=True)
+            defensive_ranks = ContextCollector._rank_buckets(team_def_avg, reverse=False)
+
+            payload = {
+                "def": defensive_ranks,
+                "off": offensive_ranks,
+                "def_avg": team_def_avg,
+                "off_avg": team_off_avg,
+            }
+            cache.set(unified_key, payload, ttl=86400)
+            cache.set(f"team_ranks_from_players_fallback:{season_to_use}:24h", {"def": defensive_ranks, "off": offensive_ranks}, ttl=86400)
+            cache.set(f"defensive_ranks:{season_to_use}:24h", defensive_ranks, ttl=86400)
+            cache.set(f"offensive_ranks:{season_to_use}:24h", offensive_ranks, ttl=86400)
+            cache.set(f"defensive_avgs:{season_to_use}:24h", team_def_avg, ttl=86400)
+
             logger.info(
-                "Team ranks from player stats fallback complete",
+                "Unified team ranks computed",
                 season=season_to_use,
+                tasks=len(tasks),
+                task_seconds=(datetime.utcnow() - task_started).total_seconds(),
+                total_seconds=(datetime.utcnow() - t0).total_seconds(),
                 def_teams=len(defensive_ranks),
                 off_teams=len(offensive_ranks),
             )
-            return defensive_ranks, offensive_ranks
+            return defensive_ranks, offensive_ranks, team_def_avg, team_off_avg
         except Exception as e:
-            logger.warning("Team ranks from player stats fallback failed", season=season, error=str(e))
-            return {}, {}
+            logger.warning("Unified team ranks calculation failed", season=season, error=str(e))
+            return {}, {}, {}, {}
 
     @staticmethod
     def _get_team_ppg_from_player_logs(season: Optional[str] = None) -> Dict[int, float]:
