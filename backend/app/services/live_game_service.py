@@ -157,7 +157,7 @@ class LiveGameService:
                     away_team=away_team.get("code", ""),
                     home_score=int(home_score) if home_score else 0,
                     away_score=int(away_score) if away_score else 0,
-                    quarter=period if period > 0 else 1,
+                    quarter=period,  # 0 = pre-game, >0 = in progress
                     time_remaining=game.get("time_remaining", "12:00"),
                     is_final=is_final
                 )
@@ -263,7 +263,7 @@ class LiveGameService:
                     away_team=away_team or "UNK",
                     home_score=home_score,
                     away_score=away_score,
-                    quarter=period if period > 0 else 1,
+                    quarter=period,  # 0 = pre-game, >0 = in progress
                     time_remaining=clock if clock else "12:00",
                     is_final=is_final
                 )
@@ -328,7 +328,7 @@ class LiveGameService:
                         away_team=away_team,
                         home_score=home_score,
                         away_score=away_score,
-                        quarter=quarter if quarter > 0 else 1,
+                        quarter=quarter,  # 0 = pre-game, >0 = in progress
                         time_remaining=time_remaining if time_remaining else '12:00',
                         is_final=is_final
                     )

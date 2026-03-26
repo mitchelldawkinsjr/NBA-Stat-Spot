@@ -680,7 +680,7 @@ export function GoodBetsDashboard() {
               const gameTime = g.gameTimeUTC
                 ? new Date(g.gameTimeUTC).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
                 : 'TBD'
-              const isLive = g.status === 'LIVE' || (live && !live.is_final)
+              const isLive = g.status === 'LIVE' || (live && !live.is_final && live.quarter > 0)
               const isFinal = g.status === 'FINAL' || live?.is_final
               const pred = predictions.find(p => String(p.gameId) === gameId)
               const winPct = pred ? (pred.predicted_winner === pred.home ? pred.win_probability_home : pred.win_probability_away) : null
