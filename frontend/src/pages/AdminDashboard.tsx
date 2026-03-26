@@ -686,10 +686,10 @@ export default function AdminDashboard() {
   return (
     <div className="container mx-auto px-2 sm:px-3 md:px-4 max-w-7xl">
       <div className="mt-2">
-        <h1 className="text-lg md:text-xl font-bold tracking-tight text-gray-900 dark:text-slate-100 transition-colors duration-200">Admin Dashboard</h1>
-        <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
+        <h1 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-on-surface transition-colors duration-200">ADMIN DASHBOARD</h1>
+        <p className="mt-0.5 text-xs text-on-surface-variant transition-colors duration-200">
           Monitor system health, data consistency, and refresh cached services.
-          <span className="ml-1 text-gray-500 dark:text-gray-500">API: {getApiBaseDisplay()}</span>
+          <span className="ml-1 text-on-surface-variant">API: {getApiBaseDisplay()}</span>
         </p>
       </div>
 
@@ -715,9 +715,9 @@ export default function AdminDashboard() {
 
       {/* System Health & Data Consistency */}
       <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${health?.status === 'healthy' ? 'ring-emerald-500/20 dark:ring-emerald-500/30' : 'ring-red-500/20 dark:ring-red-500/30'} ${healthLoading ? 'opacity-60' : ''}`}>
+        <div className={`rounded-lg bg-surface-container shadow-sm border border-outline/20 p-2.5 sm:p-3 transition-colors duration-200 ${health?.status === 'healthy' ? 'ring-emerald-500/20 dark:ring-emerald-500/30' : 'ring-red-500/20 dark:ring-red-500/30'} ${healthLoading ? 'opacity-60' : ''}`}>
           <div className="flex items-center justify-between">
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-emerald-50 dark:bg-emerald-900/30 transition-colors duration-200">
+            <div className="h-10 w-10 rounded flex items-center justify-center bg-emerald-50 dark:bg-emerald-900/30 transition-colors duration-200">
               {healthLoading ? (
                 <svg className="animate-spin h-5 w-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -733,42 +733,42 @@ export default function AdminDashboard() {
               {healthLoading ? 'Loading...' : (health?.status === 'healthy' ? 'Healthy' : 'Degraded')}
             </span>
           </div>
-          <div className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">System Status</div>
-          <div className="text-lg font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
+          <div className="mt-2 text-xs font-medium text-on-surface-variant transition-colors duration-200">System Status</div>
+          <div className="text-lg font-semibold text-on-surface transition-colors duration-200">
             {healthLoading ? '...' : (health?.nbaApiAvailable ? '✅' : '❌')} NBA API
           </div>
-          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
+          <div className="mt-1 text-xs text-on-surface-variant transition-colors duration-200">
             {healthLoading ? 'Loading...' : `${health?.todayGames || 0} games today`}
             {healthError && <span className="text-red-600 dark:text-red-400 ml-1">(Error)</span>}
           </div>
         </div>
 
-        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${cacheStatusLoading ? 'opacity-60' : ''}`}>
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">Daily Props</div>
-          <div className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
+        <div className={`rounded-lg bg-surface-container shadow-sm border border-outline/20 p-2.5 sm:p-3 transition-colors duration-200 ${cacheStatusLoading ? 'opacity-60' : ''}`}>
+          <div className="text-xs font-medium text-on-surface-variant transition-colors duration-200">Daily Props</div>
+          <div className="text-xl sm:text-2xl font-semibold text-on-surface transition-colors duration-200">
             {cacheStatusLoading ? '...' : (cacheStatus?.dailyProps?.count ?? 0)}
           </div>
-          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
+          <div className="mt-1 text-xs text-on-surface-variant transition-colors duration-200">
             {cacheStatus?.dailyProps?.valid ? 'Cached' : 'Not cached'}
           </div>
         </div>
 
-        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${cacheStatusLoading ? 'opacity-60' : ''}`}>
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">Today&apos;s Games</div>
-          <div className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
+        <div className={`rounded-lg bg-surface-container shadow-sm border border-outline/20 p-2.5 sm:p-3 transition-colors duration-200 ${cacheStatusLoading ? 'opacity-60' : ''}`}>
+          <div className="text-xs font-medium text-on-surface-variant transition-colors duration-200">Today&apos;s Games</div>
+          <div className="text-xl sm:text-2xl font-semibold text-on-surface transition-colors duration-200">
             {cacheStatusLoading ? '...' : (health?.todayGames ?? 0)}
           </div>
-          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
+          <div className="mt-1 text-xs text-on-surface-variant transition-colors duration-200">
             {cacheStatus?.nbaApiCache?.todaysGames ? 'Cached' : 'Not cached'}
           </div>
         </div>
 
-        <div className={`rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200 ${healthLoading ? 'opacity-60' : ''}`}>
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">Last Health Check</div>
-          <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
+        <div className={`rounded-lg bg-surface-container shadow-sm border border-outline/20 p-2.5 sm:p-3 transition-colors duration-200 ${healthLoading ? 'opacity-60' : ''}`}>
+          <div className="text-xs font-medium text-on-surface-variant transition-colors duration-200">Last Health Check</div>
+          <div className="text-sm font-semibold text-on-surface transition-colors duration-200">
             {healthLoading ? '...' : (health?.timestamp ? formatTimeAgo(health.timestamp) : 'Never')}
           </div>
-          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
+          <div className="mt-1 text-xs text-on-surface-variant transition-colors duration-200">
             Auto-refreshes every 30s
             {healthError && <span className="text-red-600 dark:text-red-400 ml-1">(Error)</span>}
           </div>
@@ -778,27 +778,27 @@ export default function AdminDashboard() {
       {/* Activity Log & Cache Status - Side by Side */}
       <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3">
         {/* Activity Log & Pipeline Status */}
-        <div className="rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-2.5 sm:p-3 transition-colors duration-200">
+        <div className="rounded-lg bg-surface-container shadow-sm border border-outline/20 p-2.5 sm:p-3 transition-colors duration-200">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Activity Log</h2>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Real-time monitoring</p>
+              <h2 className="text-sm font-semibold text-on-surface transition-colors duration-200">Activity Log</h2>
+              <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Real-time monitoring</p>
             </div>
             <button
               onClick={() => setActivityLog([])}
-              className="px-2 py-1 text-xs font-medium text-gray-900 dark:text-slate-100 bg-gray-100 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors duration-200"
+              className="px-2 py-1 text-xs font-medium text-on-surface bg-surface-container-high border border-outline/30 rounded hover:bg-surface-container-highest transition-colors duration-200"
             >
               Clear
             </button>
           </div>
-          <div className="h-24 overflow-y-auto bg-gray-50 dark:bg-slate-700/50 rounded-lg p-2 border border-gray-200 dark:border-slate-600 transition-colors duration-200">
+          <div className="h-24 overflow-y-auto bg-surface-container-low rounded-lg p-2 border border-outline/20 transition-colors duration-200">
             {activityLog.length === 0 ? (
-              <div className="text-xs text-gray-500 dark:text-gray-400 text-center py-6 transition-colors duration-200">No activity yet</div>
+              <div className="text-xs text-on-surface-variant text-center py-6 transition-colors duration-200">No activity yet</div>
             ) : (
               <div className="space-y-1">
                 {activityLog.map((log) => (
                   <div key={log.id} className="text-xs flex items-start gap-2 py-0.5">
-                    <span className="text-gray-400 dark:text-gray-500 font-mono text-[10px] transition-colors duration-200">
+                    <span className="text-on-surface-variant font-mono text-[10px] transition-colors duration-200">
                       {log.timestamp.toLocaleTimeString()}
                     </span>
                     <span className={`font-medium text-[10px] transition-colors duration-200 ${
@@ -809,9 +809,9 @@ export default function AdminDashboard() {
                     }`}>
                       [{log.type.toUpperCase()}]
                     </span>
-                    <span className="text-gray-700 dark:text-gray-300 flex-1 text-[10px] transition-colors duration-200">{log.message}</span>
+                    <span className="text-on-surface-variant flex-1 text-[10px] transition-colors duration-200">{log.message}</span>
                     {log.details && (
-                      <span className="text-gray-500 dark:text-gray-400 text-[9px] transition-colors duration-200">({log.details})</span>
+                      <span className="text-on-surface-variant text-[9px] transition-colors duration-200">({log.details})</span>
                     )}
                   </div>
                 ))}
@@ -822,11 +822,11 @@ export default function AdminDashboard() {
         </div>
 
         {/* Data Consistency & Cache Status */}
-        <div className="rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
+        <div className="rounded-lg bg-surface-container shadow-sm border border-outline/20 p-3 transition-colors duration-200">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Cache Status</h2>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Data freshness</p>
+              <h2 className="text-sm font-semibold text-on-surface transition-colors duration-200">Cache Status</h2>
+              <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Data freshness</p>
             </div>
             <button
               onClick={() => {
@@ -837,7 +837,7 @@ export default function AdminDashboard() {
                 refetchCacheStatus()
               }}
               disabled={cacheStatusLoading || healthLoading}
-              className="px-2 py-1 text-xs font-medium text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors duration-200"
+              className="px-2 py-1 text-xs font-medium text-on-surface bg-surface-container-high border border-outline/30 rounded hover:bg-surface-container-highest disabled:opacity-50 transition-colors duration-200"
             >
               {cacheStatusLoading ? '...' : 'Refresh'}
             </button>
@@ -845,7 +845,7 @@ export default function AdminDashboard() {
 
           {cacheStatusLoading ? (
             <div className="flex items-center justify-center py-3">
-              <svg className="animate-spin h-4 w-4 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-4 w-4 text-on-surface-variant" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -859,21 +859,21 @@ export default function AdminDashboard() {
             {/* Daily Props Cache */}
             <div className={`p-2 rounded-lg border-2 transition-colors duration-200 ${cacheStatus?.dailyProps?.valid ? 'border-green-200 dark:border-green-700/50 bg-green-50/50 dark:bg-green-900/20' : 'border-amber-200 dark:border-amber-700/50 bg-amber-50/50 dark:bg-amber-900/20'}`}>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Daily Props</div>
+                <div className="text-sm font-semibold text-on-surface transition-colors duration-200">Daily Props</div>
                 {cacheStatus?.dailyProps?.valid ? (
                   <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full font-medium transition-colors duration-200">Valid</span>
                 ) : (
                   <span className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full font-medium transition-colors duration-200">Stale/None</span>
                 )}
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 transition-colors duration-200">
+              <div className="text-xs text-on-surface-variant mb-1 transition-colors duration-200">
                 <span className="font-medium">Count:</span> {cacheStatus?.dailyProps?.count || 0}
               </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
+              <div className="text-xs text-on-surface-variant transition-colors duration-200">
                 <span className="font-medium">Updated:</span> {formatTimeAgo(cacheStatus?.dailyProps?.lastUpdated)}
               </div>
               {cacheStatus?.dailyProps?.date && (
-                <div className="text-xs text-gray-500 dark:text-gray-500 mt-1 transition-colors duration-200">
+                <div className="text-xs text-on-surface-variant mt-1 transition-colors duration-200">
                   Date: {cacheStatus.dailyProps.date}
                 </div>
               )}
@@ -887,11 +887,11 @@ export default function AdminDashboard() {
       {/* Data Integrity & AI Features - Side by Side */}
       <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-2">
         {/* Data Integrity & Checksum */}
-        <div className="rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
+        <div className="rounded-lg bg-surface-container shadow-sm border border-outline/20 p-3 transition-colors duration-200">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Data Integrity</h2>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Validate data consistency</p>
+              <h2 className="text-sm font-semibold text-on-surface transition-colors duration-200">Data Integrity</h2>
+              <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Validate data consistency</p>
             </div>
             <button
               onClick={() => {
@@ -899,7 +899,7 @@ export default function AdminDashboard() {
                 refetchIntegrityStatus()
               }}
               disabled={integrityStatusLoading}
-              className="px-2 py-1 text-xs font-medium text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors duration-200"
+              className="px-2 py-1 text-xs font-medium text-on-surface bg-surface-container-high border border-outline/30 rounded hover:bg-surface-container-highest disabled:opacity-50 transition-colors duration-200"
             >
               {integrityStatusLoading ? '...' : 'Refresh'}
             </button>
@@ -907,7 +907,7 @@ export default function AdminDashboard() {
 
           {/* Overall Status */}
           {integrityStatus?.status === 'no_check' ? (
-            <div className="p-2 bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
+            <div className="p-2 bg-surface-container-low border border-outline/20 rounded-lg text-xs text-on-surface-variant transition-colors duration-200">
               No check run yet. Click "Run Full Check".
             </div>
           ) : integrityStatus?.results ? (
@@ -919,7 +919,7 @@ export default function AdminDashboard() {
               'border-red-200 dark:border-red-700/50 bg-red-50/50 dark:bg-red-900/20'
             }`}>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Overall Status</div>
+                <div className="text-sm font-semibold text-on-surface transition-colors duration-200">Overall Status</div>
                 <span className={`text-xs px-2 py-1 rounded-full font-medium transition-colors duration-200 ${
                   integrityStatus.results.overall_status === 'pass' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
                   integrityStatus.results.overall_status === 'warning' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
@@ -930,28 +930,28 @@ export default function AdminDashboard() {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5 text-xs">
                 <div>
-                  <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">Total Issues</div>
-                  <div className="font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{integrityStatus.results.summary?.total_issues || 0}</div>
+                  <div className="text-on-surface-variant transition-colors duration-200">Total Issues</div>
+                  <div className="font-bold text-on-surface transition-colors duration-200">{integrityStatus.results.summary?.total_issues || 0}</div>
                 </div>
                 <div>
-                  <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">Critical</div>
+                  <div className="text-on-surface-variant transition-colors duration-200">Critical</div>
                   <div className="font-bold text-red-700 dark:text-red-400 transition-colors duration-200">{integrityStatus.results.summary?.critical_issues || 0}</div>
                 </div>
                 <div>
-                  <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">High</div>
+                  <div className="text-on-surface-variant transition-colors duration-200">High</div>
                   <div className="font-bold text-orange-700 dark:text-orange-400 transition-colors duration-200">{integrityStatus.results.summary?.high_issues || 0}</div>
                 </div>
                 <div>
-                  <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">Medium</div>
+                  <div className="text-on-surface-variant transition-colors duration-200">Medium</div>
                   <div className="font-bold text-amber-700 dark:text-amber-400 transition-colors duration-200">{integrityStatus.results.summary?.medium_issues || 0}</div>
                 </div>
                 <div>
-                  <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">Low</div>
-                  <div className="font-bold text-gray-700 dark:text-gray-300 transition-colors duration-200">{integrityStatus.results.summary?.low_issues || 0}</div>
+                  <div className="text-on-surface-variant transition-colors duration-200">Low</div>
+                  <div className="font-bold text-on-surface-variant transition-colors duration-200">{integrityStatus.results.summary?.low_issues || 0}</div>
                 </div>
               </div>
               {integrityStatus.checked_at && (
-                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
+                <div className="mt-2 text-xs text-on-surface-variant transition-colors duration-200">
                   Last checked: {formatTimeAgo(integrityStatus.checked_at)}
                 </div>
               )}
@@ -965,24 +965,24 @@ export default function AdminDashboard() {
                   integrityStatus.results.checks.players.status === 'pass' ? 'border-green-200 dark:border-green-700/50 bg-green-50/30 dark:bg-green-900/20' : 'border-red-200 dark:border-red-700/50 bg-red-50/30 dark:bg-red-900/20'
                 }`}>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Players</div>
+                    <div className="text-xs font-semibold text-on-surface transition-colors duration-200">Players</div>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors duration-200 ${
                       integrityStatus.results.checks.players.status === 'pass' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                     }`}>
                       {integrityStatus.results.checks.players.status?.toUpperCase()}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5 transition-colors duration-200">
+                  <div className="text-xs text-on-surface-variant space-y-0.5 transition-colors duration-200">
                     <div>Source: {integrityStatus.results.checks.players.stats?.source_count || 0}</div>
                     <div>DB: {integrityStatus.results.checks.players.stats?.db_count || 0}</div>
                     <div>Missing: {integrityStatus.results.checks.players.stats?.missing_in_db || 0}</div>
                     {integrityStatus.results.checks.players.stats?.checksum_source && (
-                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 font-mono truncate transition-colors duration-200" title={integrityStatus.results.checks.players.stats.checksum_source}>
+                      <div className="text-[10px] text-on-surface-variant mt-1 font-mono truncate transition-colors duration-200" title={integrityStatus.results.checks.players.stats.checksum_source}>
                         Source: {integrityStatus.results.checks.players.stats.checksum_source.slice(0, 8)}...
                       </div>
                     )}
                     {integrityStatus.results.checks.players.stats?.checksum_db && (
-                      <div className="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate transition-colors duration-200" title={integrityStatus.results.checks.players.stats.checksum_db}>
+                      <div className="text-[10px] text-on-surface-variant font-mono truncate transition-colors duration-200" title={integrityStatus.results.checks.players.stats.checksum_db}>
                         DB: {integrityStatus.results.checks.players.stats.checksum_db.slice(0, 8)}...
                       </div>
                     )}
@@ -1001,14 +1001,14 @@ export default function AdminDashboard() {
                   integrityStatus.results.checks.game_stats.status === 'pass' ? 'border-green-200 dark:border-green-700/50 bg-green-50/30 dark:bg-green-900/20' : 'border-red-200 dark:border-red-700/50 bg-red-50/30 dark:bg-red-900/20'
                 }`}>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Game Stats</div>
+                    <div className="text-xs font-semibold text-on-surface transition-colors duration-200">Game Stats</div>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors duration-200 ${
                       integrityStatus.results.checks.game_stats.status === 'pass' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                     }`}>
                       {integrityStatus.results.checks.game_stats.status?.toUpperCase()}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5 transition-colors duration-200">
+                  <div className="text-xs text-on-surface-variant space-y-0.5 transition-colors duration-200">
                     <div>Source: {integrityStatus.results.checks.game_stats.stats?.source_count || 0}</div>
                     <div>DB: {integrityStatus.results.checks.game_stats.stats?.db_count || 0}</div>
                     <div>Missing: {integrityStatus.results.checks.game_stats.stats?.missing_in_db || 0}</div>
@@ -1028,14 +1028,14 @@ export default function AdminDashboard() {
                   integrityStatus.results.checks.prop_suggestions.status === 'pass' ? 'border-green-200 dark:border-green-700/50 bg-green-50/30 dark:bg-green-900/20' : 'border-red-200 dark:border-red-700/50 bg-red-50/30 dark:bg-red-900/20'
                 }`}>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Prop Suggestions</div>
+                    <div className="text-xs font-semibold text-on-surface transition-colors duration-200">Prop Suggestions</div>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors duration-200 ${
                       integrityStatus.results.checks.prop_suggestions.status === 'pass' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
                     }`}>
                       {integrityStatus.results.checks.prop_suggestions.status?.toUpperCase()}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5 transition-colors duration-200">
+                  <div className="text-xs text-on-surface-variant space-y-0.5 transition-colors duration-200">
                     <div>Total: {integrityStatus.results.checks.prop_suggestions.stats?.total_suggestions || 0}</div>
                     <div>Recent: {integrityStatus.results.checks.prop_suggestions.stats?.recent_suggestions || 0}</div>
                     <div>Stale: {integrityStatus.results.checks.prop_suggestions.stats?.stale_suggestions || 0}</div>
@@ -1052,21 +1052,21 @@ export default function AdminDashboard() {
 
               {/* Issues List */}
               {integrityStatus.results.all_issues && integrityStatus.results.all_issues.length > 0 && (
-                <div className="mt-1.5 p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600 transition-colors duration-200">
-                  <div className="text-xs font-semibold text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">Issues ({integrityStatus.results.all_issues.length})</div>
+                <div className="mt-1.5 p-2 bg-surface-container-low rounded-lg border border-outline/20 transition-colors duration-200">
+                  <div className="text-xs font-semibold text-on-surface mb-1 transition-colors duration-200">Issues ({integrityStatus.results.all_issues.length})</div>
                   <div className="space-y-1 max-h-32 overflow-y-auto">
                   {integrityStatus.results.all_issues.slice(0, 10).map((issue: any, idx: number) => (
                     <div key={idx} className={`text-xs p-2 rounded border transition-colors duration-200 ${
                       issue.severity === 'critical' ? 'border-red-300 dark:border-red-700/50 bg-red-50 dark:bg-red-900/20' :
                       issue.severity === 'high' ? 'border-orange-300 dark:border-orange-700/50 bg-orange-50 dark:bg-orange-900/20' :
                       issue.severity === 'medium' ? 'border-amber-300 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-900/20' :
-                      'border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50'
+                      'border-outline/30 bg-surface-container-low'
                     }`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <div className="font-medium text-gray-900 dark:text-slate-100 transition-colors duration-200">{issue.message}</div>
+                          <div className="font-medium text-on-surface transition-colors duration-200">{issue.message}</div>
                           {issue.details && (
-                            <div className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">
+                            <div className="text-[10px] text-on-surface-variant mt-0.5 transition-colors duration-200">
                               {typeof issue.details === 'string' ? issue.details : JSON.stringify(issue.details).slice(0, 100)}
                             </div>
                           )}
@@ -1075,7 +1075,7 @@ export default function AdminDashboard() {
                           issue.severity === 'critical' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
                           issue.severity === 'high' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' :
                           issue.severity === 'medium' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
-                          'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300'
+                          'bg-surface-container-high text-on-surface-variant'
                         }`}>
                           {issue.severity}
                         </span>
@@ -1083,7 +1083,7 @@ export default function AdminDashboard() {
                     </div>
                   ))}
                   {integrityStatus.results.all_issues.length > 10 && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 text-center transition-colors duration-200">
+                    <div className="text-xs text-on-surface-variant text-center transition-colors duration-200">
                       ... and {integrityStatus.results.all_issues.length - 10} more issues
                     </div>
                   )}
@@ -1095,11 +1095,11 @@ export default function AdminDashboard() {
 
           {/* Season for integrity and ranks */}
           <div className="mt-2">
-            <label className="block text-[10px] text-gray-600 dark:text-gray-400 mb-0.5 transition-colors duration-200">Season (integrity & ranks)</label>
+            <label className="block text-[10px] text-on-surface-variant mb-0.5 transition-colors duration-200">Season (integrity & ranks)</label>
             <input
               value={integritySeason}
               onChange={(e) => setIntegritySeason(e.target.value)}
-              className="w-24 px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
+              className="w-24 px-2 py-1 text-xs rounded border border-outline/30 bg-surface-container-high text-on-surface focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
               placeholder="2025-26"
             />
           </div>
@@ -1126,21 +1126,21 @@ export default function AdminDashboard() {
           <button
             onClick={() => playersIntegrityMutation.mutate()}
             disabled={playersIntegrityMutation.isPending}
-            className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300 dark:border-slate-600 transition-colors duration-200"
+            className="px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-outline/30 transition-colors duration-200"
           >
             {playersIntegrityMutation.isPending ? 'Checking...' : 'Check Players'}
           </button>
           <button
             onClick={() => gameStatsIntegrityMutation.mutate()}
             disabled={gameStatsIntegrityMutation.isPending}
-            className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300 dark:border-slate-600 transition-colors duration-200"
+            className="px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-outline/30 transition-colors duration-200"
           >
             {gameStatsIntegrityMutation.isPending ? 'Checking...' : 'Check Game Stats'}
           </button>
           <button
             onClick={() => propSuggestionsIntegrityMutation.mutate()}
             disabled={propSuggestionsIntegrityMutation.isPending}
-            className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-gray-300 dark:border-slate-600 transition-colors duration-200"
+            className="px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium rounded-lg disabled:opacity-60 disabled:cursor-not-allowed border border-outline/30 transition-colors duration-200"
           >
             {propSuggestionsIntegrityMutation.isPending ? 'Checking...' : 'Check Props'}
           </button>
@@ -1148,15 +1148,15 @@ export default function AdminDashboard() {
         </div>
 
         {/* AI Features Toggle */}
-        <div className="rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
+        <div className="rounded-lg bg-surface-container shadow-sm border border-outline/20 p-3 transition-colors duration-200">
           <div className="mb-2">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">AI Features</h2>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Enable/disable ML & LLM</p>
+            <h2 className="text-sm font-semibold text-on-surface transition-colors duration-200">AI Features</h2>
+            <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Enable/disable ML & LLM</p>
           </div>
-          <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg border border-gray-200 dark:border-slate-600 transition-colors duration-200">
+          <div className="flex items-center justify-between p-2 bg-surface-container-low rounded-lg border border-outline/20 transition-colors duration-200">
           <div className="flex-1">
-            <div className="text-sm font-medium text-gray-900 dark:text-slate-100 transition-colors duration-200">Enable AI Features</div>
-            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">
+            <div className="text-sm font-medium text-on-surface transition-colors duration-200">Enable AI Features</div>
+            <div className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">
               When enabled, prop evaluations use ML models for confidence prediction and LLM for rationale generation.
               When disabled, the system uses rule-based calculations only.
             </div>
@@ -1169,19 +1169,19 @@ export default function AdminDashboard() {
               }}
               disabled={setAIEnabledMutation.isPending || aiStatusLoading}
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-offset-2 ${
-                (aiStatus?.aiEnabled ?? false) ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-300 dark:bg-slate-600'
+                (aiStatus?.aiEnabled ?? false) ? 'bg-primary-container' : 'bg-surface-container-highest'
               } ${setAIEnabledMutation.isPending || aiStatusLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                className={`inline-block h-5 w-5 transform rounded-full bg-surface transition-transform ${
                   (aiStatus?.aiEnabled ?? false) ? 'translate-x-6' : 'translate-x-1'
                 }`}
               />
             </button>
           </div>
         </div>
-          <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
-            Status: <span className={`font-medium transition-colors duration-200 ${(aiStatus?.aiEnabled ?? false) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+          <div className="mt-2 text-xs text-on-surface-variant transition-colors duration-200">
+            Status: <span className={`font-medium transition-colors duration-200 ${(aiStatus?.aiEnabled ?? false) ? 'text-green-600 dark:text-green-400' : 'text-on-surface-variant'}`}>
               {(aiStatus?.aiEnabled ?? false) ? 'Enabled' : 'Disabled'}
             </span>
             {setAIEnabledMutation.isPending && (
@@ -1192,10 +1192,10 @@ export default function AdminDashboard() {
       </div>
 
       {/* Dashboard (homepage) – refresh and clear caches */}
-      <div className="mt-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
+      <div className="mt-2 rounded-lg bg-surface-container shadow-sm border border-outline/20 p-3 transition-colors duration-200">
         <div className="mb-2">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Dashboard (homepage)</h2>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Warm and refresh caches that feed the main dashboard</p>
+          <h2 className="text-sm font-semibold text-on-surface transition-colors duration-200">Dashboard (homepage)</h2>
+          <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Warm and refresh caches that feed the main dashboard</p>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
@@ -1250,8 +1250,8 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700">
-          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 transition-colors duration-200">Clear dashboard caches (then use Warm dashboard to refill)</div>
+        <div className="mt-3 pt-3 border-t border-outline/20">
+          <div className="text-xs font-semibold text-on-surface-variant mb-1.5 transition-colors duration-200">Clear dashboard caches (then use Warm dashboard to refill)</div>
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => clearDailyPropsCacheMutation.mutate()}
@@ -1278,8 +1278,8 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700">
-          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 transition-colors duration-200">Other cache</div>
+        <div className="mt-2 pt-2 border-t border-outline/20">
+          <div className="text-xs font-semibold text-on-surface-variant mb-1.5 transition-colors duration-200">Other cache</div>
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => clearTeamsCacheMutation.mutate()}
@@ -1291,7 +1291,7 @@ export default function AdminDashboard() {
             <button
               onClick={() => cacheCleanupMutation.mutate()}
               disabled={cacheCleanupMutation.isPending}
-              className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 rounded disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
+              className="px-3 py-1.5 text-xs bg-surface-container-high hover:bg-surface-container-highest text-on-surface rounded disabled:opacity-50 border border-outline/30 transition-colors duration-200"
             >
               {cacheCleanupMutation.isPending ? 'Cleaning...' : 'Cache Cleanup'}
             </button>
@@ -1305,24 +1305,24 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700">
-          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 transition-colors duration-200">Daily props (custom params)</div>
+        <div className="mt-2 pt-2 border-t border-outline/20">
+          <div className="text-xs font-semibold text-on-surface-variant mb-1.5 transition-colors duration-200">Daily props (custom params)</div>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="text-[10px] text-gray-500 dark:text-gray-400">Min confidence</label>
+            <label className="text-[10px] text-on-surface-variant">Min confidence</label>
             <input
               type="number"
               value={dailyPropsParams.minConfidence}
               onChange={(e) => setDailyPropsParams({ ...dailyPropsParams, minConfidence: Number(e.target.value) })}
-              className="w-16 px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+              className="w-16 px-2 py-1 text-xs rounded border border-outline/30 bg-surface-container-high text-on-surface"
               min={0}
               max={100}
             />
-            <label className="text-[10px] text-gray-500 dark:text-gray-400">Limit</label>
+            <label className="text-[10px] text-on-surface-variant">Limit</label>
             <input
               type="number"
               value={dailyPropsParams.limit}
               onChange={(e) => setDailyPropsParams({ ...dailyPropsParams, limit: Number(e.target.value) })}
-              className="w-16 px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+              className="w-16 px-2 py-1 text-xs rounded border border-outline/30 bg-surface-container-high text-on-surface"
               min={1}
               max={200}
             />
@@ -1336,22 +1336,22 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700">
-          <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 transition-colors duration-200">Accuracy</div>
+        <div className="mt-2 pt-2 border-t border-outline/20">
+          <div className="text-xs font-semibold text-on-surface-variant mb-1.5 transition-colors duration-200">Accuracy</div>
           <div className="flex flex-wrap items-center gap-2 mb-1.5">
-            <label className="text-[10px] text-gray-500 dark:text-gray-400">Settle date</label>
+            <label className="text-[10px] text-on-surface-variant">Settle date</label>
             <input
               type="date"
               value={settleDateInput}
               onChange={(e) => setSettleDateInput(e.target.value)}
-              className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+              className="px-2 py-1 text-xs rounded border border-outline/30 bg-surface-container-high text-on-surface"
               title="Leave empty to settle yesterday"
             />
-            <label className="text-[10px] text-gray-500 dark:text-gray-400">Season</label>
+            <label className="text-[10px] text-on-surface-variant">Season</label>
             <input
               value={settleSeasonInput}
               onChange={(e) => setSettleSeasonInput(e.target.value)}
-              className="w-20 px-2 py-1 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100"
+              className="w-20 px-2 py-1 text-xs rounded border border-outline/30 bg-surface-container-high text-on-surface"
               placeholder="2025-26"
             />
           </div>
@@ -1365,30 +1365,30 @@ export default function AdminDashboard() {
             </button>
             <Link
               to="/accuracy"
-              className="px-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 rounded border border-slate-300 dark:border-slate-600 transition-colors duration-200 inline-block"
+              className="px-3 py-1.5 text-xs bg-surface-container-high hover:bg-slate-200 dark:hover:bg-surface-container-highest text-on-surface rounded border border-outline/30 transition-colors duration-200 inline-block"
             >
               View accuracy
             </Link>
           </div>
         </div>
 
-        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-700">
+        <div className="mt-2 pt-2 border-t border-outline/20">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 transition-colors duration-200">Rate limits</span>
-            <button type="button" onClick={() => refetchRateLimits()} className="text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-slate-100">
+            <span className="text-xs font-semibold text-on-surface-variant transition-colors duration-200">Rate limits</span>
+            <button type="button" onClick={() => refetchRateLimits()} className="text-[10px] text-on-surface-variant hover:text-on-surface">
               Refresh
             </button>
           </div>
           {rateLimits?.providers && Object.keys(rateLimits.providers).length > 0 ? (
-            <div className="flex flex-wrap gap-2 text-[10px] text-gray-600 dark:text-gray-400">
+            <div className="flex flex-wrap gap-2 text-[10px] text-on-surface-variant">
               {Object.entries(rateLimits.providers).map(([name, p]: [string, any]) => (
-                <span key={name} className="px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700 rounded border border-gray-200 dark:border-slate-600">
+                <span key={name} className="px-1.5 py-0.5 bg-surface-container-high rounded border border-outline/20">
                   {name}: {p?.used ?? '?'}/{p?.limit ?? '?'}
                 </span>
               ))}
             </div>
           ) : (
-            <div className="text-[10px] text-gray-500 dark:text-gray-500">No rate limit data</div>
+            <div className="text-[10px] text-on-surface-variant">No rate limit data</div>
           )}
         </div>
 
@@ -1400,23 +1400,23 @@ export default function AdminDashboard() {
       </div>
 
       {/* Sync – NBA API */}
-      <div className="mt-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
+      <div className="mt-2 rounded-lg bg-surface-container shadow-sm border border-outline/20 p-3 transition-colors duration-200">
         <div className="mb-2">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Sync (NBA API)</h2>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Sync players and teams from NBA API</p>
+          <h2 className="text-sm font-semibold text-on-surface transition-colors duration-200">Sync (NBA API)</h2>
+          <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Sync players and teams from NBA API</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
-            className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
+            className="px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium rounded-lg disabled:opacity-50 border border-outline/30 transition-colors duration-200"
           >
             {syncMutation.isPending ? 'Syncing...' : 'Sync Players'}
           </button>
           <button
             onClick={() => syncTeamsMutation.mutate()}
             disabled={syncTeamsMutation.isPending}
-            className="px-3 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-900 dark:text-slate-100 text-xs font-medium rounded-lg disabled:opacity-50 border border-gray-300 dark:border-slate-600 transition-colors duration-200"
+            className="px-3 py-1.5 bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-xs font-medium rounded-lg disabled:opacity-50 border border-outline/30 transition-colors duration-200"
           >
             {syncTeamsMutation.isPending ? 'Syncing...' : 'Sync Teams'}
           </button>
@@ -1424,10 +1424,10 @@ export default function AdminDashboard() {
       </div>
 
       {/* Player & context */}
-      <div className="mt-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 transition-colors duration-200">
+      <div className="mt-2 rounded-lg bg-surface-container shadow-sm border border-outline/20 p-3 transition-colors duration-200">
         <div className="mb-2">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Player & context</h2>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Clean names and refresh opponent defense ranks for player profiles</p>
+          <h2 className="text-sm font-semibold text-on-surface transition-colors duration-200">Player & context</h2>
+          <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Clean names and refresh opponent defense ranks for player profiles</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -1462,15 +1462,15 @@ export default function AdminDashboard() {
       </div>
 
       {/* Team Management */}
-      <div className="mt-3 rounded-2xl bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-4 transition-colors duration-200">
+      <div className="mt-3 rounded-2xl bg-surface-container shadow-sm border border-outline/20 p-4 transition-colors duration-200">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Team Management</h2>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Sync and check team data from NBA API</p>
+            <h2 className="text-sm font-semibold text-on-surface transition-colors duration-200">Team Management</h2>
+            <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Sync and check team data from NBA API</p>
           </div>
           <div className="flex items-center gap-2">
             {teamsStatusLoading && (
-              <svg className="animate-spin h-4 w-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-4 w-4 text-on-surface-variant" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -1481,7 +1481,7 @@ export default function AdminDashboard() {
                 refetchTeamsStatus()
               }}
               disabled={teamsStatusLoading}
-              className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors duration-200"
+              className="px-3 py-1.5 text-xs font-medium text-on-surface-variant bg-surface-container-high border border-outline/30 rounded-lg hover:bg-surface-container-highest disabled:opacity-50 transition-colors duration-200"
             >
               {teamsStatusLoading ? 'Refreshing...' : 'Refresh Status'}
             </button>
@@ -1490,11 +1490,11 @@ export default function AdminDashboard() {
 
         {teamsStatusLoading ? (
           <div className="flex items-center justify-center py-4">
-            <svg className="animate-spin h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin h-5 w-5 text-on-surface-variant" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">Loading teams status...</span>
+            <span className="ml-2 text-sm text-on-surface-variant transition-colors duration-200">Loading teams status...</span>
           </div>
         ) : teamsStatusError ? (
           <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-800 dark:text-red-300 transition-colors duration-200">
@@ -1503,10 +1503,10 @@ export default function AdminDashboard() {
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg p-3 transition-colors duration-200">
-                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Total Teams</div>
-                <div className="text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{teamsStatus?.totalTeams || 0}</div>
-                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
+              <div className="bg-surface-container-low border border-outline/20 rounded-lg p-3 transition-colors duration-200">
+                <div className="text-xs font-medium text-on-surface-variant mb-1 transition-colors duration-200">Total Teams</div>
+                <div className="text-2xl font-semibold text-on-surface transition-colors duration-200">{teamsStatus?.totalTeams || 0}</div>
+                <div className="mt-1 text-xs text-on-surface-variant transition-colors duration-200">
                   {teamsStatus?.cached ? (
                     <span className="text-green-600 dark:text-green-400">✓ Cached</span>
                   ) : (
@@ -1514,12 +1514,12 @@ export default function AdminDashboard() {
                   )}
                 </div>
               </div>
-              <div className={`bg-gray-50 dark:bg-slate-700/50 border rounded-lg p-3 transition-colors duration-200 ${
+              <div className={`bg-surface-container-low border rounded-lg p-3 transition-colors duration-200 ${
                 teamsStatus?.integrity?.status === 'good' ? 'border-green-200 dark:border-green-700/50' :
                 teamsStatus?.integrity?.status === 'warning' ? 'border-amber-200 dark:border-amber-700/50' :
                 'border-red-200 dark:border-red-700/50'
               }`}>
-                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Data Integrity</div>
+                <div className="text-xs font-medium text-on-surface-variant mb-1 transition-colors duration-200">Data Integrity</div>
                 <div className={`text-lg font-semibold transition-colors duration-200 ${
                   teamsStatus?.integrity?.status === 'good' ? 'text-green-700 dark:text-green-400' :
                   teamsStatus?.integrity?.status === 'warning' ? 'text-amber-700 dark:text-amber-400' :
@@ -1529,14 +1529,14 @@ export default function AdminDashboard() {
                    teamsStatus?.integrity?.status === 'warning' ? '⚠ Warning' :
                    '✗ Error'}
                 </div>
-                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
+                <div className="mt-1 text-xs text-on-surface-variant transition-colors duration-200">
                   {teamsStatus?.integrity?.coverage?.teams || 0}% teams, {teamsStatus?.integrity?.coverage?.players || 0}% players
                 </div>
               </div>
-              <div className="bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg p-3 transition-colors duration-200">
-                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Total Players</div>
-                <div className="text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{teamsStatus?.totalPlayers || 0}</div>
-                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">
+              <div className="bg-surface-container-low border border-outline/20 rounded-lg p-3 transition-colors duration-200">
+                <div className="text-xs font-medium text-on-surface-variant mb-1 transition-colors duration-200">Total Players</div>
+                <div className="text-2xl font-semibold text-on-surface transition-colors duration-200">{teamsStatus?.totalPlayers || 0}</div>
+                <div className="mt-1 text-xs text-on-surface-variant transition-colors duration-200">
                   {teamsStatus?.lastUpdated ? formatTimeAgo(teamsStatus.lastUpdated) : 'Never checked'}
                 </div>
               </div>
@@ -1588,7 +1588,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                   {teamsStatus.teamsWithoutPlayers.map((team: any) => (
-                    <div key={team.id} className="text-xs p-1.5 bg-white dark:bg-slate-700 rounded border border-amber-200 dark:border-amber-700/50 transition-colors duration-200">
+                    <div key={team.id} className="text-xs p-1.5 bg-surface-container-high rounded border border-amber-200 dark:border-amber-700/50 transition-colors duration-200">
                       <div className="font-medium text-amber-900 dark:text-amber-200 transition-colors duration-200">{team.abbreviation}</div>
                       <div className="text-amber-700 dark:text-amber-300 truncate transition-colors duration-200">{team.name}</div>
                     </div>
@@ -1601,7 +1601,7 @@ export default function AdminDashboard() {
               <button
                 onClick={() => syncTeamsMutation.mutate()}
                 disabled={syncTeamsMutation.isPending}
-                className="flex-1 px-4 py-2 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors duration-200"
+                className="flex-1 px-4 py-2 bg-primary-container hover:bg-blue-700 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors duration-200"
               >
                 {syncTeamsMutation.isPending ? (
                   <>
@@ -1635,13 +1635,13 @@ export default function AdminDashboard() {
             )}
 
             {teamsStatus?.teams && teamsStatus.teams.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 transition-colors duration-200">
-                <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">Team Preview (First 10)</div>
+              <div className="mt-3 pt-3 border-t border-outline/20 transition-colors duration-200">
+                <div className="text-xs font-semibold text-on-surface-variant mb-2 transition-colors duration-200">Team Preview (First 10)</div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                   {teamsStatus.teams.map((team: any) => (
-                    <div key={team.id} className="text-xs p-2 bg-gray-50 dark:bg-slate-700/50 rounded border border-gray-200 dark:border-slate-600 transition-colors duration-200">
-                      <div className="font-medium text-gray-900 dark:text-slate-100 truncate transition-colors duration-200">{team.abbreviation}</div>
-                      <div className="text-gray-600 dark:text-gray-400 truncate transition-colors duration-200">{team.full_name}</div>
+                    <div key={team.id} className="text-xs p-2 bg-surface-container-low rounded border border-outline/20 transition-colors duration-200">
+                      <div className="font-medium text-on-surface truncate transition-colors duration-200">{team.abbreviation}</div>
+                      <div className="text-on-surface-variant truncate transition-colors duration-200">{team.full_name}</div>
                     </div>
                   ))}
                 </div>

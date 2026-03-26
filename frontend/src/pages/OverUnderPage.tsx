@@ -7,20 +7,20 @@ const REFRESH_INTERVAL = 30000 // 30 seconds
 
 function RecommendationBadge({ recommendation, confidence }: { recommendation: string; confidence: string }) {
   const getBadgeColor = () => {
-    if (recommendation === 'OVER') return 'bg-green-500'
-    if (recommendation === 'UNDER') return 'bg-red-500'
-    return 'bg-gray-600 dark:bg-gray-700'
+    if (recommendation === 'OVER') return 'bg-betting-green'
+    if (recommendation === 'UNDER') return 'bg-error'
+    return 'bg-surface-container-high'
   }
 
   const getTextColor = () => {
     if (recommendation === 'OVER' || recommendation === 'UNDER') return 'text-white'
-    return 'text-gray-900 dark:text-gray-100' // Darker text for NO BET
+    return 'text-on-surface' // Darker text for NO BET
   }
 
   const getConfidenceColor = () => {
     if (confidence === 'HIGH') return 'text-green-300 dark:text-green-400'
     if (confidence === 'MEDIUM') return 'text-yellow-300 dark:text-amber-400'
-    return 'text-gray-300 dark:text-gray-400'
+    return 'text-on-surface-variant'
   }
 
   return (
@@ -148,24 +148,35 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
   const diff = analysis.live_line ? analysis.projected_total - analysis.live_line : 0
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-4 border border-gray-200 dark:border-gray-700">
+    <div className="bg-surface border border-outline/30 p-8 rounded flex flex-col relative overflow-hidden group">
+      {/* Tier badge */}
+      {analysis.recommendation !== 'NO BET' && (
+        <div className={`absolute top-0 right-0 px-6 py-2 font-black text-[10px] tracking-widest uppercase italic ${
+          analysis.recommendation === 'OVER' ? 'bg-betting-green text-black' :
+          analysis.recommendation === 'UNDER' ? 'bg-error text-black' :
+          'bg-outline text-on-surface-variant'
+        }`}>
+          {analysis.confidence}
+        </div>
+      )}
+
       {/* Game Header */}
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-            {game.away_team} @ {game.home_team}
-          </h3>
-          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Q{game.quarter} - {game.time_remaining}
+      <div className="flex items-center gap-5 mb-8">
+        <div className="flex -space-x-4">
+          <div className="w-14 h-14 border border-outline bg-surface-variant flex items-center justify-center font-black text-primary italic text-sm">
+            {game.away_team.slice(0, 3).toUpperCase()}
+          </div>
+          <div className="w-14 h-14 border border-outline bg-surface-variant flex items-center justify-center font-black text-primary italic text-sm">
+            {game.home_team.slice(0, 3).toUpperCase()}
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-            {game.away_score} - {game.home_score}
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Total: {analysis.current_total}
-          </div>
+        <div>
+          <h4 className="text-xl font-black uppercase italic tracking-tight">
+            {game.away_team} <span className="text-on-surface-variant text-sm lowercase font-normal not-italic px-1">vs</span> {game.home_team}
+          </h4>
+          <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">
+            Q{game.quarter} · {game.time_remaining} · {game.away_score}-{game.home_score}
+          </p>
         </div>
       </div>
 
@@ -201,15 +212,15 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
                 {' vs '}
                 Line: <span className="font-semibold">{analysis.live_line}</span>
                 {' '}
-                <span className={diff > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                <span className={diff > 0 ? 'text-betting-green' : 'text-error'}>
                   ({diff > 0 ? '+' : ''}{diff.toFixed(1)})
                 </span>
               </div>
             )}
             
             {/* Input box for changing the line even after recommendation */}
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Try a different line:</p>
+            <div className="mt-4 pt-4 border-t border-outline/20">
+              <p className="text-xs text-on-surface-variant mb-2">Try a different line:</p>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -217,14 +228,14 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
                   onChange={handleLineChange}
                   onKeyPress={handleKeyPress}
                   placeholder="Enter new line (e.g., 225.5)"
-                  className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                  className="flex-1 px-3 py-2 text-sm border border-outline/30 rounded-md text-on-surface bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
                   step="0.5"
                   min="0"
                 />
                 <button
                   onClick={handleLineSubmit}
                   disabled={analyzeWithLine.isPending || !customLine || isNaN(parseFloat(customLine))}
-                  className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  className="px-4 py-2 text-sm font-medium text-on-surface bg-surface-container-high border border-outline/30 rounded-md hover:bg-surface-container-highest disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                   title="Or press Enter to analyze immediately"
                 >
                   {analyzeWithLine.isPending ? 'Analyzing...' : 'Analyze'}
@@ -236,26 +247,26 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
                 </p>
               )}
               {analyzeWithLine.isError && (
-                <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                <p className="text-xs text-error mt-2">
                   Error: {analyzeWithLine.error instanceof Error ? analyzeWithLine.error.message : 'Failed to analyze. Please try again.'}
                 </p>
               )}
               {customLine && !analyzeWithLine.isPending && !analyzeWithLine.isError && parseFloat(customLine) > 0 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                <p className="text-xs text-on-surface-variant mt-2">
                   Analysis will run automatically 1 second after you stop typing...
                 </p>
               )}
             </div>
           </div>
         ) : (
-          <div className="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+          <div className="bg-surface-container-low border border-outline/20 rounded p-4">
             <div className="flex items-center gap-2">
               <RecommendationBadge recommendation={analysis.recommendation} confidence={analysis.confidence} />
             </div>
             {!analysis.live_line && (
               <div className="mt-3">
-                <p className="text-sm text-gray-800 dark:text-gray-200 mb-3 font-medium">
-                  No betting line provided. Projected total: <span className="font-semibold text-gray-900 dark:text-white">{analysis.projected_total.toFixed(1)}</span>
+                <p className="text-sm text-on-surface mb-3 font-medium">
+                  No betting line provided. Projected total: <span className="font-semibold text-on-surface">{analysis.projected_total.toFixed(1)}</span>
                 </p>
                 <div className="flex items-center gap-2">
                   <input
@@ -264,14 +275,14 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
                     onChange={handleLineChange}
                     onKeyPress={handleKeyPress}
                     placeholder="Enter betting line (e.g., 225.5)"
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                    className="flex-1 px-3 py-2 text-sm border border-outline/30 rounded-md text-on-surface bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
                     step="0.5"
                     min="0"
                   />
                   <button
                     onClick={handleLineSubmit}
                     disabled={analyzeWithLine.isPending || !customLine || isNaN(parseFloat(customLine))}
-                    className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    className="px-4 py-2 text-sm font-medium text-on-surface bg-surface-container-high border border-outline/30 rounded-md hover:bg-surface-container-highest disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                     title="Or press Enter to analyze immediately"
                   >
                     {analyzeWithLine.isPending ? 'Analyzing...' : 'Analyze'}
@@ -283,12 +294,12 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
                   </p>
                 )}
                 {analyzeWithLine.isError && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                  <p className="text-xs text-error mt-2">
                     Error: {analyzeWithLine.error instanceof Error ? analyzeWithLine.error.message : 'Failed to analyze. Please try again.'}
                   </p>
                 )}
                 {customLine && !analyzeWithLine.isPending && !analyzeWithLine.isError && parseFloat(customLine) > 0 && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  <p className="text-xs text-on-surface-variant mt-2">
                     Analysis will run automatically 1 second after you stop typing...
                   </p>
                 )}
@@ -296,8 +307,8 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
             )}
             {analysis.live_line && analysis.recommendation === 'NO BET' && (
               <div className="mt-3">
-                <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
-                  No clear edge. Projected: <span className="font-semibold">{analysis.projected_total.toFixed(1)}</span> vs Line: <span className="font-semibold">{analysis.live_line}</span> (difference: <span className={Math.abs(diff) < 3 ? 'text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'}>{diff > 0 ? '+' : ''}{diff.toFixed(1)}</span>)
+                <p className="text-sm text-on-surface font-medium">
+                  No clear edge. Projected: <span className="font-semibold">{analysis.projected_total.toFixed(1)}</span> vs Line: <span className="font-semibold">{analysis.live_line}</span> (difference: <span className={Math.abs(diff) < 3 ? 'text-on-surface-variant' : 'text-on-surface'}>{diff > 0 ? '+' : ''}{diff.toFixed(1)}</span>)
                 </p>
                 <div className="flex items-center gap-2 mt-3">
                   <input
@@ -306,14 +317,14 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
                     onChange={handleLineChange}
                     onKeyPress={handleKeyPress}
                     placeholder="Enter new line (e.g., 225.5)"
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
+                    className="flex-1 px-3 py-2 text-sm border border-outline/30 rounded-md text-on-surface bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors duration-200"
                     step="0.5"
                     min="0"
                   />
                   <button
                     onClick={handleLineSubmit}
                     disabled={analyzeWithLine.isPending || !customLine || isNaN(parseFloat(customLine))}
-                    className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    className="px-4 py-2 text-sm font-medium text-on-surface bg-surface-container-high border border-outline/30 rounded-md hover:bg-surface-container-highest disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                     title="Or press Enter to analyze immediately"
                   >
                     {analyzeWithLine.isPending ? 'Analyzing...' : 'Analyze'}
@@ -325,12 +336,12 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
                   </p>
                 )}
                 {analyzeWithLine.isError && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                  <p className="text-xs text-error mt-2">
                     Error: {analyzeWithLine.error instanceof Error ? analyzeWithLine.error.message : 'Failed to analyze. Please try again.'}
                   </p>
                 )}
                 {customLine && !analyzeWithLine.isPending && !analyzeWithLine.isError && parseFloat(customLine) > 0 && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  <p className="text-xs text-on-surface-variant mt-2">
                     Analysis will run automatically 1 second after you stop typing...
                   </p>
                 )}
@@ -341,37 +352,37 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
       </div>
 
       {/* Analysis Details */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="bg-gray-50 dark:bg-gray-700 rounded p-3">
-          <div className="text-sm text-gray-600 dark:text-gray-400">Projected Total</div>
-          <div className="text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="grid grid-cols-2 gap-4 mb-4 border-t border-outline/20 pt-4">
+        <div className="bg-surface-container-low rounded border border-outline/20 p-3">
+          <div className="text-xs font-black uppercase tracking-widest text-on-surface-variant">Projected Total</div>
+          <div className="text-lg font-semibold text-on-surface">
             {analysis.projected_total.toFixed(1)}
           </div>
         </div>
         {analysis.live_line && (
-          <div className="bg-gray-50 dark:bg-gray-700 rounded p-3">
-            <div className="text-sm text-gray-600 dark:text-gray-400">Live Line</div>
-            <div className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="bg-surface-container-low rounded border border-outline/20 p-3">
+            <div className="text-xs font-black uppercase tracking-widest text-on-surface-variant">Live Line</div>
+            <div className="text-lg font-semibold text-on-surface">
               {analysis.live_line}
             </div>
             {analysis.recommendation !== 'NO BET' && (
               <div className="text-xs mt-1">
-                <span className={diff > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                <span className={diff > 0 ? 'text-betting-green' : 'text-error'}>
                   {diff > 0 ? '↑' : '↓'} {Math.abs(diff).toFixed(1)} from projected
                 </span>
               </div>
             )}
           </div>
         )}
-        <div className="bg-gray-50 dark:bg-gray-700 rounded p-3">
-          <div className="text-sm text-gray-600 dark:text-gray-400">Current Pace</div>
-          <div className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="bg-surface-container-low rounded border border-outline/20 p-3">
+          <div className="text-xs font-black uppercase tracking-widest text-on-surface-variant">Current Pace</div>
+          <div className="text-lg font-semibold text-on-surface">
             {analysis.current_pace.toFixed(1)}
           </div>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-700 rounded p-3">
-          <div className="text-sm text-gray-600 dark:text-gray-400">Expected Pace</div>
-          <div className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="bg-surface-container-low rounded border border-outline/20 p-3">
+          <div className="text-xs font-black uppercase tracking-widest text-on-surface-variant">Expected Pace</div>
+          <div className="text-lg font-semibold text-on-surface">
             {analysis.expected_pace.toFixed(1)}
           </div>
         </div>
@@ -380,8 +391,8 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
       {/* Key Factors */}
       {analysis.key_factors.length > 0 && (
         <div className="mb-4">
-          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Key Factors</h4>
-          <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-400">
+          <h4 className="text-sm font-semibold text-on-surface-variant mb-2">Key Factors</h4>
+          <ul className="list-disc list-inside space-y-1 text-sm text-on-surface-variant">
             {analysis.key_factors.map((factor, idx) => (
               <li key={idx}>{factor}</li>
             ))}
@@ -391,8 +402,8 @@ function GameCard({ gameResult }: { gameResult: GameAnalysisResult }) {
 
       {/* Reasoning */}
       {analysis.reasoning && (
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        <div className="mt-4 pt-4 border-t border-outline/20">
+          <p className="text-sm text-on-surface-variant leading-relaxed">
             {analysis.reasoning}
           </p>
         </div>
@@ -413,22 +424,22 @@ function LoadingProgressBar({
 }) {
   return (
     <div
-      className={`rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/70 backdrop-blur-sm shadow-sm transition-colors duration-200 ${
+      className={`rounded border border-outline/20 bg-surface-container backdrop-blur-sm shadow-sm transition-colors duration-200 ${
         subtle ? 'p-4' : 'p-6'
       }`}
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{status}</p>
+          <p className="text-sm font-medium text-on-surface">{status}</p>
         </div>
-        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+        <span className="text-sm font-semibold text-on-surface">
           {Math.min(progress, 100)}%
         </span>
       </div>
-      <div className="h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+      <div className="h-3 rounded-full bg-surface-container-high overflow-hidden">
         <div
-          className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400 transition-[width] duration-300 ease-out"
+          className="h-full bg-gradient-to-r from-primary-container via-secondary-container to-tertiary-container transition-[width] duration-300 ease-out"
           style={{ width: `${Math.min(progress, 100)}%` }}
         />
       </div>
@@ -532,9 +543,9 @@ export default function OverUnderPage() {
       <div className="p-6">
         <div className="max-w-2xl mx-auto space-y-6">
           <LoadingProgressBar progress={progress} status={progressStatus} />
-          <div className="text-center py-8 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div className="mx-auto h-12 w-12 rounded-full border-4 border-blue-200 dark:border-slate-600 border-t-blue-500 dark:border-t-blue-400 animate-spin" />
-            <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+          <div className="text-center py-8 rounded-2xl bg-surface-container border border-outline/20 shadow-sm">
+            <div className="mx-auto h-12 w-12 rounded-full border-4 border-outline/30 border-t-primary-container animate-spin" />
+            <p className="mt-4 text-sm text-on-surface-variant">
               Live odds and scoring data take a bit longer—hang tight while we load everything.
             </p>
           </div>
@@ -566,56 +577,65 @@ export default function OverUnderPage() {
   const showInlineProgress = showProgress && Boolean(data)
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {showInlineProgress && (
-        <div className="mb-6">
-          <LoadingProgressBar progress={progress} status={progressStatus} subtle />
-        </div>
-      )}
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="bg-background min-h-screen">
+      {/* ── Page Header ── */}
+      <div className="max-w-7xl mx-auto px-8 pt-8 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Over/Under Analysis</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Live game analysis for over/under betting opportunities
+          <h1 className="font-black text-5xl md:text-7xl text-on-surface tracking-tighter leading-[0.9] uppercase italic">
+            OVER/UNDER <span className="text-primary-container">INTELLIGENCE</span>
+          </h1>
+          <p className="mt-3 text-on-surface-variant max-w-lg font-medium tracking-tight">
+            Kinetic high-density performance ledger. {games.length} game{games.length !== 1 ? 's' : ''} analyzed for today's slate using proprietary hardwood modeling.
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-2 px-6 py-3.5 bg-primary-container text-on-primary font-black text-sm tracking-widest rounded hover:brightness-110 transition-all active:scale-95 uppercase"
+          >
+            <span className="material-symbols-outlined">psychology</span>
+            ANALYZE SLATE
+          </button>
+          <label className="flex items-center justify-center p-3.5 bg-surface-variant text-on-surface rounded hover:bg-surface-container-highest transition-colors cursor-pointer gap-2 text-xs font-bold uppercase tracking-widest">
             <input
               type="checkbox"
               checked={autoRefresh}
               onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              className="w-3.5 h-3.5 accent-primary"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Auto-refresh (30s)</span>
+            Auto-refresh
           </label>
-          <button
-            onClick={handleRefresh}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
-            Refresh Now
-          </button>
         </div>
       </div>
 
-      {/* Games List */}
-      {games.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center border border-gray-200 dark:border-gray-700">
-          <p className="text-gray-600 dark:text-gray-400 text-lg">
-            No live games available at this time.
-          </p>
-          <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">
-            Check back during NBA game times to see live analysis.
-          </p>
-        </div>
-      ) : (
-        <div>
-          {games.map((gameResult) => (
-            <GameCard key={gameResult.game_id} gameResult={gameResult} />
-          ))}
+      {showInlineProgress && (
+        <div className="max-w-7xl mx-auto px-8 mb-4">
+          <LoadingProgressBar progress={progress} status={progressStatus} subtle />
         </div>
       )}
+
+      {/* ── Games Grid ── */}
+      <div className="max-w-7xl mx-auto px-8 pb-8">
+        {games.length === 0 ? (
+          <div className="bg-primary-container/10 border-2 border-dashed border-primary-container/30 p-12 rounded flex flex-col items-center justify-center text-center gap-6">
+            <div className="w-16 h-16 bg-surface-container rounded flex items-center justify-center">
+              <span className="material-symbols-outlined text-4xl text-on-surface/30">sensors</span>
+            </div>
+            <div>
+              <h4 className="text-2xl font-black text-primary-container uppercase italic tracking-tighter">NO LIVE GAMES</h4>
+              <p className="text-xs text-on-surface/70 max-w-xs mt-2 font-medium uppercase tracking-widest">
+                Check back during NBA game times to see live analysis.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {games.map((gameResult) => (
+              <GameCard key={gameResult.game_id} gameResult={gameResult} />
+            ))}
+          </section>
+        )}
+      </div>
     </div>
   )
 }

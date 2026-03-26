@@ -165,7 +165,7 @@ export default function TeamProfile() {
     return (
       <div className="container mx-auto px-3 md:px-4 max-w-7xl">
         <div className="text-center py-12">
-          <div className="text-gray-500 dark:text-gray-400 transition-colors duration-200">Loading team...</div>
+          <div className="text-on-surface-variant transition-colors duration-200">Loading team...</div>
         </div>
       </div>
     )
@@ -188,7 +188,7 @@ export default function TeamProfile() {
     <div className="container mx-auto px-3 md:px-4 max-w-7xl">
       {/* Breadcrumbs */}
       <nav className="relative z-10 mt-3" aria-label="Breadcrumb">
-        <ol className="min-w-0 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 overflow-hidden transition-colors duration-200">
+        <ol className="min-w-0 flex items-center gap-1 text-xs text-on-surface-variant overflow-hidden transition-colors duration-200">
           <li>
             <Link to="/" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200">Home</Link>
           </li>
@@ -202,13 +202,13 @@ export default function TeamProfile() {
       </nav>
 
       {/* Team Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 shadow-xl ring-1 ring-gray-200 dark:ring-slate-700 mt-3 mb-6 transition-colors duration-200">
+      <div className="relative overflow-hidden rounded-2xl bg-surface-container shadow-xl ring-1 ring-gray-200 dark:ring-slate-700 mt-3 mb-6 transition-colors duration-200">
         <div className="px-6 py-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-slate-100 mb-2 transition-colors duration-200">{team.full_name}</h1>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-on-surface mb-2 transition-colors duration-200">{team.full_name}</h1>
               {team.conference && (
-                <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">
+                <div className="flex items-center gap-4 text-sm text-on-surface-variant transition-colors duration-200">
                   <span>{team.conference}</span>
                   {team.division && (
                     <>
@@ -229,19 +229,19 @@ export default function TeamProfile() {
       {/* Team Stats (Defense & Offense Ranks) — loading, empty tip, and content */}
       {teamStatsLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 animate-pulse">
-            <div className="h-5 bg-gray-200 dark:bg-slate-600 rounded w-32 mb-3" />
+          <div className="bg-surface-container rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 animate-pulse">
+            <div className="h-5 bg-gray-200 dark:bg-surface-container-highest rounded w-32 mb-3" />
             <div className="grid grid-cols-2 gap-3">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-10 bg-gray-100 dark:bg-slate-700 rounded-lg" />
+                <div key={i} className="h-10 bg-gray-100 dark:bg-surface-container-high rounded-lg" />
               ))}
             </div>
           </div>
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 animate-pulse">
-            <div className="h-5 bg-gray-200 dark:bg-slate-600 rounded w-28 mb-3" />
+          <div className="bg-surface-container rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 animate-pulse">
+            <div className="h-5 bg-gray-200 dark:bg-surface-container-highest rounded w-28 mb-3" />
             <div className="grid grid-cols-2 gap-3">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-10 bg-gray-100 dark:bg-slate-700 rounded-lg" />
+                <div key={i} className="h-10 bg-gray-100 dark:bg-surface-container-high rounded-lg" />
               ))}
             </div>
           </div>
@@ -258,9 +258,9 @@ export default function TeamProfile() {
       {!teamStatsLoading && teamStats && (teamStats.def_rank_pts != null || teamStats.off_rank_pts != null) && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3 transition-colors duration-200">Defense Ranks</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 transition-colors duration-200">Lower rank = better defense (fewer points/stats allowed)</p>
+            <div className="bg-surface-container rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-on-surface mb-3 transition-colors duration-200">Defense Ranks</h2>
+              <p className="text-xs text-on-surface-variant mb-3 transition-colors duration-200">Lower rank = better defense (fewer points/stats allowed)</p>
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { label: 'PTS', value: teamStats.def_rank_pts },
@@ -268,16 +268,16 @@ export default function TeamProfile() {
                   { label: 'AST', value: teamStats.def_rank_ast },
                   { label: '3PM', value: teamStats.def_rank_3pm },
                 ].map(({ label, value }) => (
-                  <div key={label} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
-                    <span className="font-bold text-gray-900 dark:text-slate-100">{value != null ? `#${value}` : '—'}</span>
+                  <div key={label} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-surface-container-high/50 rounded-lg">
+                    <span className="text-sm text-on-surface-variant">{label}</span>
+                    <span className="font-bold text-gray-900 dark:text-on-surface">{value != null ? `#${value}` : '—'}</span>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-3 transition-colors duration-200">Offense Ranks</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 transition-colors duration-200">Rank 1 = best (most points/stats scored)</p>
+            <div className="bg-surface-container rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-on-surface mb-3 transition-colors duration-200">Offense Ranks</h2>
+              <p className="text-xs text-on-surface-variant mb-3 transition-colors duration-200">Rank 1 = best (most points/stats scored)</p>
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { label: 'PTS', value: teamStats.off_rank_pts },
@@ -285,9 +285,9 @@ export default function TeamProfile() {
                   { label: 'AST', value: teamStats.off_rank_ast },
                   { label: '3PM', value: teamStats.off_rank_3pm },
                 ].map(({ label, value }) => (
-                  <div key={label} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
-                    <span className="font-bold text-gray-900 dark:text-slate-100">{value != null ? `#${value}` : '—'}</span>
+                  <div key={label} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-surface-container-high/50 rounded-lg">
+                    <span className="text-sm text-on-surface-variant">{label}</span>
+                    <span className="font-bold text-gray-900 dark:text-on-surface">{value != null ? `#${value}` : '—'}</span>
                   </div>
                 ))}
               </div>
@@ -296,21 +296,21 @@ export default function TeamProfile() {
 
           {/* Pace Card */}
           {(teamStats.pace_rank != null || teamStats.possessions_per_game != null) && (
-            <div className="mb-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">Pace of Play</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 transition-colors duration-200">Possessions per game — rank 1 = fastest pace</p>
+            <div className="mb-4 bg-surface-container rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-on-surface mb-1 transition-colors duration-200">Pace of Play</h2>
+              <p className="text-xs text-on-surface-variant mb-3 transition-colors duration-200">Possessions per game — rank 1 = fastest pace</p>
               <div className="flex items-center gap-6">
                 <div>
-                  <div className="text-3xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">
+                  <div className="text-3xl font-bold text-gray-900 dark:text-on-surface transition-colors duration-200">
                     {teamStats.possessions_per_game != null ? teamStats.possessions_per_game.toFixed(1) : '—'}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 transition-colors duration-200">Possessions/game</div>
+                  <div className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Possessions/game</div>
                 </div>
                 <div>
-                  <div className={`text-3xl font-bold transition-colors duration-200 ${teamStats.pace_rank != null && teamStats.pace_rank <= 5 ? 'text-orange-500 dark:text-orange-400' : teamStats.pace_rank != null && teamStats.pace_rank >= 26 ? 'text-blue-500 dark:text-blue-400' : 'text-gray-900 dark:text-slate-100'}`}>
+                  <div className={`text-3xl font-bold transition-colors duration-200 ${teamStats.pace_rank != null && teamStats.pace_rank <= 5 ? 'text-orange-500 dark:text-orange-400' : teamStats.pace_rank != null && teamStats.pace_rank >= 26 ? 'text-blue-500 dark:text-blue-400' : 'text-gray-900 dark:text-on-surface'}`}>
                     {teamStats.pace_rank != null ? `#${teamStats.pace_rank}` : '—'}
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 transition-colors duration-200">Pace rank</div>
+                  <div className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Pace rank</div>
                 </div>
                 {teamStats.pace_rank != null && (
                   <div className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors duration-200 ${teamStats.pace_rank <= 5 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : teamStats.pace_rank <= 15 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
@@ -335,9 +335,9 @@ export default function TeamProfile() {
             if (d.pace_rank != null && d.pace_rank >= 26) insights.push(`Bottom-5 pace — fewer possessions, consider unders`)
             if (insights.length === 0) return null
             return (
-              <div className="mb-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 ring-1 ring-slate-200 dark:ring-slate-600">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-slate-100 mb-2">Insights</h3>
-                <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-slate-300">
+              <div className="mb-6 p-4 rounded-xl bg-slate-50 dark:bg-surface-container/80 ring-1 ring-slate-200 dark:ring-slate-600">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-on-surface mb-2">Insights</h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-700 dark:text-on-surface-variant">
                   {insights.map((s, i) => (
                     <li key={i}>{s}</li>
                   ))}
@@ -351,9 +351,9 @@ export default function TeamProfile() {
       {/* Charts: Defense vs Offense comparison */}
       {chartData.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">Defense vs Offense by stat</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 transition-colors duration-200">Bar height = strength (rank 1 is best). Compare where this team excels.</p>
+          <div className="bg-surface-container rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-on-surface mb-1 transition-colors duration-200">Defense vs Offense by stat</h2>
+            <p className="text-xs text-on-surface-variant mb-4 transition-colors duration-200">Bar height = strength (rank 1 is best). Compare where this team excels.</p>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -375,9 +375,9 @@ export default function TeamProfile() {
               </ResponsiveContainer>
             </div>
           </div>
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1 transition-colors duration-200">Profile shape</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 transition-colors duration-200">Same ranks as bars — shape shows balance across PTS, REB, AST, 3PM.</p>
+          <div className="bg-surface-container rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 transition-colors duration-200">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-on-surface mb-1 transition-colors duration-200">Profile shape</h2>
+            <p className="text-xs text-on-surface-variant mb-4 transition-colors duration-200">Same ranks as bars — shape shows balance across PTS, REB, AST, 3PM.</p>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={radarData} margin={{ top: 16, right: 16, bottom: 16, left: 16 }}>
@@ -396,10 +396,10 @@ export default function TeamProfile() {
       )}
 
       {/* Roster Section */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 transition-colors duration-200">
+      <div className="bg-surface-container rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 transition-colors duration-200">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Roster</h2>
-          <div className="text-sm text-gray-600 dark:text-gray-400 transition-colors duration-200">{roster.length} players</div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-on-surface transition-colors duration-200">Roster</h2>
+          <div className="text-sm text-on-surface-variant transition-colors duration-200">{roster.length} players</div>
         </div>
         {roster.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -407,15 +407,15 @@ export default function TeamProfile() {
               <Link
                 key={player.id}
                 to={`/player/${player.id}`}
-                className="p-4 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all group"
+                className="p-4 bg-gray-50 dark:bg-surface-container-high border border-gray-200 dark:border-slate-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all group"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <div className="font-semibold text-gray-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    <div className="font-semibold text-gray-900 dark:text-on-surface group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {player.name}
                     </div>
                     {player.position && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 transition-colors duration-200">{player.position}</div>
+                      <div className="text-xs text-on-surface-variant mt-1 transition-colors duration-200">{player.position}</div>
                     )}
                   </div>
                   {player.jersey_number && (
@@ -426,7 +426,7 @@ export default function TeamProfile() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400 transition-colors duration-200">No players found</div>
+          <div className="text-center py-8 text-on-surface-variant transition-colors duration-200">No players found</div>
         )}
       </div>
     </div>

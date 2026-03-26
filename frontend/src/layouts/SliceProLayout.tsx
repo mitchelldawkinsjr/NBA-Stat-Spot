@@ -1,165 +1,224 @@
 import { type ReactNode, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useSeason } from '../context/SeasonContext'
-import { ThemeToggle } from '../components/ThemeToggle'
+
+const NAV_ITEMS = [
+  { to: '/dashboard',   label: 'Dashboard',      icon: 'grid_view' },
+  { to: '/explore',     label: 'Player Search',  icon: 'query_stats' },
+  { to: '/over-under',  label: 'Over/Under',     icon: 'sensors' },
+  { to: '/parlay',      label: 'Parlay Builder', icon: 'receipt_long' },
+  { to: '/bets',        label: 'Bet Tracker',    icon: 'account_balance_wallet' },
+  { to: '/accuracy',    label: 'Accuracy',       icon: 'verified' },
+]
+
+const BOTTOM_NAV = [
+  { to: '/dashboard',  label: 'Home',   icon: 'grid_view' },
+  { to: '/parlay',     label: 'Parlay', icon: 'receipt_long' },
+  { to: '/over-under', label: 'Live',   icon: 'sensors' },
+  { to: '/explore',    label: 'Player Search',  icon: 'query_stats' },
+]
 
 export default function SliceProLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const { season, setSeason } = useSeason()
 
-  const nav = [
-    { to: '/dashboard', label: 'Dashboard' },
-    { to: '/explore', label: 'Explore' },
-    { to: '/parlay', label: 'Parlay' },
-    { to: '/bets', label: 'Bet Tracker' },
-    { to: '/over-under', label: 'Over/Under' },
-    { to: '/accuracy', label: 'Accuracy' },
-    { to: '/admin', label: 'Admin' },
-  ]
+  const isActive = (to: string) =>
+    pathname === to || (to !== '/' && pathname.startsWith(to))
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-200">
-      {/* Top bar styled like Sliced Pro */}
-      <header className="sticky top-0 z-40 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 transition-colors duration-200">
-        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-[60px] items-center justify-between gap-4">
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button 
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  setSidebarOpen(!sidebarOpen)
-                }} 
-                className="inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700 cursor-pointer relative z-50 transition-colors duration-200" 
-                aria-label="Toggle menu"
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h16v2H4v-2Z"/>
-                </svg>
-              </button>
-              <Link to="/" className="inline-flex items-center gap-2">
-                <img src={`${import.meta.env.BASE_URL}nba-ss-icon.png`} alt="NBA Stat Spot" className="h-6 w-6 sm:h-7 sm:w-7 flex-shrink-0" />
-                <span className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 transition-colors duration-200">NBA Stat Spot</span>
-                <span className="hidden sm:inline text-xs text-slate-500 dark:text-slate-400 transition-colors duration-200">Sliced Pro Layout</span>
-              </Link>
-            </div>
-            {/* Desktop Navigation - hidden on mobile, visible on md+ */}
-            <nav className="hidden md:flex items-center gap-2 flex-1 justify-center" role="navigation" aria-label="Primary">
-              {nav.map(n => (
-                <Link 
-                  key={n.to} 
-                  to={n.to} 
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                    pathname.startsWith(n.to) 
-                      ? 'text-purple-700 bg-purple-50 dark:text-purple-300 dark:bg-purple-900/30' 
-                      : 'text-slate-700 dark:text-slate-300 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20'
-                  }`}
-                >
-                  {n.label}
-                </Link>
-              ))}
-            </nav>
-            <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-              <ThemeToggle />
-              <SeasonControl />
-            </div>
+    <div className="min-h-screen bg-background text-on-surface font-body">
+
+      {/* ── Fixed Top Bar ── */}
+      <header className="fixed top-0 w-full z-50 bg-[#131313] border-b border-[#353534]/30 backdrop-blur-xl flex justify-between items-center px-6 h-14">
+        {/* Left: hamburger + logo */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="lg:hidden p-2 hover:bg-surface-container-highest rounded transition-colors"
+            aria-label="Open menu"
+          >
+            <span className="material-symbols-outlined text-on-surface">menu</span>
+          </button>
+          <Link to="/" className="text-xl font-black uppercase italic tracking-tighter text-primary-container">
+            NBA Stat Spot
+          </Link>
+        </div>
+
+        {/* Center: season input (desktop) */}
+        <div className="hidden lg:flex items-center gap-3">
+          <div className="flex items-center bg-surface-container-low px-3 py-1.5 rounded border border-[#353534]/50">
+            <span className="material-symbols-outlined text-[16px] text-on-surface/50 mr-2">calendar_month</span>
+            <input
+              value={season}
+              onChange={e => setSeason(e.target.value)}
+              placeholder="2025-26"
+              className="bg-transparent border-none text-xs font-bold focus:ring-0 placeholder:text-on-surface/30 w-20 p-0 text-on-surface uppercase"
+            />
           </div>
+        </div>
+
+        {/* Right: search + icons */}
+        <div className="flex items-center gap-1">
+          <div className="hidden lg:flex items-center bg-surface-container-low px-3 py-1.5 rounded border border-[#353534]/50 mr-2">
+            <span className="material-symbols-outlined text-[16px] text-on-surface/50 mr-2">search</span>
+            <input
+              className="bg-transparent border-none text-xs focus:ring-0 placeholder:text-on-surface/30 w-40 p-0 text-on-surface"
+              placeholder="Search players, teams..."
+            />
+          </div>
+          <Link
+            to="/admin"
+            className="p-2 hover:bg-surface-container-highest rounded transition-colors text-on-surface/40 hover:text-on-surface/70"
+            title="Admin"
+          >
+            <span className="material-symbols-outlined text-[20px]">settings</span>
+          </Link>
+          <button className="p-2 hover:bg-surface-container-highest rounded transition-colors">
+            <span className="material-symbols-outlined text-on-surface/70">notifications</span>
+          </button>
+          <button className="p-2 hover:bg-surface-container-highest rounded transition-colors">
+            <span className="material-symbols-outlined text-on-surface/70">account_circle</span>
+          </button>
         </div>
       </header>
 
-      {/* Sidebar - slides in from left */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50">
-          {/* Backdrop overlay */}
-          <div 
-            className="absolute inset-0 bg-black/30 transition-opacity" 
-            onClick={() => setSidebarOpen(false)} 
+      {/* ── Desktop Sidebar ── */}
+      <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-64 bg-[#0e0e0e] z-40 pt-14 pb-8 shadow-2xl shadow-black/50">
+        {/* Ledger branding */}
+        <div className="px-6 py-6 border-b border-[#353534]/20">
+          <p className="text-[10px] font-black text-primary-container uppercase tracking-widest">Performance Ledger</p>
+          <p className="text-[9px] text-on-surface/40 uppercase tracking-widest mt-0.5">Pro Tier Access</p>
+        </div>
+
+        {/* Nav links */}
+        <nav className="flex-1 pt-2 space-y-0.5">
+          {NAV_ITEMS.map(item => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`flex items-center gap-3 px-4 py-3 text-sm font-medium uppercase tracking-widest transition-all active:translate-x-1 ${
+                isActive(item.to)
+                  ? 'bg-surface-container-low text-primary-container rounded-r-lg border-l-4 border-primary-container'
+                  : 'text-on-surface/50 hover:bg-surface-container-low hover:text-on-surface hover:opacity-100'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        {/* Bottom actions */}
+        <div className="px-4 mt-auto space-y-3">
+          <div className="pt-4 border-t border-[#353534]/30 space-y-1">
+            <div className="flex items-center gap-2 px-4 py-2">
+              <span className="text-[9px] text-on-surface/40 uppercase tracking-widest">Season</span>
+              <input
+                value={season}
+                onChange={e => setSeason(e.target.value)}
+                placeholder="2025-26"
+                className="bg-transparent border-none text-[10px] font-bold text-primary-container focus:ring-0 p-0 w-16 uppercase"
+              />
+            </div>
+            <Link
+              to="/admin"
+              className="flex items-center gap-3 px-4 py-2 text-[10px] text-on-surface/40 hover:text-on-surface/70 uppercase tracking-widest transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
+              Admin
+            </Link>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Mobile Drawer ── */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-[60] lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setDrawerOpen(false)}
           />
-          {/* Sidebar panel - slides in from left */}
-          <div className="absolute left-0 top-0 h-full w-72 bg-white dark:bg-slate-800 shadow-xl ring-1 ring-black/5 dark:ring-slate-700/50 p-4 transform transition-all duration-300 ease-in-out">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Menu</div>
-              <button 
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  setSidebarOpen(false)
-                }} 
-                className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md cursor-pointer transition-colors duration-200" 
-                aria-label="Close menu"
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6.4 5l-.7.7L11.3 11l-5.6 5.3.7.7L12 11.7l5.6 5.6.7-.7-5.6-5.6 5.6-5.6-.7-.7L12 10.3 6.4 5z"/>
-                </svg>
+          <div className="absolute left-0 top-0 h-full w-72 bg-[#0e0e0e] flex flex-col shadow-2xl">
+            {/* Drawer header */}
+            <div className="flex items-center justify-between px-6 h-14 border-b border-[#353534]/30">
+              <span className="text-lg font-black uppercase italic tracking-tighter text-primary-container">NBA Stat Spot</span>
+              <button onClick={() => setDrawerOpen(false)} className="p-2 hover:bg-surface-container-highest rounded transition-colors">
+                <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <div className="space-y-1">
-              {nav.map(n => (
-                <Link 
-                  key={n.to} 
-                  to={n.to} 
-                  onClick={() => setSidebarOpen(false)} 
-                  className={`block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    pathname.startsWith(n.to) 
-                      ? 'text-blue-700 bg-blue-50 dark:text-blue-300 dark:bg-blue-900/30' 
-                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+
+            <div className="px-4 py-4 border-b border-[#353534]/20">
+              <p className="text-[10px] font-black text-primary-container uppercase tracking-widest">Performance Ledger</p>
+              <p className="text-[9px] text-on-surface/40 uppercase tracking-widest mt-0.5">Pro Tier Access</p>
+            </div>
+
+            <nav className="flex-1 pt-2 space-y-0.5 overflow-y-auto">
+              {NAV_ITEMS.map(item => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setDrawerOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium uppercase tracking-widest transition-all ${
+                    isActive(item.to)
+                      ? 'bg-surface-container-low text-primary-container rounded-r-lg border-l-4 border-primary-container'
+                      : 'text-on-surface/50 hover:bg-surface-container-low hover:text-on-surface'
                   }`}
                 >
-                  {n.label}
+                  <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+                  <span>{item.label}</span>
                 </Link>
               ))}
-            </div>
-            {/* Theme Toggle in Mobile Sidebar */}
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
-              <div className="px-3 flex items-center justify-between">
-                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Theme</div>
-                <ThemeToggle />
+            </nav>
+
+            <div className="p-4 border-t border-[#353534]/30 space-y-3">
+              <div className="flex items-center gap-2 px-4 py-2">
+                <span className="text-[9px] text-on-surface/40 uppercase tracking-widest">Season</span>
+                <input
+                  value={season}
+                  onChange={e => setSeason(e.target.value)}
+                  placeholder="2025-26"
+                  className="bg-transparent border-none text-[10px] font-bold text-primary-container focus:ring-0 p-0 w-20 uppercase"
+                />
               </div>
-            </div>
-            {/* Season Control in Mobile Sidebar */}
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
-              <div className="px-3">
-                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Season</div>
-                <SeasonControl isMobile={true} />
-              </div>
+              <Link
+                to="/admin"
+                onClick={() => setDrawerOpen(false)}
+                className="flex items-center gap-3 px-4 py-2 text-[10px] text-on-surface/40 hover:text-on-surface/70 uppercase tracking-widest transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
+                Admin
+              </Link>
             </div>
           </div>
         </div>
       )}
 
-      {/* Content */}
-      <main className="mx-auto max-w-screen-2xl p-2 sm:p-4 space-y-4 detached-content bg-transparent dark:bg-transparent">
+      {/* ── Main Content ── */}
+      <main className="lg:ml-64 pt-14 pb-20 lg:pb-0 min-h-screen bg-background">
         {children}
       </main>
+
+      {/* ── Mobile Bottom Nav ── */}
+      <nav className="fixed bottom-0 w-full flex justify-around items-center px-2 py-3 bg-[#131313]/90 backdrop-blur-md border-t border-[#353534]/30 lg:hidden z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+        {BOTTOM_NAV.map(item => {
+          const active = isActive(item.to)
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`flex flex-col items-center justify-center px-4 py-1.5 rounded-xl transition-all ${
+                active
+                  ? 'text-primary-container bg-primary-container/10 scale-110'
+                  : 'text-on-surface/60'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[22px]">{item.icon}</span>
+              <span className="text-[9px] font-bold uppercase tracking-widest mt-0.5">{item.label}</span>
+            </Link>
+          )
+        })}
+      </nav>
     </div>
   )
 }
-
-function SeasonControl({ isMobile = false }: { isMobile?: boolean }) {
-  const { season, setSeason } = useSeason()
-  if (isMobile) {
-    return (
-      <input 
-        value={season} 
-        onChange={(e) => setSeason(e.target.value)} 
-        placeholder="2025-26" 
-        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200" 
-      />
-    )
-  }
-  return (
-    <div className="flex items-center gap-2 ml-2 pl-2 border-l border-gray-200 dark:border-slate-700">
-      <span className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">Season</span>
-      <input 
-        value={season} 
-        onChange={(e) => setSeason(e.target.value)} 
-        placeholder="2025-26" 
-        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200" 
-      />
-    </div>
-  )
-}
-
-

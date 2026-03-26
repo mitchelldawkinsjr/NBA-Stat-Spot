@@ -7,20 +7,20 @@ export function OddsCard({ title, color = 'blue', odds, bestOver, bestUnder }: {
   }
   const colors = colorMap[color]
   return (
-    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden shadow-sm transition-colors duration-200">
-      <div className={`bg-gradient-to-r ${colors.from} ${colors.to} ${colors.fromDark} ${colors.toDark} p-4 border-b border-gray-200 dark:border-slate-700 transition-colors duration-200`}>
+    <div className="bg-surface-container border border-outline/20 rounded-lg overflow-hidden shadow-sm transition-colors duration-200">
+      <div className={`bg-gradient-to-r ${colors.from} ${colors.to} ${colors.fromDark} ${colors.toDark} p-4 border-b border-outline/20 transition-colors duration-200`}>
         <div className={`font-semibold ${colors.text} ${colors.textDark} transition-colors duration-200`}>{title}</div>
       </div>
       <div className="divide-y divide-gray-100 dark:divide-slate-700 transition-colors duration-200">
         {odds.map((o, i) => (
-          <div key={i} className="grid grid-cols-3 p-4 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors duration-200">
-            <div className="font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">{o.book}</div>
+          <div key={i} className="grid grid-cols-3 p-4 hover:bg-surface-container-high/50 transition-colors duration-200">
+            <div className="font-semibold text-on-surface transition-colors duration-200">{o.book}</div>
             <div className="text-center"><span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 font-bold px-3 py-1 rounded text-xs transition-colors duration-200">O {o.over}</span></div>
-            <div className="text-center"><span className="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-300 font-bold px-3 py-1 rounded text-xs transition-colors duration-200">U {o.under}</span></div>
+            <div className="text-center"><span className="bg-surface-container-high text-on-surface-variant font-bold px-3 py-1 rounded text-xs transition-colors duration-200">U {o.under}</span></div>
           </div>
         ))}
-        <div className={`grid grid-cols-3 p-4 bg-gray-50 dark:bg-slate-700/50 transition-colors duration-200`}>
-          <div className="font-extrabold text-gray-900 dark:text-slate-100 transition-colors duration-200">Best Odds</div>
+        <div className={`grid grid-cols-3 p-4 bg-surface-container-low transition-colors duration-200`}>
+          <div className="font-extrabold text-on-surface transition-colors duration-200">Best Odds</div>
           <div className="text-center"><span className={`${colors.btn} dark:bg-blue-500 text-white font-bold px-3 py-1 rounded text-xs transition-colors duration-200`}>O {bestOver} ⭐</span></div>
           <div className="text-center"><span className={`${colors.btn} dark:bg-blue-500 text-white font-bold px-3 py-1 rounded text-xs transition-colors duration-200`}>U {bestUnder} ⭐</span></div>
         </div>

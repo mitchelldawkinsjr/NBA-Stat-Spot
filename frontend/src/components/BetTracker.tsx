@@ -214,7 +214,7 @@ export function BetTracker() {
       <button
         onClick={handleOpenForm}
         type="button"
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 w-14 h-14 sm:w-16 sm:h-16 bg-blue-600 text-white rounded-full shadow-2xl hover:bg-blue-700 hover:shadow-3xl hover:scale-110 transition-all flex items-center justify-center group"
+        className="fixed bottom-24 lg:bottom-8 right-4 sm:right-6 z-40 w-14 h-14 sm:w-16 sm:h-16 bg-primary-container text-on-primary rounded-full shadow-2xl hover:brightness-110 hover:scale-110 transition-all flex items-center justify-center group"
         aria-label="Record new bet"
         title="Record new bet"
         style={{ zIndex: 9999 }}
@@ -225,54 +225,53 @@ export function BetTracker() {
       </button>
       
       {/* Action Bar - Always Visible at Top */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-lg shadow-md ring-1 ring-gray-200 dark:ring-slate-700 border-2 border-blue-100 dark:border-blue-900/30 transition-colors duration-200">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-surface-container p-4 rounded border border-outline-variant/20">
         <div>
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">My Bets</h2>
-          <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 transition-colors duration-200">Track your betting performance</p>
+          <h2 className="text-2xl font-black uppercase italic tracking-tighter text-on-surface">PERFORMANCE LEDGER</h2>
+          <p className="text-[10px] sm:text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Track your betting performance</p>
         </div>
         <button
           onClick={handleOpenForm}
           type="button"
-          className="px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm sm:text-base font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 w-full sm:w-auto sm:min-w-[140px] justify-center"
-          style={{ color: '#ffffff', backgroundColor: '#2563eb' }}
+          className="px-4 sm:px-6 py-2 sm:py-3 bg-primary-container text-on-primary rounded-lg hover:brightness-110 text-sm sm:text-base font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 w-full sm:w-auto sm:min-w-[140px] justify-center"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} style={{ color: '#ffffff' }}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          <span style={{ color: '#ffffff' }}>Record Bet</span>
+          <span>Record Bet</span>
         </button>
       </div>
       
       {/* Stats Summary */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
-          <div className="p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
-            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Overall Win Rate</div>
-            <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{stats.overall.win_rate.toFixed(1)}%</div>
-            <div className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">{stats.overall.won}W / {stats.overall.lost}L / {stats.overall.push}P</div>
+          <div className="p-3 sm:p-4 bg-surface-container rounded-lg shadow-sm ring-1 ring-outline-variant/20 transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs text-on-surface-variant mb-1 transition-colors duration-200">Overall Win Rate</div>
+            <div className="text-xl sm:text-2xl font-bold text-on-surface transition-colors duration-200">{stats.overall.win_rate.toFixed(1)}%</div>
+            <div className="text-[10px] sm:text-xs text-on-surface-variant transition-colors duration-200">{stats.overall.won}W / {stats.overall.lost}L / {stats.overall.push}P</div>
           </div>
-          <div className="p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
-            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">System Accuracy</div>
-            <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{stats.system_accuracy.win_rate.toFixed(1)}%</div>
-            <div className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">{stats.system_accuracy.won}W / {stats.system_accuracy.total} total</div>
+          <div className="p-3 sm:p-4 bg-surface-container rounded-lg shadow-sm ring-1 ring-outline-variant/20 transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs text-on-surface-variant mb-1 transition-colors duration-200">System Accuracy</div>
+            <div className="text-xl sm:text-2xl font-bold text-on-surface transition-colors duration-200">{stats.system_accuracy.win_rate.toFixed(1)}%</div>
+            <div className="text-[10px] sm:text-xs text-on-surface-variant transition-colors duration-200">{stats.system_accuracy.won}W / {stats.system_accuracy.total} total</div>
           </div>
-          <div className="p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
-            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Total Wagered</div>
-            <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">${financialStats.totalWagered.toFixed(2)}</div>
+          <div className="p-3 sm:p-4 bg-surface-container rounded-lg shadow-sm ring-1 ring-outline-variant/20 transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs text-on-surface-variant mb-1 transition-colors duration-200">Total Wagered</div>
+            <div className="text-xl sm:text-2xl font-bold text-on-surface transition-colors duration-200">${financialStats.totalWagered.toFixed(2)}</div>
             {financialStats.pendingWagered > 0 && (
-              <div className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">${financialStats.pendingWagered.toFixed(2)} pending</div>
+              <div className="text-[10px] sm:text-xs text-on-surface-variant transition-colors duration-200">${financialStats.pendingWagered.toFixed(2)} pending</div>
             )}
           </div>
-          <div className="p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 col-span-2 sm:col-span-1 transition-colors duration-200">
-            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Total Profit/Loss</div>
+          <div className="p-3 sm:p-4 bg-surface-container rounded-lg shadow-sm ring-1 ring-outline-variant/20 col-span-2 sm:col-span-1 transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs text-on-surface-variant mb-1 transition-colors duration-200">Total Profit/Loss</div>
             <div className={`text-xl sm:text-2xl font-bold ${financialStats.totalProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} transition-colors duration-200`}>
               {financialStats.totalProfit >= 0 ? '+' : ''}${financialStats.totalProfit.toFixed(2)}
             </div>
-            <div className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">ROI: {financialStats.roi.toFixed(1)}%</div>
+            <div className="text-[10px] sm:text-xs text-on-surface-variant transition-colors duration-200">ROI: {financialStats.roi.toFixed(1)}%</div>
           </div>
-          <div className="p-3 sm:p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
-            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1 transition-colors duration-200">Pending Bets</div>
-            <div className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{stats.pending}</div>
+          <div className="p-3 sm:p-4 bg-surface-container rounded-lg shadow-sm ring-1 ring-outline-variant/20 transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs text-on-surface-variant mb-1 transition-colors duration-200">Pending Bets</div>
+            <div className="text-xl sm:text-2xl font-bold text-on-surface transition-colors duration-200">{stats.pending}</div>
           </div>
         </div>
       )}
@@ -282,22 +281,22 @@ export function BetTracker() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {/* By Prop Type */}
           {Object.keys(stats.by_prop_type || {}).length > 0 && (
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 sm:p-4 transition-colors duration-200">
-              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 transition-colors duration-200">Win Rate by Prop Type</div>
+            <div className="bg-surface-container rounded-lg shadow-sm ring-1 ring-outline-variant/20 p-3 sm:p-4 transition-colors duration-200">
+              <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3 transition-colors duration-200">Win Rate by Prop Type</div>
               <div className="space-y-2">
                 {Object.entries(stats.by_prop_type).map(([type, data]) => {
                   const pct = data.win_rate
-                  const barColor = pct >= 60 ? 'bg-green-500' : pct >= 50 ? 'bg-amber-500' : 'bg-red-400'
+                  const barColor = pct >= 60 ? 'bg-betting-green' : pct >= 50 ? 'bg-amber-400' : 'bg-error'
                   return (
                     <div key={type}>
                       <div className="flex justify-between items-center mb-0.5">
-                        <span className="text-xs font-medium text-gray-700 dark:text-slate-300 w-10 transition-colors duration-200">{type}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">{data.won}W/{data.total}G</span>
+                        <span className="text-xs font-medium text-on-surface w-10 transition-colors duration-200">{type}</span>
+                        <span className="text-xs text-on-surface-variant transition-colors duration-200">{data.won}W/{data.total}G</span>
                         <span className={`text-xs font-bold w-12 text-right ${pct >= 60 ? 'text-green-600 dark:text-green-400' : pct >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'} transition-colors duration-200`}>
                           {pct.toFixed(0)}%
                         </span>
                       </div>
-                      <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 transition-colors duration-200">
+                      <div className="w-full bg-surface-container-high rounded-full h-1.5 transition-colors duration-200">
                         <div className={`${barColor} h-1.5 rounded-full transition-all duration-300`} style={{ width: `${Math.min(100, pct)}%` }} />
                       </div>
                     </div>
@@ -309,26 +308,26 @@ export function BetTracker() {
 
           {/* By Confidence */}
           {stats.by_confidence && (
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 sm:p-4 transition-colors duration-200">
-              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 transition-colors duration-200">System Accuracy by Confidence</div>
+            <div className="bg-surface-container rounded-lg shadow-sm ring-1 ring-outline-variant/20 p-3 sm:p-4 transition-colors duration-200">
+              <div className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3 transition-colors duration-200">System Accuracy by Confidence</div>
               <div className="space-y-2">
                 {(['high', 'medium', 'low'] as const).map(level => {
                   const data = stats.by_confidence[level]
                   if (!data || data.total === 0) return null
                   const pct = data.win_rate
-                  const labelColor = level === 'high' ? 'text-green-700 dark:text-green-400' : level === 'medium' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'
-                  const barColor = level === 'high' ? 'bg-green-500' : level === 'medium' ? 'bg-amber-500' : 'bg-gray-400'
+                  const labelColor = level === 'high' ? 'text-betting-green' : level === 'medium' ? 'text-amber-400' : 'text-on-surface-variant'
+                  const barColor = level === 'high' ? 'bg-betting-green' : level === 'medium' ? 'bg-amber-400' : 'bg-surface-container-highest'
                   const label = level === 'high' ? 'High (≥70%)' : level === 'medium' ? 'Medium (50–69%)' : 'Low (<50%)'
                   return (
                     <div key={level}>
                       <div className="flex justify-between items-center mb-0.5">
                         <span className={`text-xs font-medium transition-colors duration-200 ${labelColor}`}>{label}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">{data.won}W/{data.total}G</span>
+                        <span className="text-xs text-on-surface-variant transition-colors duration-200">{data.won}W/{data.total}G</span>
                         <span className={`text-xs font-bold w-12 text-right ${pct >= 60 ? 'text-green-600 dark:text-green-400' : pct >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'} transition-colors duration-200`}>
                           {pct.toFixed(0)}%
                         </span>
                       </div>
-                      <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 transition-colors duration-200">
+                      <div className="w-full bg-surface-container-high rounded-full h-1.5 transition-colors duration-200">
                         <div className={`${barColor} h-1.5 rounded-full transition-all duration-300`} style={{ width: `${Math.min(100, pct)}%` }} />
                       </div>
                     </div>
@@ -384,7 +383,7 @@ export function BetTracker() {
       {/* Pending Bets */}
       {pendingBets.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Pending ({pendingBets.length})</h3>
+          <h3 className="text-sm font-semibold text-on-surface mb-2">Pending ({pendingBets.length})</h3>
           <div className="space-y-2">
             {pendingBets.map(bet => (
               <BetCard key={bet.id} bet={bet} onSelect={() => setSelectedBet(bet)} />
@@ -396,7 +395,7 @@ export function BetTracker() {
       {/* Settled Bets */}
       {settledBets.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">Settled ({settledBets.length})</h3>
+          <h3 className="text-sm font-semibold text-on-surface mb-2 transition-colors duration-200">Settled ({settledBets.length})</h3>
           <div className="space-y-2">
             {settledBets.map(bet => (
               <BetCard key={bet.id} bet={bet} onSelect={() => setSelectedBet(bet)} />
@@ -407,50 +406,50 @@ export function BetTracker() {
       
       {/* Pending Parlays */}
       {parlaysLoading ? (
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
-          <div className="text-gray-500 dark:text-gray-400 transition-colors duration-200">Loading parlays...</div>
+        <div className="bg-surface-container p-4 rounded-lg shadow-sm ring-1 ring-outline-variant/20 transition-colors duration-200">
+          <div className="text-on-surface-variant transition-colors duration-200">Loading parlays...</div>
         </div>
       ) : parlays.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 transition-colors duration-200">Parlays ({parlays.length})</h3>
+          <h3 className="text-sm font-semibold text-on-surface mb-2 transition-colors duration-200">Parlays ({parlays.length})</h3>
           <div className="space-y-3">
             {parlays.map((parlay) => (
-              <div key={parlay.id} className="p-4 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm transition-colors duration-200">
+              <div key={parlay.id} className="p-4 bg-surface-container rounded-lg border border-outline-variant/30 shadow-sm transition-colors duration-200">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h4 className="font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{parlay.name || `Parlay #${parlay.id}`}</h4>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">
+                    <h4 className="font-semibold text-on-surface transition-colors duration-200">{parlay.name || `Parlay #${parlay.id}`}</h4>
+                    <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">
                       {new Date(parlay.game_date).toLocaleDateString()} • {parlay.leg_count} legs
                     </p>
                   </div>
                   <div className="text-right">
                     <div className={`text-xs font-semibold px-2 py-1 rounded-full transition-colors duration-200 ${
-                      parlay.result === 'won' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
-                      parlay.result === 'lost' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
-                      parlay.result === 'push' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
-                      'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300'
+                      parlay.result === 'won' ? 'bg-betting-green/20 text-betting-green' :
+                      parlay.result === 'lost' ? 'bg-error/20 text-error' :
+                      parlay.result === 'push' ? 'bg-amber-400/20 text-amber-400' :
+                      'bg-surface-container-high text-on-surface-variant'
                     }`}>
                       {parlay.result.toUpperCase()}
                     </div>
                     {parlay.total_amount && (
-                      <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 mt-1 transition-colors duration-200">${parlay.total_amount.toFixed(2)}</div>
+                      <div className="text-sm font-semibold text-on-surface mt-1 transition-colors duration-200">${parlay.total_amount.toFixed(2)}</div>
                     )}
                   </div>
                 </div>
                 <div className="space-y-2">
                   {parlay.legs && parlay.legs.map((leg, idx) => (
-                    <div key={leg.id || idx} className="p-2 bg-gray-50 dark:bg-slate-700 rounded border border-gray-100 dark:border-slate-600 transition-colors duration-200">
+                    <div key={leg.id || idx} className="p-2 bg-surface-container-high rounded border border-outline-variant/30 transition-colors duration-200">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900 dark:text-slate-100 transition-colors duration-200">{leg.player_name}</span>
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-600 transition-colors duration-200">{leg.prop_type}</span>
+                            <span className="font-medium text-on-surface transition-colors duration-200">{leg.player_name}</span>
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant border border-outline-variant/30 transition-colors duration-200">{leg.prop_type}</span>
                           </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">
+                          <div className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">
                             {leg.direction.toUpperCase()} {leg.line_value}
                           </div>
                           {leg.system_confidence !== undefined && leg.system_confidence !== null && (
-                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 transition-colors duration-200">
+                            <div className="text-xs text-on-surface-variant mt-1 transition-colors duration-200">
                               System: {leg.system_confidence.toFixed(1)}% confidence ({leg.system_suggestion?.toUpperCase() || 'N/A'})
                               {leg.system_fair_line && (
                                 <span className="ml-2">• Fair line: {leg.system_fair_line.toFixed(1)}</span>
@@ -463,15 +462,15 @@ export function BetTracker() {
                         </div>
                         <div className="text-right">
                           <div className={`text-xs font-semibold px-2 py-0.5 rounded transition-colors duration-200 ${
-                            leg.result === 'won' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
-                            leg.result === 'lost' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
-                            leg.result === 'push' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
-                            'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'
+                            leg.result === 'won' ? 'bg-betting-green/20 text-betting-green' :
+                            leg.result === 'lost' ? 'bg-error/20 text-error' :
+                            leg.result === 'push' ? 'bg-amber-400/20 text-amber-400' :
+                            'bg-surface-container text-on-surface-variant'
                           }`}>
                             {leg.result.toUpperCase()}
                           </div>
                           {leg.actual_value !== undefined && leg.actual_value !== null && (
-                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">Actual: {leg.actual_value.toFixed(1)}</div>
+                            <div className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Actual: {leg.actual_value.toFixed(1)}</div>
                           )}
                         </div>
                       </div>
@@ -479,7 +478,7 @@ export function BetTracker() {
                   ))}
                 </div>
                 {parlay.system_confidence && (
-                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
+                  <div className="mt-3 pt-3 border-t border-outline-variant/30 text-xs text-on-surface-variant transition-colors duration-200">
                     <span className="font-medium">Avg System Confidence:</span> {parlay.system_confidence.toFixed(1)}%
                   </div>
                 )}
@@ -498,29 +497,28 @@ export function BetTracker() {
       )}
       
       {isLoading && (
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
-          <div className="text-gray-500 dark:text-gray-400">Loading bets...</div>
+        <div className="bg-surface-container p-4 rounded-lg shadow-sm ring-1 ring-outline-variant/20 transition-colors duration-200">
+          <div className="text-on-surface-variant">Loading bets...</div>
         </div>
       )}
       {!isLoading && bets.length === 0 && !betsError && (
         <div className="text-center py-12">
           <div className="max-w-md mx-auto">
             <div className="mb-4">
-              <svg className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="mx-auto h-16 w-16 text-on-surface-variant/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2 transition-colors duration-200">No bets tracked yet</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 transition-colors duration-200">
+            <h3 className="text-lg font-semibold text-on-surface mb-2 transition-colors duration-200">No bets tracked yet</h3>
+            <p className="text-sm text-on-surface-variant mb-6 transition-colors duration-200">
               Start tracking your bets to see your performance and system accuracy over time.
             </p>
             <button
               onClick={handleOpenForm}
               type="button"
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm"
-              style={{ color: '#ffffff', backgroundColor: '#2563eb' }}
+              className="px-6 py-3 bg-primary-container text-on-primary rounded-lg hover:brightness-110 font-medium shadow-sm"
             >
-              <span style={{ color: '#ffffff' }}>Record Your First Bet</span>
+              Record Your First Bet
             </button>
           </div>
         </div>
@@ -531,12 +529,12 @@ export function BetTracker() {
 
 function BetCard({ bet, onSelect }: { bet: Bet; onSelect: () => void }) {
   const resultColor = {
-    won: 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-green-200 dark:ring-green-800',
-    lost: 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 ring-red-200 dark:ring-red-800',
-    push: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 ring-yellow-200 dark:ring-yellow-800',
-    pending: 'bg-gray-50 dark:bg-slate-700 text-gray-700 dark:text-gray-300 ring-gray-200 dark:ring-slate-600',
-    void: 'bg-gray-50 dark:bg-slate-700 text-gray-500 dark:text-gray-400 ring-gray-200 dark:ring-slate-600'
-  }[bet.result] || 'bg-gray-50 dark:bg-slate-700 text-gray-700 dark:text-gray-300 ring-gray-200 dark:ring-slate-600'
+    won: 'bg-betting-green/10 text-betting-green ring-betting-green/30',
+    lost: 'bg-error/10 text-error ring-error/30',
+    push: 'bg-amber-400/10 text-amber-400 ring-amber-400/30',
+    pending: 'bg-surface-container-high text-on-surface-variant ring-outline-variant/30',
+    void: 'bg-surface-container-high text-on-surface-variant ring-outline-variant/30'
+  }[bet.result] || 'bg-surface-container-high text-on-surface-variant ring-outline-variant/30'
   
   return (
     <div
@@ -546,19 +544,19 @@ function BetCard({ bet, onSelect }: { bet: Bet; onSelect: () => void }) {
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{bet.player_name}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-white/80 dark:bg-slate-700/80 text-gray-900 dark:text-slate-100 font-medium border border-gray-200 dark:border-slate-600 transition-colors duration-200">{bet.prop_type}</span>
+            <span className="font-semibold text-on-surface transition-colors duration-200">{bet.player_name}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface font-medium border border-outline-variant/30 transition-colors duration-200">{bet.prop_type}</span>
           </div>
-          <div className="text-sm text-gray-700 dark:text-gray-300 mt-1 transition-colors duration-200">
+          <div className="text-sm text-on-surface-variant mt-1 transition-colors duration-200">
             {bet.direction.toUpperCase()} {bet.line_value} • {new Date(bet.game_date).toLocaleDateString()}
           </div>
           {bet.system_confidence && (
-            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 transition-colors duration-200">
+            <div className="text-xs text-on-surface-variant mt-1 transition-colors duration-200">
               System: {bet.system_confidence.toFixed(0)}% confidence ({bet.system_suggestion?.toUpperCase()})
             </div>
           )}
           {bet.result === 'pending' && bet.actual_value !== null && bet.actual_value !== undefined && (
-            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 transition-colors duration-200">
+            <div className="text-xs text-on-surface-variant mt-1 transition-colors duration-200">
               Actual: {bet.actual_value.toFixed(1)}
             </div>
           )}
@@ -568,13 +566,13 @@ function BetCard({ bet, onSelect }: { bet: Bet; onSelect: () => void }) {
             {bet.result.toUpperCase()}
           </div>
           {bet.amount && (
-            <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 mt-1 transition-colors duration-200">${bet.amount.toFixed(2)}</div>
+            <div className="text-sm font-semibold text-on-surface mt-1 transition-colors duration-200">${bet.amount.toFixed(2)}</div>
           )}
           {bet.odds && (
-            <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 transition-colors duration-200">{bet.odds}</div>
+            <div className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">{bet.odds}</div>
           )}
           {bet.amount && bet.odds && bet.result === 'won' && bet.payout && (
-            <div className="text-xs text-green-700 dark:text-green-300 font-medium mt-0.5 transition-colors duration-200">+${(bet.payout - bet.amount).toFixed(2)}</div>
+            <div className="text-xs text-betting-green font-medium mt-0.5 transition-colors duration-200">+${(bet.payout - bet.amount).toFixed(2)}</div>
           )}
         </div>
       </div>
@@ -906,14 +904,14 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
   
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative transition-colors duration-200" onClick={(e) => e.stopPropagation()}>
-        <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between sticky top-0 bg-white dark:bg-slate-800 z-10 transition-colors duration-200">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">
+      <div className="bg-surface-container rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative transition-colors duration-200" onClick={(e) => e.stopPropagation()}>
+        <div className="p-4 border-b border-outline-variant/30 flex items-center justify-between sticky top-0 bg-surface-container z-10 transition-colors duration-200">
+          <h3 className="text-lg font-semibold text-on-surface transition-colors duration-200">
             {betType === 'parlay' ? 'Record New Parlay' : 'Record New Bet'}
           </h3>
           <button 
             onClick={onClose} 
-            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full p-1 transition-colors"
+            className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-full p-1 transition-colors"
             type="button"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -923,15 +921,15 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
         </div>
 
         {/* Bet Type Toggle */}
-        <div className="p-4 border-b border-gray-200 dark:border-slate-700 transition-colors duration-200">
+        <div className="p-4 border-b border-outline-variant/30 transition-colors duration-200">
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => onBetTypeChange('single')}
               className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 betType === 'single'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
+                  ? 'bg-primary-container text-on-primary'
+                  : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest'
               }`}
             >
               Single Bet
@@ -941,8 +939,8 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
               onClick={() => onBetTypeChange('parlay')}
               className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 betType === 'parlay'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'
+                  ? 'bg-primary-container text-on-primary'
+                  : 'bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest'
               }`}
             >
               Parlay
@@ -955,7 +953,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
             <>
               {/* Player Name with Autocomplete */}
               <div className="relative">
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Player Name *</label>
+                <label className="block text-xs font-medium text-on-surface-variant mb-1 transition-colors duration-200">Player Name *</label>
                 <input
                   type="text"
                   value={playerSearchQuery || formData.player_name}
@@ -967,20 +965,20 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
                     if (playerSearchQuery.length >= 2) setShowSuggestions(true)
                   }}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 transition-colors duration-200"
+                  className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-secondary-container/25 transition-colors duration-200"
                   placeholder="Search for player..."
                 />
                 {showSuggestions && playerSuggestions.length > 0 && (
-                  <div className="absolute z-[150] w-full mt-1 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto transition-colors duration-200">
+                  <div className="absolute z-[150] w-full mt-1 bg-surface-container border border-outline/30 rounded-lg shadow-lg max-h-60 overflow-y-auto transition-colors duration-200">
                     {isSearching && (
-                      <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Searching...</div>
+                      <div className="px-3 py-2 text-sm text-on-surface-variant">Searching...</div>
                     )}
                     {playerSuggestions.map((player) => (
                       <button
                         key={player.id}
                         type="button"
                         onClick={() => handlePlayerSelect(player)}
-                        className="w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-slate-700 text-sm text-gray-900 dark:text-slate-100 transition-colors"
+                        className="w-full text-left px-3 py-2 hover:bg-surface-container-high text-sm text-on-surface transition-colors"
                       >
                         {player.name}
                       </button>
@@ -991,104 +989,104 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
 
               {/* Player ID (auto-filled) */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Player ID *</label>
+                <label className="block text-xs font-medium text-on-surface-variant mb-1 transition-colors duration-200">Player ID *</label>
                 <input
                   type="number"
                   value={formData.player_id}
                   onChange={(e) => setFormData({ ...formData, player_id: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-slate-100 transition-colors duration-200"
+                  className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm bg-surface-container-high text-on-surface transition-colors duration-200"
                   readOnly={!!formData.player_id}
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Prop Type</label>
+              <label className="block text-xs font-medium text-on-surface-variant mb-1 transition-colors duration-200">Prop Type</label>
               <select
                 value={formData.prop_type}
                 onChange={(e) => setFormData({ ...formData, prop_type: e.target.value })}
-                className="w-full px-3 pr-10 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 transition-colors duration-200"
+                className="w-full px-3 pr-10 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high transition-colors duration-200"
               >
-                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">PTS</option>
-                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">REB</option>
-                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">AST</option>
-                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">3PM</option>
-                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">PRA</option>
+                <option className="text-on-surface bg-surface-container-high">PTS</option>
+                <option className="text-on-surface bg-surface-container-high">REB</option>
+                <option className="text-on-surface bg-surface-container-high">AST</option>
+                <option className="text-on-surface bg-surface-container-high">3PM</option>
+                <option className="text-on-surface bg-surface-container-high">PRA</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">Direction</label>
+              <label className="block text-xs font-medium text-on-surface-variant mb-1 transition-colors duration-200">Direction</label>
               <select
                 value={formData.direction}
                 onChange={(e) => setFormData({ ...formData, direction: e.target.value })}
-                className="w-full px-3 pr-10 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700 transition-colors duration-200"
+                className="w-full px-3 pr-10 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high transition-colors duration-200"
               >
-                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">over</option>
-                <option className="text-gray-900 dark:text-slate-100 bg-white dark:bg-slate-700">under</option>
+                <option className="text-on-surface bg-surface-container-high">over</option>
+                <option className="text-on-surface bg-surface-container-high">under</option>
               </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Line Value</label>
+              <label className="block text-xs font-medium text-on-surface-variant mb-1">Line Value</label>
               <input
                 type="number"
                 step="0.5"
                 value={formData.line_value}
                 onChange={(e) => setFormData({ ...formData, line_value: e.target.value })}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Game Date</label>
+              <label className="block text-xs font-medium text-on-surface-variant mb-1">Game Date</label>
               <input
                 type="date"
                 value={formData.game_date}
                 onChange={(e) => setFormData({ ...formData, game_date: e.target.value })}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
               />
             </div>
           </div>
           
           {/* Betting Amount & Odds Section - More Prominent */}
-          <div className="border-t border-gray-200 pt-4 mt-4">
-            <div className="text-xs font-semibold text-gray-700 mb-2">Betting Details</div>
+          <div className="border-t border-outline-variant/30 pt-4 mt-4">
+            <div className="text-xs font-semibold text-on-surface-variant mb-2">Betting Details</div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Wager Amount ($) *</label>
+                <label className="block text-xs font-medium text-on-surface-variant mb-1">Wager Amount ($) *</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0.01"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high focus:ring-2 focus:ring-secondary-container/25 focus:outline-none"
                   placeholder="100.00"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Odds *</label>
+                <label className="block text-xs font-medium text-on-surface-variant mb-1">Odds *</label>
                 <input
                   type="text"
                   placeholder="-110 or +150"
                   value={formData.odds}
                   onChange={(e) => setFormData({ ...formData, odds: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high focus:ring-2 focus:ring-secondary-container/25 focus:outline-none"
                 />
-                <div className="text-xs text-gray-500 mt-1">American format</div>
+                <div className="text-xs text-on-surface-variant mt-1">American format</div>
               </div>
             </div>
             {potentialPayout && potentialProfit !== null && (
-              <div className="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="mt-3 p-2 bg-surface-container-high rounded-lg border border-outline/30">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-700">Potential Payout:</span>
-                  <span className="font-semibold text-blue-900">${potentialPayout.toFixed(2)}</span>
+                  <span className="text-on-surface-variant">Potential Payout:</span>
+                  <span className="font-semibold text-on-surface">${potentialPayout.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs mt-1">
-                  <span className="text-gray-600">Potential Profit:</span>
+                  <span className="text-on-surface-variant">Potential Profit:</span>
                   <span className={`font-medium ${potentialProfit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                     {potentialProfit >= 0 ? '+' : ''}${potentialProfit.toFixed(2)}
                   </span>
@@ -1099,49 +1097,49 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
           
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">System Confidence (%)</label>
+              <label className="block text-xs font-medium text-on-surface-variant mb-1">System Confidence (%)</label>
               <input
                 type="number"
                 step="0.1"
                 value={formData.system_confidence}
                 onChange={(e) => setFormData({ ...formData, system_confidence: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">System Suggestion</label>
+              <label className="block text-xs font-medium text-on-surface-variant mb-1">System Suggestion</label>
               <select
                 value={formData.system_suggestion}
                 onChange={(e) => setFormData({ ...formData, system_suggestion: e.target.value })}
-                className="w-full px-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                className="w-full px-3 pr-10 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
               >
-                <option value="" className="text-gray-900">N/A</option>
-                <option className="text-gray-900">over</option>
-                <option className="text-gray-900">under</option>
+                <option value="" className="text-on-surface">N/A</option>
+                <option className="text-on-surface">over</option>
+                <option className="text-on-surface">under</option>
               </select>
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+            <label className="block text-xs font-medium text-on-surface-variant mb-1">Notes</label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
             />
           </div>
-          <div className="flex gap-3 pt-4 border-t border-gray-200">
+          <div className="flex gap-3 pt-4 border-t border-outline-variant/30">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex-1 px-4 py-2 border border-outline/30 rounded-lg text-sm font-medium text-on-surface-variant hover:bg-surface-container-high transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="flex-1 px-4 py-2 bg-primary-container text-on-primary rounded-lg text-sm font-medium hover:brightness-110 disabled:opacity-50 transition-colors"
             >
               {isSubmitting ? 'Saving...' : 'Save Bet'}
             </button>
@@ -1151,47 +1149,47 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
             <>
               {/* Parlay Form */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Parlay Name (Optional)</label>
+                <label className="block text-xs font-medium text-on-surface-variant mb-1">Parlay Name (Optional)</label>
                 <input
                   type="text"
                   value={parlayData.name}
                   onChange={(e) => setParlayData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
                   placeholder="e.g., Saturday Night Parlay"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Game Date *</label>
+                <label className="block text-xs font-medium text-on-surface-variant mb-1">Game Date *</label>
                 <input
                   type="date"
                   value={parlayData.game_date}
                   onChange={(e) => setParlayData(prev => ({ ...prev, game_date: e.target.value }))}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
                 />
               </div>
 
               {/* Parlay Legs */}
-              <div className="border-t border-gray-200 pt-4">
+              <div className="border-t border-outline-variant/30 pt-4">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <div className="text-sm font-semibold text-gray-900">Parlay Legs</div>
-                    <div className="text-xs text-gray-500">Minimum 2 legs required</div>
+                    <div className="text-sm font-semibold text-on-surface">Parlay Legs</div>
+                    <div className="text-xs text-on-surface-variant">Minimum 2 legs required</div>
                   </div>
                   <button
                     type="button"
                     onClick={addParlayLeg}
-                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+                    className="px-4 py-2 text-sm bg-primary-container text-on-primary rounded-lg hover:brightness-110 transition-colors font-medium shadow-sm"
                   >
                     + Add Leg
                   </button>
                 </div>
 
                 {parlayData.legs.map((leg, index) => (
-                  <div key={index} className="mb-4 p-4 border border-gray-200 rounded-lg space-y-3 bg-gray-50/50">
-                    <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
-                      <span className="text-sm font-semibold text-gray-900">Leg {index + 1}</span>
+                  <div key={index} className="mb-4 p-4 border border-outline-variant/30 rounded-lg space-y-3 bg-surface-container-high">
+                    <div className="flex items-center justify-between mb-2 pb-2 border-b border-outline-variant/30">
+                      <span className="text-sm font-semibold text-on-surface">Leg {index + 1}</span>
                       <button
                         type="button"
                         onClick={() => removeParlayLeg(index)}
@@ -1202,7 +1200,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
                     </div>
 
                     <div className="relative">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Player Name *</label>
+                      <label className="block text-xs font-medium text-on-surface-variant mb-1">Player Name *</label>
                       <input
                         type="text"
                         value={parlayLegSearchQuery[index] !== undefined ? parlayLegSearchQuery[index] : leg.player_name}
@@ -1243,11 +1241,11 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
                           }, 200)
                         }}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                        className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container"
                         placeholder="Search player..."
                       />
                       {parlayLegShowSuggestions[index] && parlayLegSuggestions[index] && parlayLegSuggestions[index].length > 0 && (
-                        <div className="absolute z-[150] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        <div className="absolute z-[150] w-full mt-1 bg-surface-container border border-outline-variant/30 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                           {parlayLegSuggestions[index].map((player) => (
                             <button
                               key={player.id}
@@ -1259,7 +1257,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
                                 setParlayLegSearchQuery(prev => ({ ...prev, [index]: player.name }))
                                 setParlayLegShowSuggestions(prev => ({ ...prev, [index]: false }))
                               }}
-                              className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm text-gray-900 transition-colors"
+                              className="w-full text-left px-3 py-2 hover:bg-surface-container-high text-sm text-on-surface transition-colors"
                             >
                               {player.name}
                             </button>
@@ -1269,68 +1267,68 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Player ID *</label>
+                      <label className="block text-xs font-medium text-on-surface-variant mb-1">Player ID *</label>
                       <input
                         type="number"
                         value={leg.player_id}
                         onChange={(e) => updateParlayLeg(index, 'player_id', e.target.value)}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-900"
+                        className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm bg-surface-container text-on-surface-variant"
                         readOnly={!!leg.player_id}
                       />
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Prop Type</label>
+                        <label className="block text-xs font-medium text-on-surface-variant mb-1">Prop Type</label>
                         <select
                           value={leg.prop_type}
                           onChange={(e) => updateParlayLeg(index, 'prop_type', e.target.value)}
-                          className="w-full px-2 pr-8 py-1 border border-gray-300 rounded text-xs text-gray-900 bg-white"
+                          className="w-full px-2 pr-8 py-1 border border-outline/30 rounded text-xs text-on-surface bg-surface-container"
                         >
-                          <option className="text-gray-900">PTS</option>
-                          <option className="text-gray-900">REB</option>
-                          <option className="text-gray-900">AST</option>
-                          <option className="text-gray-900">3PM</option>
-                          <option className="text-gray-900">PRA</option>
+                          <option className="text-on-surface">PTS</option>
+                          <option className="text-on-surface">REB</option>
+                          <option className="text-on-surface">AST</option>
+                          <option className="text-on-surface">3PM</option>
+                          <option className="text-on-surface">PRA</option>
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Line Value</label>
+                        <label className="block text-xs font-medium text-on-surface-variant mb-1">Line Value</label>
                         <input
                           type="number"
                           step="0.5"
                           value={leg.line_value}
                           onChange={(e) => updateParlayLeg(index, 'line_value', e.target.value)}
                           required
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-gray-900 bg-white"
+                          className="w-full px-2 py-1 border border-outline/30 rounded text-xs text-on-surface bg-surface-container"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Direction</label>
+                        <label className="block text-xs font-medium text-on-surface-variant mb-1">Direction</label>
                         <select
                           value={leg.direction}
                           onChange={(e) => updateParlayLeg(index, 'direction', e.target.value)}
-                          className="w-full px-2 pr-8 py-1 border border-gray-300 rounded text-xs text-gray-900 bg-white"
+                          className="w-full px-2 pr-8 py-1 border border-outline/30 rounded text-xs text-on-surface bg-surface-container"
                         >
-                          <option className="text-gray-900">over</option>
-                          <option className="text-gray-900">under</option>
+                          <option className="text-on-surface">over</option>
+                          <option className="text-on-surface">under</option>
                         </select>
                       </div>
                     </div>
 
                     {/* Elevate Button - Prominent placement after form fields */}
-                    <div className="pt-2 border-t border-gray-200">
+                    <div className="pt-2 border-t border-outline-variant/30">
                       <button
                         type="button"
                         onClick={() => evaluateParlayLeg(index)}
                         disabled={!leg.player_id || !leg.prop_type || !leg.line_value || evaluatingLegIndex === index}
                         className={`w-full px-4 py-3 text-sm font-semibold rounded-lg transition-all shadow-md ${
                           evaluatingLegIndex === index
-                            ? 'bg-blue-400 text-white cursor-wait'
+                            ? 'bg-primary-container/60 text-on-primary cursor-wait'
                             : !leg.player_id || !leg.prop_type || !leg.line_value
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg active:scale-95'
+                            ? 'bg-surface-container text-on-surface-variant/50 cursor-not-allowed'
+                            : 'bg-primary-container text-on-primary hover:brightness-110 hover:shadow-lg active:scale-95'
                         }`}
                       >
                         {evaluatingLegIndex === index ? (
@@ -1351,15 +1349,15 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
                         )}
                       </button>
                       {(!leg.player_id || !leg.prop_type || !leg.line_value) && (
-                        <p className="text-xs text-gray-500 mt-2 text-center">
+                        <p className="text-xs text-on-surface-variant mt-2 text-center">
                           Fill in Player ID, Prop Type, and Line Value to evaluate
                         </p>
                       )}
                     </div>
 
                     {leg.system_confidence !== undefined && (
-                      <div className="text-xs text-gray-600 mt-2 p-3 bg-blue-50 rounded-lg border-2 border-blue-200 shadow-sm">
-                        <div className="font-semibold text-blue-900 mb-1">System Analysis</div>
+                      <div className="text-xs text-on-surface-variant mt-2 p-3 bg-surface-container rounded-lg border border-outline-variant/30 shadow-sm">
+                        <div className="font-semibold text-on-surface mb-1">System Analysis</div>
                         <div className="space-y-1">
                           <div><span className="font-medium">Confidence:</span> {leg.system_confidence.toFixed(1)}% ({leg.system_suggestion?.toUpperCase()})</div>
                         {leg.system_fair_line && (
@@ -1375,7 +1373,7 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
                 ))}
 
                 {parlayData.legs.length === 0 && (
-                  <div className="text-center py-6 text-sm text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                  <div className="text-center py-6 text-sm text-on-surface-variant border-2 border-dashed border-outline-variant/30 rounded-lg">
                     <p className="mb-2">No legs added yet</p>
                     <p className="text-xs">Click "Add Leg" above to add your first parlay leg</p>
                   </div>
@@ -1383,49 +1381,49 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
               </div>
 
               {/* Parlay Betting Details */}
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <div className="text-sm font-semibold text-gray-900 mb-3">Parlay Betting Details</div>
+              <div className="border-t border-outline-variant/30 pt-4 mt-4">
+                <div className="text-sm font-semibold text-on-surface mb-3">Parlay Betting Details</div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Total Wager ($)</label>
+                    <label className="block text-xs font-medium text-on-surface-variant mb-1">Total Wager ($)</label>
                     <input
                       type="number"
                       step="0.01"
                       min="0.01"
                       value={parlayData.total_amount}
                       onChange={(e) => setParlayData(prev => ({ ...prev, total_amount: e.target.value }))}
-                      className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm text-gray-900 bg-white"
+                      className="w-full px-3 py-2 border-2 border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
                       placeholder="100.00"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Total Odds</label>
+                    <label className="block text-xs font-medium text-on-surface-variant mb-1">Total Odds</label>
                     <input
                       type="text"
                       placeholder="+450"
                       value={parlayData.total_odds}
                       onChange={(e) => setParlayData(prev => ({ ...prev, total_odds: e.target.value }))}
-                      className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm text-gray-900 bg-white"
+                      className="w-full px-3 py-2 border-2 border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
                     />
                   </div>
                 </div>
 
                 {parlayPotentialPayout && parlayPotentialProfit !== null && (
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="mt-4 p-3 bg-surface-container rounded-lg border border-outline-variant/30">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700">Potential Payout:</span>
-                      <span className="font-semibold text-blue-900">${parlayPotentialPayout.toFixed(2)}</span>
+                      <span className="text-on-surface-variant">Potential Payout:</span>
+                      <span className="font-semibold text-on-surface">${parlayPotentialPayout.toFixed(2)}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs mt-1">
-                      <span className="text-gray-600">Potential Profit:</span>
-                      <span className={`font-medium ${parlayPotentialProfit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      <span className="text-on-surface-variant">Potential Profit:</span>
+                      <span className={`font-medium ${parlayPotentialProfit >= 0 ? 'text-betting-green' : 'text-error'}`}>
                         {parlayPotentialProfit >= 0 ? '+' : ''}${parlayPotentialProfit.toFixed(2)}
                       </span>
                     </div>
                     {parlaySystemConfidence > 0 && (
                       <div className="flex items-center justify-between text-xs mt-1">
-                        <span className="text-gray-600">Avg System Confidence:</span>
-                        <span className="font-medium text-gray-900">{parlaySystemConfidence.toFixed(1)}%</span>
+                        <span className="text-on-surface-variant">Avg System Confidence:</span>
+                        <span className="font-medium text-on-surface">{parlaySystemConfidence.toFixed(1)}%</span>
                       </div>
                     )}
                   </div>
@@ -1433,27 +1431,27 @@ function BetForm({ betType, onBetTypeChange, onClose, onSubmit, isSubmitting, se
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+                <label className="block text-xs font-medium text-on-surface-variant mb-1">Notes</label>
                 <textarea
                   value={parlayData.notes}
                   onChange={(e) => setParlayData(prev => ({ ...prev, notes: e.target.value }))}
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+                  className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
                 />
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
+              <div className="flex gap-3 pt-4 border-t border-outline-variant/30">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="flex-1 px-4 py-2 border border-outline/30 rounded-lg text-sm font-medium text-on-surface-variant hover:bg-surface-container-high"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || parlayData.legs.length < 2}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-primary-container text-on-primary rounded-lg text-sm font-medium hover:brightness-110 disabled:opacity-50"
                 >
                   {isSubmitting ? 'Saving...' : 'Save Parlay'}
                 </button>
@@ -1496,70 +1494,70 @@ function UpdateBetForm({ bet, onClose, onSubmit, isSubmitting }: {
   
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Update Bet</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+      <div className="bg-surface-container rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="p-4 border-b border-outline-variant/30 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-on-surface">Update Bet</h3>
+          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface">✕</button>
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-3">
           <div>
-            <div className="text-sm font-medium text-gray-900 mb-2">{bet.player_name} - {bet.prop_type} {bet.direction.toUpperCase()} {bet.line_value}</div>
+            <div className="text-sm font-medium text-on-surface mb-2">{bet.player_name} - {bet.prop_type} {bet.direction.toUpperCase()} {bet.line_value}</div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Result</label>
+            <label className="block text-xs font-medium text-on-surface-variant mb-1">Result</label>
             <select
               value={formData.result}
               onChange={(e) => setFormData({ ...formData, result: e.target.value as BetResult })}
-              className="w-full px-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+              className="w-full px-3 pr-10 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
             >
-              <option value="pending" className="text-gray-900">Pending</option>
-              <option value="won" className="text-gray-900">Won</option>
-              <option value="lost" className="text-gray-900">Lost</option>
-              <option value="push" className="text-gray-900">Push</option>
-              <option value="void" className="text-gray-900">Void</option>
+              <option value="pending" className="text-on-surface">Pending</option>
+              <option value="won" className="text-on-surface">Won</option>
+              <option value="lost" className="text-on-surface">Lost</option>
+              <option value="push" className="text-on-surface">Push</option>
+              <option value="void" className="text-on-surface">Void</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Actual Value</label>
+            <label className="block text-xs font-medium text-on-surface-variant mb-1">Actual Value</label>
             <input
               type="number"
               step="0.1"
               value={formData.actual_value}
               onChange={(e) => setFormData({ ...formData, actual_value: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+              className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Payout ($)</label>
+            <label className="block text-xs font-medium text-on-surface-variant mb-1">Payout ($)</label>
             <input
               type="number"
               step="0.01"
               value={formData.payout}
               onChange={(e) => setFormData({ ...formData, payout: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+              className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+            <label className="block text-xs font-medium text-on-surface-variant mb-1">Notes</label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white"
+              className="w-full px-3 py-2 border border-outline/30 rounded-lg text-sm text-on-surface bg-surface-container-high"
             />
           </div>
           <div className="flex gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="flex-1 px-4 py-2 border border-outline/30 rounded-lg text-sm font-medium text-on-surface-variant hover:bg-surface-container-high"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-primary-container text-on-primary rounded-lg text-sm font-medium hover:brightness-110 disabled:opacity-50"
             >
               {isSubmitting ? 'Updating...' : 'Update Bet'}
             </button>

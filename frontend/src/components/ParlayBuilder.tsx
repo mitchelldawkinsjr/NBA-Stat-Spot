@@ -118,7 +118,7 @@ function ConfidenceRing({ confidence, legCount, isCalculating }: { confidence: n
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-3xl font-extrabold" style={{ color }}>{displayConfidence}%</span>
-          <span className="mt-0.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400 transition-colors duration-200">{legCount} leg{legCount===1?'':'s'}</span>
+          <span className="mt-0.5 text-[10px] font-semibold text-on-surface-variant transition-colors duration-200">{legCount} leg{legCount===1?'':'s'}</span>
         </div>
       </div>
       <div className="text-xs font-semibold px-2 py-0.5 rounded-full transition-colors duration-200" style={{ backgroundColor: `${color}20`, color }}>{isCalculating ? 'Calculating…' : getConfidenceLabel(confidence)}</div>
@@ -300,42 +300,45 @@ export function ParlayBuilder() {
   }, [combinedConfidence, toWin, riskAmount])
 
   return (
-    <div className="p-2 sm:p-4 md:p-0">
-      <h2 className="text-base sm:text-lg md:text-xl font-semibold text-slate-800 dark:text-slate-100 mb-2 transition-colors duration-200">Parlay Builder</h2>
+    <div className="bg-background min-h-screen p-4 md:p-6">
+      <header className="flex flex-col mb-6 space-y-1">
+        <h1 className="text-4xl font-black italic tracking-tighter text-on-surface uppercase">PARLAY BUILDER</h1>
+        <p className="text-on-surface-variant text-sm tracking-wide border-l-2 border-primary-container pl-4">Asymmetric intelligence engine for multi-leg execution.</p>
+      </header>
       
       {/* Add Leg Section - Top */}
-      <div className="card p-3 sm:p-4 mb-2 dark:bg-slate-800 dark:border-slate-700 transition-colors duration-200">
-        <div className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-slate-100 mb-2 transition-colors duration-200">Add Leg to Parlay</div>
+      <div className="bg-surface-container p-4 mb-3 rounded border border-outline/20 transition-colors duration-200">
+        <div className="text-xs sm:text-sm font-semibold text-on-surface mb-2 transition-colors duration-200">Add Leg to Parlay</div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
           <div>
-            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5 transition-colors duration-200">Player</div>
+            <div className="text-xs font-medium text-on-surface-variant mb-0.5 transition-colors duration-200">Player</div>
             <PlayerSearch key={`top-search-${availPlayer?.id || 'empty'}`} onSelect={setAvailPlayer} />
             {availPlayer?.id ? (
               <div className="mt-0.5 text-xs">
-                <a href={`/player/${availPlayer.id}`} className="text-blue-600 dark:text-blue-400 hover:underline transition-colors duration-200">View {availPlayer.name} →</a>
+                <a href={`/player/${availPlayer.id}`} className="text-primary-container hover:underline transition-colors duration-200">View {availPlayer.name} →</a>
               </div>
             ) : null}
           </div>
           <div>
-            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5 transition-colors duration-200">Prop Type</div>
-            <select value={availType} onChange={(e) => setAvailType(e.target.value as typeof TYPES[number])} className="w-full px-2 pr-8 py-1.5 text-sm rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 transition-colors duration-200">
-              {TYPES.map((t) => <option key={t} value={t} className="bg-white dark:bg-slate-700">{t}</option>)}
+            <div className="text-xs font-medium text-on-surface-variant mb-0.5 transition-colors duration-200">Prop Type</div>
+            <select value={availType} onChange={(e) => setAvailType(e.target.value as typeof TYPES[number])} className="w-full px-2 pr-8 py-1.5 text-sm rounded-md border border-outline/30 bg-surface-container-high text-on-surface transition-colors duration-200">
+              {TYPES.map((t) => <option key={t} value={t} className="bg-surface-container-high">{t}</option>)}
             </select>
           </div>
           <div>
-            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5 transition-colors duration-200">Line</div>
-            <input value={availLine} onChange={(e) => setAvailLine(e.target.value)} placeholder={`24.5`} inputMode="decimal" className="w-full px-2 py-1.5 text-sm rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200" />
+            <div className="text-xs font-medium text-on-surface-variant mb-0.5 transition-colors duration-200">Line</div>
+            <input value={availLine} onChange={(e) => setAvailLine(e.target.value)} placeholder={`24.5`} inputMode="decimal" className="w-full px-2 py-1.5 text-sm rounded-md border border-outline/30 bg-surface-container-high text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container/30 transition-colors duration-200" />
           </div>
           <div>
-            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5 transition-colors duration-200">Direction</div>
+            <div className="text-xs font-medium text-on-surface-variant mb-0.5 transition-colors duration-200">Direction</div>
             <div className="flex items-center gap-1">
-              <button onClick={() => setAvailDir('over')} className={`flex-1 px-2 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 text-xs font-medium transition-colors duration-200 ${availDir==='over' ? 'bg-blue-700 dark:bg-blue-600 text-white' : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-600'}`}>Over</button>
-              <button onClick={() => setAvailDir('under')} className={`flex-1 px-2 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 text-xs font-medium transition-colors duration-200 ${availDir==='under' ? 'bg-blue-700 dark:bg-blue-600 text-white' : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-600'}`}>Under</button>
+              <button onClick={() => setAvailDir('over')} className={`flex-1 px-2 py-1.5 rounded border border-outline/30 text-xs font-black uppercase tracking-wide transition-colors duration-200 ${availDir==='over' ? 'bg-primary-container text-on-primary' : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'}`}>Over</button>
+              <button onClick={() => setAvailDir('under')} className={`flex-1 px-2 py-1.5 rounded border border-outline/30 text-xs font-black uppercase tracking-wide transition-colors duration-200 ${availDir==='under' ? 'bg-primary-container text-on-primary' : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'}`}>Under</button>
             </div>
           </div>
           <div>
-            <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5 transition-colors duration-200">Odds</div>
-            <input value={availOdds} onChange={(e) => setAvailOdds(e.target.value)} placeholder="-110" className="w-full px-2 py-1.5 text-sm rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200" />
+            <div className="text-xs font-medium text-on-surface-variant mb-0.5 transition-colors duration-200">Odds</div>
+            <input value={availOdds} onChange={(e) => setAvailOdds(e.target.value)} placeholder="-110" className="w-full px-2 py-1.5 text-sm rounded-md border border-outline/30 bg-surface-container-high text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container/30 transition-colors duration-200" />
           </div>
           <div className="flex items-end">
             <button
@@ -350,50 +353,50 @@ export function ParlayBuilder() {
                 setAvailDir('over')
               }}
               disabled={!availPlayer?.id || !availLine || legs.length >= 3}
-              className="w-full px-3 py-1.5 text-sm rounded-md bg-blue-700 dark:bg-blue-600 text-white font-semibold hover:bg-blue-800 dark:hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200"
+              className="w-full px-3 py-1.5 text-sm rounded bg-primary-container text-on-primary font-black uppercase tracking-wide hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200"
             >
               Add Leg
             </button>
           </div>
         </div>
-        <div className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">Max 3 legs. Add 2+ legs and click "Review Parlay".</div>
+        <div className="mt-1.5 text-xs text-on-surface-variant transition-colors duration-200">Max 3 legs. Add 2+ legs and click "Review Parlay".</div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-4">
         {/* Main Builder Section - spans 2 columns */}
-        <div className="lg:col-span-2 card p-3 sm:p-4 dark:bg-slate-800 dark:border-slate-700 transition-colors duration-200">
+        <div className="lg:col-span-2 bg-surface-container p-4 rounded border border-outline/20 transition-colors duration-200">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
-            <div className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Your Parlay ({legs.length} leg{legs.length !== 1 ? 's' : ''})</div>
+            <div className="text-xs sm:text-sm font-semibold text-on-surface transition-colors duration-200">Your Parlay ({legs.length} leg{legs.length !== 1 ? 's' : ''})</div>
             <div className="flex gap-1.5">
-              <button onClick={clearAll} disabled={legs.length === 0} className="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200">Clear</button>
-              <button onClick={() => compute.mutate()} disabled={!canCompute || compute.isPending} className="px-3 py-1 text-xs rounded-md bg-blue-700 dark:bg-blue-600 text-white font-medium hover:bg-blue-800 dark:hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200">{compute.isPending ? 'Reviewing…' : 'Review'}</button>
+              <button onClick={clearAll} disabled={legs.length === 0} className="px-2 py-1 text-xs rounded border border-outline/30 bg-surface-container-high text-on-surface hover:bg-surface-container-highest disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200">Clear</button>
+              <button onClick={() => compute.mutate()} disabled={!canCompute || compute.isPending} className="px-3 py-1 text-xs rounded bg-primary-container text-on-primary font-black uppercase tracking-wide hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200">{compute.isPending ? 'Reviewing…' : 'Review'}</button>
             </div>
           </div>
 
           {/* Selected Legs List */}
           {legs.length === 0 ? (
-            <div className="text-center py-6 text-gray-500 dark:text-gray-400 transition-colors duration-200">
+            <div className="text-center py-6 text-on-surface-variant transition-colors duration-200">
               <p className="text-sm">No legs added yet. Use the form above to add legs.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2">
               {legs.map((leg, idx) => (
-              <div key={idx} className="p-2.5 border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-700/50 hover:border-blue-300 dark:hover:border-blue-600 transition-colors duration-200">
+              <div key={idx} className="p-4 border border-outline/20 rounded bg-surface-container-low transition-colors duration-200">
             <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="text-sm font-semibold text-gray-800 dark:text-slate-100 transition-colors duration-200">Leg {idx + 1}</div>
-              <button onClick={() => removeLeg(idx)} className="px-2 py-1 text-xs rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors duration-200">Remove</button>
+                  <div className="text-sm font-semibold text-on-surface transition-colors duration-200">Leg {idx + 1}</div>
+              <button onClick={() => removeLeg(idx)} className="px-2 py-1 text-xs rounded border border-outline/30 bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-colors duration-200">Remove</button>
             </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
                 {leg.player?.id ? (
-                  <div className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 bg-gray-100 dark:bg-slate-700 flex items-center justify-between transition-colors duration-200">
+                  <div className="px-2 py-1.5 rounded-md border border-outline/30 bg-surface-container-high flex items-center justify-between transition-colors duration-200">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-sm font-medium text-gray-900 dark:text-slate-100 truncate transition-colors duration-200">{leg.player.name}</span>
-                      <a href={`/player/${leg.player.id}`} className="text-blue-600 dark:text-blue-400 hover:underline text-xs whitespace-nowrap transition-colors duration-200">View →</a>
+                      <span className="text-sm font-medium text-on-surface truncate transition-colors duration-200">{leg.player.name}</span>
+                      <a href={`/player/${leg.player.id}`} className="text-primary-container hover:underline text-xs whitespace-nowrap transition-colors duration-200">View →</a>
                     </div>
                     <button
                       onClick={() => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, player: null } : x))}
-                      className="ml-2 px-2 py-0.5 text-xs rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors duration-200"
+                      className="ml-2 px-2 py-0.5 text-xs rounded border border-outline/30 bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-colors duration-200"
                       title="Change player"
                     >
                       Change
@@ -404,19 +407,19 @@ export function ParlayBuilder() {
                 )}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-6 gap-1.5">
-                <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as unknown as typeof TYPES[number] } : x))} className="px-2 pr-6 py-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-xs transition-colors duration-200">
-                  {TYPES.map((t) => <option key={t} value={t} className="bg-white dark:bg-slate-700">{t}</option>)}
+                <select value={leg.type} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, type: e.target.value as unknown as typeof TYPES[number] } : x))} className="px-2 pr-6 py-1 rounded-md border border-outline/30 bg-surface-container-high text-on-surface text-xs transition-colors duration-200">
+                  {TYPES.map((t) => <option key={t} value={t} className="bg-surface-container-high">{t}</option>)}
                 </select>
-                <input value={leg.line} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, line: e.target.value } : x))} placeholder={`Line`} inputMode="decimal" className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200" />
-                <input value={leg.odds || '-110'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, odds: e.target.value } : x))} placeholder="Odds" className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200" />
-                <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as Leg['home'] } : x))} className="px-2 pr-6 py-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 text-xs transition-colors duration-200">
-                  <option value="any" className="bg-white dark:bg-slate-700">Any</option>
-                  <option value="home" className="bg-white dark:bg-slate-700">Home</option>
-                  <option value="away" className="bg-white dark:bg-slate-700">Away</option>
+                <input value={leg.line} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, line: e.target.value } : x))} placeholder={`Line`} inputMode="decimal" className="px-2 py-1 rounded-md border border-outline/30 bg-surface-container-high text-on-surface text-xs focus:outline-none focus:ring-2 focus:ring-primary-container/30 transition-colors duration-200" />
+                <input value={leg.odds || '-110'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, odds: e.target.value } : x))} placeholder="Odds" className="px-2 py-1 rounded-md border border-outline/30 bg-surface-container-high text-on-surface text-xs focus:outline-none focus:ring-2 focus:ring-primary-container/30 transition-colors duration-200" />
+                <select value={leg.home || 'any'} onChange={(e) => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, home: e.target.value as Leg['home'] } : x))} className="px-2 pr-6 py-1 rounded-md border border-outline/30 bg-surface-container-high text-on-surface text-xs transition-colors duration-200">
+                  <option value="any" className="bg-surface-container-high">Any</option>
+                  <option value="home" className="bg-surface-container-high">Home</option>
+                  <option value="away" className="bg-surface-container-high">Away</option>
                 </select>
                 <div className="flex items-center gap-1 col-span-2 md:col-span-2">
-                  <button onClick={() => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, direction: 'over' } : x))} className={`flex-1 px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 text-xs font-medium transition-colors duration-200 ${((leg.direction ?? 'over') === 'over') ? 'bg-blue-700 dark:bg-blue-600 text-white' : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-600'}`}>Over</button>
-                  <button onClick={() => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, direction: 'under' } : x))} className={`flex-1 px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 text-xs font-medium transition-colors duration-200 ${((leg.direction ?? 'over') === 'under') ? 'bg-blue-700 dark:bg-blue-600 text-white' : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-600'}`}>Under</button>
+                  <button onClick={() => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, direction: 'over' } : x))} className={`flex-1 px-2 py-1 rounded border border-outline/30 text-xs font-black uppercase tracking-wide transition-colors duration-200 ${((leg.direction ?? 'over') === 'over') ? 'bg-primary-container text-on-primary' : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'}`}>Over</button>
+                  <button onClick={() => setLegs((prev) => prev.map((x, i) => i === idx ? { ...x, direction: 'under' } : x))} className={`flex-1 px-2 py-1 rounded border border-outline/30 text-xs font-black uppercase tracking-wide transition-colors duration-200 ${((leg.direction ?? 'over') === 'under') ? 'bg-primary-container text-on-primary' : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'}`}>Under</button>
                 </div>
               </div>
             </div>
@@ -447,35 +450,35 @@ export function ParlayBuilder() {
                   <ConfidenceRing confidence={combinedConfidence} legCount={validLegCount} isCalculating={compute.isPending} />
                 </div>
               ) : (
-                <div className="text-xs text-gray-600 dark:text-gray-400 text-center transition-colors duration-200">Add 2+ legs and click "Review" to see confidence.</div>
+                <div className="text-xs text-on-surface-variant text-center transition-colors duration-200">Add 2+ legs and click "Review" to see confidence.</div>
               )}
             </div>
           )}
 
           {/* Parlay Stats */}
           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div className="p-2 border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-700/50 transition-colors duration-200">
-              <div className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">Legs</div>
-              <div className="text-lg font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{validLegCount}</div>
+            <div className="p-2 border border-outline/20 rounded bg-surface-container-low transition-colors duration-200">
+              <div className="text-xs text-on-surface-variant transition-colors duration-200">Legs</div>
+              <div className="text-lg font-bold text-on-surface transition-colors duration-200">{validLegCount}</div>
             </div>
-            <div className="p-2 border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-700/50 transition-colors duration-200">
-              <div className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">Combined Odds</div>
-              <div className="text-lg font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{americanOdds} <span className="text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">({decimalOdds.toFixed(2)}x)</span></div>
+            <div className="p-2 border border-outline/20 rounded bg-surface-container-low transition-colors duration-200">
+              <div className="text-xs text-on-surface-variant transition-colors duration-200">Combined Odds</div>
+              <div className="text-lg font-bold text-on-surface transition-colors duration-200">{americanOdds} <span className="text-xs text-on-surface-variant transition-colors duration-200">({decimalOdds.toFixed(2)}x)</span></div>
             </div>
-            <div className="p-2 border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-700/50 transition-colors duration-200">
-              <div className="text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">Expected Value</div>
-              <div className={`text-lg font-bold transition-colors duration-200 ${expectedValue >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>{formatCurrency(Math.abs(expectedValue))}{expectedValue>=0?'':' loss'}{expectedValue>=0?' gain':''}</div>
+            <div className="p-2 border border-outline/20 rounded bg-surface-container-low transition-colors duration-200">
+              <div className="text-xs text-on-surface-variant transition-colors duration-200">Expected Value</div>
+              <div className={`text-5xl font-black tracking-tighter transition-colors duration-200 ${expectedValue >= 0 ? 'text-betting-green' : 'text-error'}`}>{formatCurrency(Math.abs(expectedValue))}{expectedValue>=0?'':' loss'}{expectedValue>=0?' gain':''}</div>
             </div>
           </div>
 
         </div>
 
         {/* Payout Calculator */}
-        <div className="card p-3 md:p-4 h-fit dark:bg-slate-800 dark:border-slate-700 transition-colors duration-200">
-          <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">Payout Calculator</div>
-          <div className="mt-1.5 text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">Uses your custom odds from each leg.</div>
+        <div className="bg-surface-container p-6 rounded border border-outline/20 h-fit sticky top-20 transition-colors duration-200">
+          <div className="text-sm font-black uppercase tracking-widest text-on-surface transition-colors duration-200">Payout Calculator</div>
+          <div className="mt-1.5 text-xs text-on-surface-variant transition-colors duration-200">Uses your custom odds from each leg.</div>
           {legs.filter(l => l.player?.id && l.line !== '').length > 0 && (
-            <div className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 space-y-0.5 transition-colors duration-200">
+            <div className="mt-1.5 text-xs text-on-surface-variant space-y-0.5 transition-colors duration-200">
               {legs.filter(l => l.player?.id && l.line !== '').map((l, idx) => (
                 <div key={idx} className="flex justify-between">
                   <span>Leg {idx + 1}:</span>
@@ -485,15 +488,15 @@ export function ParlayBuilder() {
             </div>
           )}
           <div className="mt-3">
-            <label className="text-xs font-medium text-gray-700 dark:text-gray-300 transition-colors duration-200">Risk Amount</label>
+            <label className="text-xs font-medium text-on-surface-variant transition-colors duration-200">Risk Amount</label>
             <div className="mt-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-gray-500 dark:text-gray-400 text-sm transition-colors duration-200">$</span>
+                <span className="text-on-surface-variant text-sm transition-colors duration-200">$</span>
                 <input
                   value={riskAmount}
                   onChange={(e) => setRiskAmount(Math.max(0, Math.min(10000, Number(e.target.value || 0))))}
                   inputMode="numeric"
-                  className="px-2 py-1.5 text-sm rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 w-full focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
+                  className="px-2 py-1.5 text-sm rounded-md border border-outline/30 bg-surface-container-high text-on-surface w-full focus:outline-none focus:ring-2 focus:ring-primary-container/30 transition-colors duration-200"
                 />
               </div>
               <div className="mt-2 grid grid-cols-4 gap-1.5">
@@ -501,7 +504,7 @@ export function ParlayBuilder() {
                   <button 
                     key={v} 
                     onClick={() => setRiskAmount(v)} 
-                    className={`px-2 py-1 rounded-md border text-xs transition-colors duration-200 ${riskAmount===v ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300 border-blue-300 dark:border-blue-700' : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-100 border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600'}`}
+                    className={`px-2 py-1 rounded-md border text-xs transition-colors duration-200 ${riskAmount===v ? 'bg-primary-container/15 text-primary-container border-primary-container/30' : 'bg-surface-container-high text-on-surface border-outline/30 hover:bg-surface-container-highest'}`}
                   >
                     ${v}
                   </button>
@@ -521,21 +524,21 @@ export function ParlayBuilder() {
             </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-            <div className="p-2 border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-700/50 transition-colors duration-200">
-              <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">To Win</div>
-              <div className="text-lg font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{formatCurrency(toWin)}</div>
+            <div className="p-2 border border-outline/20 rounded bg-surface-container-low transition-colors duration-200">
+              <div className="text-on-surface-variant transition-colors duration-200">To Win</div>
+              <div className="text-lg font-bold text-on-surface transition-colors duration-200">{formatCurrency(toWin)}</div>
             </div>
-            <div className="p-2 border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-700/50 transition-colors duration-200">
-              <div className="text-gray-600 dark:text-gray-400 transition-colors duration-200">Total Payout</div>
-              <div className="text-lg font-bold text-gray-900 dark:text-slate-100 transition-colors duration-200">{formatCurrency(totalPayout)}</div>
+            <div className="p-2 border border-outline/20 rounded bg-surface-container-low transition-colors duration-200">
+              <div className="text-on-surface-variant transition-colors duration-200">Total Payout</div>
+              <div className="text-lg font-bold text-on-surface transition-colors duration-200">{formatCurrency(totalPayout)}</div>
             </div>
           </div>
-          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">Odds: {decimalOdds.toFixed(2)}x • {validLegCount} leg{validLegCount !== 1 ? 's' : ''}</div>
+          <div className="mt-2 text-xs text-on-surface-variant transition-colors duration-200">Odds: {decimalOdds.toFixed(2)}x • {validLegCount} leg{validLegCount !== 1 ? 's' : ''}</div>
           <div className="mt-3">
             <button 
               onClick={() => createParlay.mutate()} 
               disabled={validLegCount < 2 || !combinedConfidence || riskAmount <= 0 || createParlay.isPending || compute.isPending}
-              className="w-full px-3 py-2 text-sm rounded-md bg-blue-700 dark:bg-blue-600 text-white font-semibold hover:bg-blue-800 dark:hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200"
+              className="w-full px-3 py-2 text-sm rounded bg-primary-container text-on-primary font-black uppercase tracking-wide hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200"
               title={riskAmount <= 0 ? 'Please enter an amount above' : ''}
             >
               {createParlay.isPending ? 'Saving...' : 'Place Bet'}

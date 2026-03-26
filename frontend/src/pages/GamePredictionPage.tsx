@@ -209,7 +209,7 @@ export default function GamePredictionPage() {
     return (
       <div className="container mx-auto px-3 md:px-4 max-w-5xl">
         <div className="text-center py-12">
-          <div className="text-gray-500 dark:text-gray-400">Loading game analysis...</div>
+          <div className="text-on-surface-variant">Loading game analysis...</div>
         </div>
       </div>
     )
@@ -233,39 +233,39 @@ export default function GamePredictionPage() {
 
   return (
     <div className="container mx-auto px-3 md:px-4 max-w-5xl pb-8">
-      <nav className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-        <Link to="/" className="hover:text-gray-700 dark:hover:text-gray-300">Home</Link>
+      <nav className="mt-3 text-xs text-on-surface-variant">
+        <Link to="/" className="hover:text-primary-container">Home</Link>
         <span className="mx-1">/</span>
-        <span className="text-gray-700 dark:text-gray-300 font-medium">Game prediction</span>
+        <span className="text-on-surface-variant font-medium">Game prediction</span>
       </nav>
 
       {/* Header: matchup + predicted winner */}
-      <div className="mt-4 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div className="mt-4 rounded bg-surface-container border border-outline/20 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-6">
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 mb-4">
             <div className="flex flex-col items-center gap-1">
               <img src={teamLogoUrl(data.away)} alt={data.away} className="h-14 w-14 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-              <span className="text-xs text-gray-500 dark:text-gray-400">Away</span>
+              <span className="text-xs text-on-surface-variant">Away</span>
             </div>
-            <span className="text-lg font-bold text-gray-700 dark:text-gray-300">@</span>
+            <span className="text-lg font-bold text-on-surface-variant">@</span>
             <div className="flex flex-col items-center gap-1">
               <img src={teamLogoUrl(data.home)} alt={data.home} className="h-14 w-14 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-              <span className="text-xs text-gray-500 dark:text-gray-400">Home</span>
+              <span className="text-xs text-on-surface-variant">Home</span>
             </div>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-center text-gray-900 dark:text-slate-100">
+          <h1 className="text-3xl sm:text-4xl font-black uppercase italic tracking-tighter text-center text-on-surface">
             {awayName} vs {homeName}
           </h1>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
             <span className="px-3 py-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 font-semibold">
               Predicted winner: {data.predicted_winner_name || data.predicted_winner}
             </span>
-            <span className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-slate-200 font-bold">
+            <span className="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-bold">
               Win probability: {Math.round(winPct)}%
             </span>
           </div>
           {data.key_advantage_summary && (
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 text-center">
+            <p className="mt-2 text-sm text-on-surface-variant text-center">
               Key advantage: {data.key_advantage_summary}
             </p>
           )}
@@ -274,16 +274,16 @@ export default function GamePredictionPage() {
 
       {/* Game outlook */}
       {outlook && (
-        <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2">Game outlook</h2>
-          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{outlook}</p>
+        <section className="mt-6 rounded bg-surface-container border border-outline/20 shadow-sm p-4 sm:p-6">
+          <h2 className="text-lg font-semibold text-on-surface mb-2">Game outlook</h2>
+          <p className="text-sm text-on-surface-variant leading-relaxed">{outlook}</p>
         </section>
       )}
 
       {/* Team comparison */}
-      <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Team comparison</h2>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+      <section className="mt-6 rounded bg-surface-container border border-outline/20 shadow-sm p-4 sm:p-6">
+        <h2 className="text-lg font-semibold text-on-surface mb-1">Team comparison</h2>
+        <p className="text-xs text-on-surface-variant mb-4">
           Strength = 31 − league rank (higher is better). Pace = estimated possessions per game.
         </p>
         {comparisonBarData.length > 0 ? (
@@ -304,8 +304,8 @@ export default function GamePredictionPage() {
             <div className="mt-4 overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-slate-700">
-                    <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Metric</th>
+                  <tr className="bg-surface-container-low">
+                    <th className="py-1.5 px-2 font-semibold text-on-surface-variant">Metric</th>
                     <th className="py-1.5 px-2 font-semibold text-emerald-700 dark:text-emerald-300 text-right">{homeName}</th>
                     <th className="py-1.5 px-2 font-semibold text-indigo-700 dark:text-indigo-300 text-right">{awayName}</th>
                   </tr>
@@ -320,10 +320,10 @@ export default function GamePredictionPage() {
                     { label: 'Possessions/g', h: data.home_pace_data?.possessions?.toFixed(1) ?? '—', a: data.away_pace_data?.possessions?.toFixed(1) ?? '—' },
                     { label: 'PPG', h: data.home_ppg?.toFixed(1) ?? '—', a: data.away_ppg?.toFixed(1) ?? '—' },
                   ].map((row) => (
-                    <tr key={row.label} className="border-t border-gray-100 dark:border-slate-700">
-                      <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{row.label}</td>
-                      <td className="py-1.5 px-2 text-right font-medium text-gray-900 dark:text-slate-100">{row.h}</td>
-                      <td className="py-1.5 px-2 text-right font-medium text-gray-900 dark:text-slate-100">{row.a}</td>
+                    <tr key={row.label} className="border-t border-outline/20">
+                      <td className="py-1.5 px-2 text-on-surface-variant">{row.label}</td>
+                      <td className="py-1.5 px-2 text-right font-medium text-on-surface">{row.h}</td>
+                      <td className="py-1.5 px-2 text-right font-medium text-on-surface">{row.a}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -331,14 +331,14 @@ export default function GamePredictionPage() {
             </div>
           </>
         ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">No comparison data available.</p>
+          <p className="text-sm text-on-surface-variant">No comparison data available.</p>
         )}
       </section>
 
       {/* Radar (when we have 3+ metrics) */}
       {radarData.length >= 3 && (
-        <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-4">Strength radar</h2>
+        <section className="mt-6 rounded bg-surface-container border border-outline/20 shadow-sm p-4 sm:p-6">
+          <h2 className="text-lg font-semibold text-on-surface mb-4">Strength radar</h2>
           <div className="h-72 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
@@ -355,9 +355,9 @@ export default function GamePredictionPage() {
       )}
 
       {/* Defensive matchup insights */}
-      <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Defensive matchup insights</h2>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+      <section className="mt-6 rounded bg-surface-container border border-outline/20 shadow-sm p-4 sm:p-6">
+        <h2 className="text-lg font-semibold text-on-surface mb-1">Defensive matchup insights</h2>
+        <p className="text-xs text-on-surface-variant mb-4">
           League defensive rank per category — lower rank (#1) = best defense (allows fewest).
         </p>
         {defMatchupData.length > 0 ? (
@@ -377,12 +377,12 @@ export default function GamePredictionPage() {
             {/* Position defense table */}
             {posDefData.length > 0 && (
               <div className="mt-5">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-slate-200 mb-2">Points allowed by position (def rank — lower = better)</h3>
+                <h3 className="text-sm font-semibold text-on-surface mb-2">Points allowed by position (def rank — lower = better)</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left border-collapse">
                     <thead>
-                      <tr className="bg-gray-50 dark:bg-slate-700">
-                        <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Position</th>
+                      <tr className="bg-surface-container-low">
+                        <th className="py-1.5 px-2 font-semibold text-on-surface-variant">Position</th>
                         <th className="py-1.5 px-2 font-semibold text-emerald-700 dark:text-emerald-300 text-right">{homeName}</th>
                         <th className="py-1.5 px-2 font-semibold text-indigo-700 dark:text-indigo-300 text-right">{awayName}</th>
                       </tr>
@@ -391,12 +391,12 @@ export default function GamePredictionPage() {
                       {posDefData.map((row) => {
                         const homeBetter = (row.homeRank ?? 99) < (row.awayRank ?? 99)
                         return (
-                          <tr key={row.pos} className="border-t border-gray-100 dark:border-slate-700">
-                            <td className="py-1.5 px-2 font-medium text-gray-700 dark:text-gray-300">{row.pos}</td>
-                            <td className={`py-1.5 px-2 text-right font-semibold ${homeBetter ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                          <tr key={row.pos} className="border-t border-outline/20">
+                            <td className="py-1.5 px-2 font-medium text-on-surface-variant">{row.pos}</td>
+                            <td className={`py-1.5 px-2 text-right font-semibold ${homeBetter ? 'text-emerald-700 dark:text-emerald-300' : 'text-on-surface-variant'}`}>
                               {rankLabel(row.homeRank)}
                             </td>
-                            <td className={`py-1.5 px-2 text-right font-semibold ${!homeBetter ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                            <td className={`py-1.5 px-2 text-right font-semibold ${!homeBetter ? 'text-emerald-700 dark:text-emerald-300' : 'text-on-surface-variant'}`}>
                               {rankLabel(row.awayRank)}
                             </td>
                           </tr>
@@ -409,14 +409,14 @@ export default function GamePredictionPage() {
             )}
           </>
         ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Defensive rank data not yet available. Run the morning cache warm to compute ranks.</p>
+          <p className="text-sm text-on-surface-variant">Defensive rank data not yet available. Run the morning cache warm to compute ranks.</p>
         )}
       </section>
 
       {/* Player impact */}
-      <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Player impact</h2>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Top players by scoring avg. Last 5 = average over last 5 games.</p>
+      <section className="mt-6 rounded bg-surface-container border border-outline/20 shadow-sm p-4 sm:p-6">
+        <h2 className="text-lg font-semibold text-on-surface mb-1">Player impact</h2>
+        <p className="text-xs text-on-surface-variant mb-4">Top players by scoring avg. Last 5 = average over last 5 games.</p>
         {(data.home_key_players?.length || data.away_key_players?.length) ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
@@ -431,24 +431,24 @@ export default function GamePredictionPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
-                        <tr className="bg-gray-50 dark:bg-slate-700">
-                          <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Player</th>
-                          <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Avg PTS</th>
-                          <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Avg REB</th>
-                          <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Avg AST</th>
+                        <tr className="bg-surface-container-low">
+                          <th className="py-1.5 px-2 font-semibold text-on-surface-variant">Player</th>
+                          <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Avg PTS</th>
+                          <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Avg REB</th>
+                          <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Avg AST</th>
                           <th className="py-1.5 px-2 text-right font-semibold text-blue-600 dark:text-blue-400">L5 PTS</th>
                         </tr>
                       </thead>
                       <tbody>
                         {players.map((p) => (
-                          <tr key={p.id} className="border-t border-gray-100 dark:border-slate-700">
+                          <tr key={p.id} className="border-t border-outline/20">
                             <td className="py-1.5 px-2">
-                              <div className="font-medium text-gray-900 dark:text-slate-100">{p.name}</div>
-                              <div className="text-gray-400 dark:text-gray-500">{p.position || '—'} · {p.avg_min != null ? `${p.avg_min} mpg` : ''}</div>
+                              <div className="font-medium text-on-surface">{p.name}</div>
+                              <div className="text-on-surface-variant">{p.position || '—'} · {p.avg_min != null ? `${p.avg_min} mpg` : ''}</div>
                             </td>
-                            <td className="py-1.5 px-2 text-right text-gray-800 dark:text-slate-200">{p.season_pts ?? '—'}</td>
-                            <td className="py-1.5 px-2 text-right text-gray-800 dark:text-slate-200">{p.season_reb ?? '—'}</td>
-                            <td className="py-1.5 px-2 text-right text-gray-800 dark:text-slate-200">{p.season_ast ?? '—'}</td>
+                            <td className="py-1.5 px-2 text-right text-on-surface">{p.season_pts ?? '—'}</td>
+                            <td className="py-1.5 px-2 text-right text-on-surface">{p.season_reb ?? '—'}</td>
+                            <td className="py-1.5 px-2 text-right text-on-surface">{p.season_ast ?? '—'}</td>
                             <td className={`py-1.5 px-2 text-right font-bold ${(p.last5_pts ?? 0) > (p.season_pts ?? 0) ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                               {p.last5_pts ?? '—'}
                             </td>
@@ -458,51 +458,51 @@ export default function GamePredictionPage() {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 dark:text-gray-500">No player data available.</p>
+                  <p className="text-xs text-on-surface-variant">No player data available.</p>
                 )}
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Player data not yet cached. Run the morning warm to load player game logs.</p>
+          <p className="text-sm text-on-surface-variant">Player data not yet cached. Run the morning warm to load player game logs.</p>
         )}
       </section>
 
       {/* Historical matchup */}
-      <section className="mt-6 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-1">Historical matchup</h2>
+      <section className="mt-6 rounded bg-surface-container border border-outline/20 shadow-sm p-4 sm:p-6">
+        <h2 className="text-lg font-semibold text-on-surface mb-1">Historical matchup</h2>
         {data.h2h_games && data.h2h_games.length > 0 ? (
           <>
             <div className="flex gap-6 mb-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{data.h2h_wins_home ?? 0}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">{homeName} wins</div>
+                <div className="text-xs text-on-surface-variant">{homeName} wins</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-400 dark:text-gray-500">–</div>
+                <div className="text-2xl font-bold text-on-surface-variant">–</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{data.h2h_wins_away ?? 0}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">{awayName} wins</div>
+                <div className="text-xs text-on-surface-variant">{awayName} wins</div>
               </div>
-              <div className="text-xs text-gray-400 dark:text-gray-500 self-center ml-2">(last {data.h2h_games.length} meetings)</div>
+              <div className="text-xs text-on-surface-variant self-center ml-2">(last {data.h2h_games.length} meetings)</div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-slate-700">
-                    <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Date</th>
-                    <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Matchup</th>
-                    <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Score</th>
-                    <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Winner</th>
+                  <tr className="bg-surface-container-low">
+                    <th className="py-1.5 px-2 font-semibold text-on-surface-variant">Date</th>
+                    <th className="py-1.5 px-2 font-semibold text-on-surface-variant">Matchup</th>
+                    <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Score</th>
+                    <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Winner</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.h2h_games.map((g, i) => (
-                    <tr key={i} className="border-t border-gray-100 dark:border-slate-700">
-                      <td className="py-1.5 px-2 text-gray-600 dark:text-gray-400">{g.date}</td>
-                      <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{g.away} @ {g.home}</td>
-                      <td className="py-1.5 px-2 text-right font-medium text-gray-900 dark:text-slate-100">
+                    <tr key={i} className="border-t border-outline/20">
+                      <td className="py-1.5 px-2 text-on-surface-variant">{g.date}</td>
+                      <td className="py-1.5 px-2 text-on-surface-variant">{g.away} @ {g.home}</td>
+                      <td className="py-1.5 px-2 text-right font-medium text-on-surface">
                         {g.home_score} – {g.away_score}
                       </td>
                       <td className={`py-1.5 px-2 text-right font-semibold ${g.winner === data.home ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
@@ -515,7 +515,7 @@ export default function GamePredictionPage() {
             </div>
           </>
         ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">No recent matchup history found for this season.</p>
+          <p className="text-sm text-on-surface-variant">No recent matchup history found for this season.</p>
         )}
       </section>
 

@@ -1,14 +1,39 @@
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: nba-stat-spot-postgres-dev
+    environment:
+      - POSTGRES_DB=nba_props
+      - POSTGRES_USER=nba_props_user
+      - POSTGRES_PASSWORD=nba_props_password
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: nba-stat-spot-redis-dev
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     container_name: backend-dev
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+    command: sh -c "pip install psycopg2-binary -q && uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload"
+    environment:
+      - DATABASE_URL=postgresql://nba_props_user:nba_props_password@postgres:5432/nba_props
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./backend:/app
     ports:
       - "8001:8001"
+    depends_on:
+      - postgres
+      - redis
 
   frontend:
     image: node:20-alpine
@@ -26,4 +51,5 @@ services:
       - backend
 volumes:
   frontend_node_modules:
+  postgres_dev_data:
 

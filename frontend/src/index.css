@@ -1,136 +1,125 @@
 @import "tailwindcss";
 
-/* Load legacy v3 config for custom colors, fonts, safelist */
+/* Load config for custom colors, fonts, safelist */
 @config "../tailwind.config.cjs";
 
 /* Plugins */
 @plugin "@tailwindcss/forms";
 
-/* Class-based dark mode (Tailwind v4 default is prefers-color-scheme) */
+/* Class-based dark mode */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Loading animations */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* Material Symbols rendering */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
 }
 
-@keyframes progress {
-  0% {
-    transform: translateX(-100%);
-    width: 30%;
-  }
-  50% {
-    transform: translateX(0%);
-    width: 100%;
-  }
-  100% {
-    transform: translateX(100%);
-    width: 30%;
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%) skewX(-15deg);
-  }
-  100% {
-    transform: translateX(200%) skewX(-15deg);
-  }
-}
-
-.animate-progress {
-  animation: progress 1.5s ease-in-out infinite;
-}
-
-.animate-shimmer {
-  animation: shimmer 2s ease-in-out infinite;
-}
-
-:root {
-  color: #111827;
-  background-color: #ffffff;
-  --chart-primary: #2D68F8;
-  --chart-accent-1: #F59E0B;
-  --chart-accent-2: #10B981;
-  --chart-danger: #EF4444;
-  --panel-bg: #ffffff;
-  --panel-border: #e5e7eb;
-}
-
+/* Kinetic root – always dark */
+:root,
 :root.dark,
 [data-mode="dark"] {
-  color: #f1f5f9;
-  background-color: #0f172a;
-  --chart-primary: #60a5fa;
-  --chart-accent-1: #fbbf24;
-  --chart-accent-2: #34d399;
-  --chart-danger: #f87171;
-  --panel-bg: #1e293b;
-  --panel-border: #334155;
-}
-
-/* Fix CSS variable scoping and strengthen border contrast */
-:root {
-  color: #111827;
-  background-color: #ffffff;
-  --panel-bg: #ffffff;
-  --panel-border: #cbd5e1;
-}
-
-:root.dark,
-[data-mode="dark"] {
-  color: #f1f5f9;
-  background-color: #0f172a;
-  --panel-bg: #0f172a;
-  --panel-border: #475569;
+  color-scheme: dark;
+  background-color: #131313;
+  color: #e5e2e1;
+  --chart-primary:   #ff6b00;
+  --chart-accent-1:  #ffb693;
+  --chart-accent-2:  #4edea3;
+  --chart-danger:    #ff5252;
+  --chart-blue:      #4a8eff;
+  --panel-bg:        #1c1b1b;
+  --panel-border:    #353534;
 }
 
 html {
-  background-color: var(--panel-bg, #ffffff);
-  transition: background-color 0.2s ease;
-}
-
-html.dark,
-html[data-mode="dark"] {
-  background-color: var(--panel-bg, #0f172a);
+  background-color: #131313;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: var(--panel-bg, #ffffff) !important;
-  color: #111827;
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-html.dark body,
-html[data-mode="dark"] body {
-  background-color: var(--panel-bg, #0f172a) !important;
-  color: #f1f5f9;
+  background-color: #131313;
+  color: #e5e2e1;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   min-height: 100vh;
-  background-color: inherit;
 }
 
-/* Improve border visibility for common panel/card containers */
-.card,
-.panel,
-.content-card,
-.content-panel,
-.dashboard-section,
-.glass-card,
-.section-card {
-  border: 1px solid var(--panel-border, #cbd5e1);
+/* ── Scrollbar styling ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #0e0e0e; }
+::-webkit-scrollbar-thumb { background: #ff6b00; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #ffb693; }
+
+/* ── Utility classes ── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.glass-effect {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background-color: rgba(53, 53, 52, 0.6);
 }
 
-/* Reusable pattern for cards: use Tailwind classes
-   bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
-   For subtle panels: bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 */
+.brand-gradient {
+  background: linear-gradient(135deg, #ff6b00 0%, #ffb693 100%);
+}
+
+/* ── Animations ── */
+@keyframes marquee {
+  0%   { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes shimmer {
+  0%   { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(200%) skewX(-15deg); }
+}
+@keyframes progress {
+  0%   { transform: translateX(-100%); width: 30%; }
+  50%  { transform: translateX(0%);    width: 100%; }
+  100% { transform: translateX(100%);  width: 30%; }
+}
+
+.animate-marquee  { animation: marquee  30s linear        infinite; }
+.animate-shimmer  { animation: shimmer  2s  ease-in-out   infinite; }
+.animate-progress { animation: progress 1.5s ease-in-out  infinite; }
+
+/* ── Recharts dark-mode overrides ── */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: #353534;
+}
+.recharts-text { fill: #e2bfb0; }
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: #201f1f !important;
+  border-color: #5a4136 !important;
+  color: #e5e2e1 !important;
+}
+
+/* ── Form overrides ── */
+input, select, textarea {
+  color-scheme: dark;
+}
+
+/* ── Kinetic section header helper ── */
+.kinetic-section-title {
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+}

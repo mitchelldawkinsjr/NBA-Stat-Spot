@@ -58,9 +58,9 @@ export type PickOfTheDay = SuggestionItem
 export type { SuggestionItem }
 
 const TIER_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  lock: { bg: 'bg-gradient-to-r from-yellow-400 to-amber-500', text: 'text-white', label: 'LOCK' },
-  strong: { bg: 'bg-gradient-to-r from-emerald-500 to-green-600', text: 'text-white', label: 'STRONG' },
-  lean: { bg: 'bg-gradient-to-r from-sky-400 to-blue-500', text: 'text-white', label: 'LEAN' },
+  lock: { bg: 'bg-primary-container', text: 'text-white', label: 'LOCK' },
+  strong: { bg: 'bg-betting-green', text: 'text-white', label: 'STRONG' },
+  lean: { bg: 'bg-secondary-container', text: 'text-white', label: 'LEAN' },
 }
 
 function TierBadge({ tier }: { tier?: string }) {
@@ -68,7 +68,7 @@ function TierBadge({ tier }: { tier?: string }) {
   const style = TIER_STYLES[tier]
   if (!style) return null
   return (
-    <span className={`${style.bg} ${style.text} text-[9px] font-extrabold px-1.5 py-0.5 rounded-full tracking-wider shadow-sm`}>
+    <span className={`${style.bg} ${style.text} text-[9px] font-extrabold px-1.5 py-0.5 rounded tracking-wider shadow-sm`}>
       {style.label}
     </span>
   )
@@ -96,7 +96,7 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
         <div className="flex items-center justify-between gap-1 mb-1.5">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <TierBadge tier={s.tier} />
-            <strong className="text-xs font-bold text-gray-900 dark:text-slate-100 truncate transition-colors duration-200">{s.type}</strong>
+            <strong className="text-xs font-bold text-on-surface truncate transition-colors duration-200">{s.type}</strong>
             {(s.confidenceSource === 'ml_blended' || s.rationaleSource === 'llm' || s.mlAvailable) && (
               <span className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-medium" title="AI-enhanced (ML or LLM)">AI</span>
             )}
@@ -107,11 +107,11 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
               <span className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 font-medium" title="Heating up">Heat</span>
             )}
             {s.volatility_index != null && s.volatility_index > 0.3 && (
-              <span className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 font-medium" title="High variance">Vol</span>
+              <span className="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-medium" title="High variance">Vol</span>
             )}
           </div>
           <span
-            className={`text-[10px] px-1.5 py-0.5 rounded-full text-white font-semibold whitespace-nowrap ${isOver ? 'bg-emerald-500' : 'bg-red-500'}`}
+            className={`text-[10px] px-1.5 py-0.5 rounded text-white font-semibold whitespace-nowrap ${isOver ? 'bg-betting-green' : 'bg-error'}`}
           >
             {isOver ? 'OVER' : 'UNDER'}
           </span>
@@ -120,16 +120,16 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
         {/* Player name + headshot */}
         {s.playerId && s.playerName && (
           <div className="mb-1.5 flex items-center gap-1.5 flex-wrap">
-            <PlayerAvatar playerId={s.playerId} playerName={s.playerName} size="small" className="ring-1 ring-gray-200 dark:ring-slate-600" />
+            <PlayerAvatar playerId={s.playerId} playerName={s.playerName} size="small" className="border border-outline/30" />
             <Link
               to={`/player/${s.playerId}`}
-              className="text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 truncate transition-colors duration-200 hover:underline"
+              className="text-[11px] text-primary-container hover:text-blue-800 dark:hover:text-blue-300 truncate transition-colors duration-200 hover:underline"
               title={s.playerName}
             >
               {s.playerName}
             </Link>
             {(s.opponentAbbr ?? s.opponent_abbr ?? s.opponentDefRank != null) && (
-              <span className="text-[9px] text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap" title="Opponent defense rank (lower = tougher)">
+              <span className="text-[9px] text-on-surface-variant font-medium whitespace-nowrap" title="Opponent defense rank (lower = tougher)">
                 {(s.opponent_abbr ?? s.opponentAbbr) && `vs ${s.opponent_abbr ?? s.opponentAbbr}`}
                 {s.opponentDefRank != null && ` · Def #${s.opponentDefRank}`}
               </span>
@@ -138,23 +138,23 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
         )}
 
         {/* Stats grid */}
-        <div className="space-y-0.5 text-[10px] text-gray-700 dark:text-gray-300 transition-colors duration-200">
+        <div className="space-y-0.5 text-[10px] text-on-surface-variant transition-colors duration-200">
           {s.marketLine != null && (
             <div className="flex justify-between items-center">
-              <span className="text-gray-500 dark:text-gray-400">{s.type} line:</span>
-              <span className="font-bold text-gray-900 dark:text-slate-100">
+              <span className="text-on-surface-variant">{s.type} line:</span>
+              <span className="font-bold text-on-surface">
                 {typeof s.marketLine === 'number' ? (Number.isInteger(s.marketLine) ? s.marketLine : s.marketLine.toFixed(1)) : s.marketLine}
               </span>
             </div>
           )}
           {s.confidence != null && (
             <div className="flex justify-between items-center">
-              <span className="text-gray-500 dark:text-gray-400">Conf:</span>
-              <span className="font-bold text-blue-700 dark:text-blue-400">{Math.round(s.confidence > 1 ? s.confidence : s.confidence * 100)}%</span>
+              <span className="text-on-surface-variant">Conf:</span>
+              <span className="font-bold text-primary-container">{Math.round(s.confidence > 1 ? s.confidence : s.confidence * 100)}%</span>
             </div>
           )}
           {s.hitRate != null && (
-            <div className={`flex justify-between items-center ${s.hitRate >= 75 ? 'text-green-700 dark:text-green-400' : s.hitRate >= 65 ? 'text-blue-700 dark:text-blue-400' : ''}`}>
+            <div className={`flex justify-between items-center ${s.hitRate >= 75 ? 'text-betting-green' : s.hitRate >= 65 ? 'text-primary-container' : ''}`}>
               <span>Hit Rate:</span>
               <span className="font-bold">{typeof s.hitRate === 'number' && s.hitRate <= 1 ? (s.hitRate * 100).toFixed(0) : s.hitRate?.toFixed?.(0) ?? s.hitRate}%</span>
             </div>
@@ -167,7 +167,7 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
           )}
           {typeof s.consistency === 'number' && s.consistency > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-gray-500 dark:text-gray-400">Consist:</span>
+              <span className="text-on-surface-variant">Consist:</span>
               <span className="font-semibold">{(s.consistency * 100).toFixed(0)}%</span>
             </div>
           )}
@@ -190,7 +190,7 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
 
         {/* Rationale */}
         {rationaleText && (
-          <div className="mt-2 p-1.5 bg-gray-50 dark:bg-slate-700/50 rounded border border-gray-200 dark:border-slate-600 transition-colors duration-200">
+          <div className="mt-2 p-1.5 bg-surface-container-low rounded border border-outline/20 transition-colors duration-200">
             <div className="flex flex-wrap gap-1 items-center">
               {(() => {
                 const trendMatch = rationaleText.match(/\b(Up|Down|Flat)\s+form/i)
@@ -211,7 +211,7 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
                     {hitRateMatch && (
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${
                         parseFloat(hitRateMatch[1]) >= 75 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' :
-                        'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300'
+                        'bg-surface-container-high text-on-surface-variant'
                       }`}>
                         {hitRateMatch[1]}%
                       </span>
@@ -227,7 +227,7 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
                       </span>
                     )}
                     {!trendMatch && !hitRateMatch && (
-                      <span className="text-[9px] text-gray-600 dark:text-gray-400 line-clamp-2">{rationaleText}</span>
+                      <span className="text-[9px] text-on-surface-variant line-clamp-2">{rationaleText}</span>
                     )}
                   </>
                 )
@@ -243,7 +243,7 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddToTracker(s) }}
               disabled={isAddingToTracker}
-              className="w-full py-1.5 px-2 rounded-md text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500 flex items-center justify-center gap-1"
+              className="w-full py-1.5 px-2 rounded-md text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors dark:bg-betting-green dark:hover:bg-emerald-400 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500 flex items-center justify-center gap-1"
             >
               {isAddingToTracker ? (
                 <>
@@ -270,7 +270,7 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
           {suggestions.map((s: SuggestionItem, idx: number) => (
             <div
               key={`${s.playerId ?? s.player_id ?? 'p'}-${s.type ?? 'prop'}-${idx}`}
-              className="flex-none w-48 sm:w-56 p-2.5 sm:p-3 border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-all duration-200"
+              className="flex-none w-48 sm:w-56 p-2.5 sm:p-3 border border-outline/20 rounded-lg bg-surface-container shadow-sm hover:shadow-md transition-all duration-200"
             >
               <CardContent s={s} />
             </div>
@@ -284,7 +284,7 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
     <div className="w-full">
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-2 md:gap-3">
         {suggestions.map((s: SuggestionItem, idx: number) => (
-          <div key={idx} className="p-2.5 sm:p-3 border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+          <div key={idx} className="p-2.5 sm:p-3 border border-outline/20 rounded-lg bg-surface-container shadow-sm hover:shadow-md transition-all duration-200">
             <CardContent s={s} />
           </div>
         ))}

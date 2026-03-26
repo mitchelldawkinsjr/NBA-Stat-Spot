@@ -42,7 +42,6 @@ export default function PlayerProfile() {
   const queryClient = useQueryClient()
   const [logs, setLogs] = useState<GameLog[]>([])
   const [loading, setLoading] = useState<boolean>(false)
-  const [loadingProgress, setLoadingProgress] = useState<number>(0)
   const [error, setError] = useState<string | null>(null)
   const [fallbackUsed, setFallbackUsed] = useState<string | null>(null)
   const [playerName, setPlayerName] = useState<string>('')
@@ -143,14 +142,6 @@ export default function PlayerProfile() {
         const TIMEOUT_MS = 240000 // 4 min when cache is cold; nginx proxy is 5 min
         const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
         
-        // Track progress for loading indicator
-        const startTime = Date.now()
-        const progressInterval = setInterval(() => {
-          const elapsed = Date.now() - startTime
-          const progress = Math.min(95, Math.round((elapsed / TIMEOUT_MS) * 100)) // Cap at 95% until complete
-          setLoadingProgress(progress)
-        }, 500) // Update every 500ms
-        
         let res
         try {
           res = await apiFetch(`api/v1/players/${playerIdNum}/stats?games=20&season=${encodeURIComponent(season)}`, {
@@ -158,7 +149,6 @@ export default function PlayerProfile() {
           })
         } catch (fetchError: unknown) {
           clearTimeout(timeoutId)
-          clearInterval(progressInterval)
           if (fetchError instanceof Error && fetchError.name === 'AbortError') {
             throw new Error('Request timed out. First load can take a few minutes; try again or refresh later.')
           }
@@ -169,8 +159,6 @@ export default function PlayerProfile() {
           throw fetchError
         }
         clearTimeout(timeoutId)
-        clearInterval(progressInterval)
-        setLoadingProgress(100) // Complete
         
         if (!res.ok) {
           // Try to get error message from response
@@ -319,7 +307,6 @@ export default function PlayerProfile() {
         }
       } finally {
         setLoading(false)
-        setLoadingProgress(0) // Reset progress
       }
     })()
   }, [id, season])
@@ -352,7 +339,7 @@ export default function PlayerProfile() {
     const ptsRecent = avg(recentN.map(g => g.pts))
     const delta = ptsRecent - seasonAverages.pts
     const tag = delta > 0.8 ? 'HOT' : delta < -0.8 ? 'COLD' : 'NEUTRAL'
-    const color = tag === 'HOT' ? 'bg-green-50 text-green-700 ring-green-600/20' : tag === 'COLD' ? 'bg-red-50 text-red-700 ring-red-600/20' : 'bg-gray-50 text-gray-700 ring-gray-600/20'
+    const color = tag === 'HOT' ? 'bg-betting-green/15 text-betting-green border border-betting-green/30' : tag === 'COLD' ? 'bg-error/15 text-error border border-error/30' : 'bg-surface-container-high text-on-surface-variant border border-outline/30'
     return { tag, delta, color }
   }, [recentN, seasonAverages])
 
@@ -361,7 +348,7 @@ export default function PlayerProfile() {
     const getFormBadge = (recentAvg: number, seasonAvg: number) => {
       const delta = recentAvg - seasonAvg
       const tag = delta > 0.8 ? 'HOT' : delta < -0.8 ? 'COLD' : 'NEUTRAL'
-      const color = tag === 'HOT' ? 'bg-green-50 text-green-700 ring-green-600/20' : tag === 'COLD' ? 'bg-red-50 text-red-700 ring-red-600/20' : 'bg-gray-50 text-gray-700 ring-gray-600/20'
+      const color = tag === 'HOT' ? 'bg-betting-green/15 text-betting-green border border-betting-green/30' : tag === 'COLD' ? 'bg-error/15 text-error border border-error/30' : 'bg-surface-container-high text-on-surface-variant border border-outline/30'
       return { tag, delta, color }
     }
     
@@ -646,45 +633,51 @@ export default function PlayerProfile() {
   
 
   return (
-    <div className="container mx-auto px-2 sm:px-3 md:px-4 max-w-7xl">
+    <div className="bg-background min-h-screen px-4 md:px-6 pb-8 max-w-7xl mx-auto">
       <a href="#player-profile-main" className="sr-only focus:not-sr-only">Skip to player content</a>
 
       {/* Breadcrumbs (TailGrids: Breadcrumbs) */}
       <nav className="relative z-10 mt-3" aria-label="Breadcrumb">
-        <ol className="min-w-0 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 overflow-hidden transition-colors duration-200">
+        <ol className="min-w-0 flex items-center gap-1 text-xs text-on-surface-variant overflow-hidden transition-colors duration-200">
           <li>
-            <Link to="/" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200">Home</Link>
+            <Link to="/" className="hover:text-primary-container transition-colors duration-200">Home</Link>
           </li>
           <li aria-hidden="true" className="px-1">/</li>
           <li>
-            <Link to="/explore" className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200">Players</Link>
+            <Link to="/explore" className="hover:text-primary-container transition-colors duration-200">Players</Link>
           </li>
           <li aria-hidden="true" className="px-1">/</li>
-          <li className="flex-1 min-w-0 text-gray-700 dark:text-gray-300 font-medium truncate transition-colors duration-200">{playerName || 'Player'}</li>
+          <li className="flex-1 min-w-0 text-on-surface-variant font-medium transition-colors duration-200">{playerName || 'Player'}</li>
         </ol>
       </nav>
 
-      {/* Header / Profile */}
-      {/* Header / Profile (styled light for readability) */}
-      <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-white dark:bg-slate-800 shadow-xl ring-1 ring-gray-200 dark:ring-slate-700 mt-2 sm:mt-3 transition-colors duration-200">
-        <div className="px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-          <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
-            <PlayerAvatar
-              playerId={id ? parseInt(id, 10) : 0}
-              playerName={playerName}
-              size="large"
-              className="ring-1 ring-gray-200 dark:ring-slate-600"
-            />
-            <div className="min-w-0 flex-1">
-              <h2 id="player-profile-title" className="text-base sm:text-lg md:text-xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 truncate transition-colors duration-200">{playerName ? playerName : 'Player'} Profile</h2>
+      {/* ── Hero Header ── */}
+      <div id="player-profile-main" className="relative overflow-hidden bg-surface-container-low rounded border border-outline-variant/20 mt-4">
+        <div className="px-6 py-8 grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+          <div className="md:col-span-8 flex flex-col md:flex-row gap-6 items-center md:items-end">
+            <div className="relative">
+              <PlayerAvatar
+                playerId={id ? parseInt(id, 10) : 0}
+                playerName={playerName}
+                size="large"
+                className="w-32 h-32 md:w-40 md:h-40 rounded border border-outline/30"
+              />
+              {liveStats?.playing && (
+                <div className="absolute bottom-1 left-1 bg-betting-green text-black text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-1 uppercase">
+                  <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" /> LIVE
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1 text-center md:text-left">
+              <h2 id="player-profile-title" className="text-4xl md:text-6xl font-black tracking-tighter text-on-surface uppercase italic">{playerName ? playerName : 'Player'}</h2>
               <div className="mt-0.5 flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-slate-700 dark:text-slate-300 transition-colors duration-200">Season: {fallbackUsed ? fallbackUsed : season}</span>
+                <span className="text-xs text-on-surface-variant transition-colors duration-200">Season: {fallbackUsed ? fallbackUsed : season}</span>
                 {teamName && teamId && (
                   <>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 transition-colors duration-200">•</span>
+                    <span className="text-xs text-on-surface-variant transition-colors duration-200">•</span>
                     <Link
                       to={`/team/${teamId}`}
-                      className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors duration-200"
+                      className="text-xs font-medium text-primary-container hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors duration-200"
                     >
                       {teamName}
                     </Link>
@@ -693,31 +686,31 @@ export default function PlayerProfile() {
               </div>
               {/* Minimal season averages inline under name with form badges */}
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-800 dark:text-slate-200 transition-colors duration-200">
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
                   PTS {seasonAverages.pts.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.pts.color}`}>
                     {statFormBadges.pts.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-800 dark:text-slate-200 transition-colors duration-200">
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
                   REB {seasonAverages.reb.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.reb.color}`}>
                     {statFormBadges.reb.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-800 dark:text-slate-200 transition-colors duration-200">
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
                   AST {seasonAverages.ast.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.ast.color}`}>
                     {statFormBadges.ast.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-800 dark:text-slate-200 transition-colors duration-200">
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
                   3PM {seasonAverages.tpm.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.tpm.color}`}>
                     {statFormBadges.tpm.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-800 dark:text-slate-200 transition-colors duration-200">
+                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
                   MIN {seasonAverages.minutes.toFixed(1)}
                 </span>
               </div>
@@ -736,38 +729,38 @@ export default function PlayerProfile() {
 
       {/* Live Game Stats - Show if player is currently playing */}
       {liveStats?.playing && liveStats.game && (
-        <div className="mt-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-800 shadow-lg ring-1 ring-green-300 dark:ring-green-700 transition-colors duration-200">
+        <div className="mt-3 rounded bg-betting-green/10 border border-betting-green/30 shadow-lg transition-colors duration-200">
           <div className="px-4 py-3 sm:px-5 sm:py-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex items-center gap-2">
                 <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-bold text-green-800 dark:text-green-300 transition-colors duration-200">LIVE</span>
+                <span className="text-sm font-bold text-betting-green transition-colors duration-200">LIVE</span>
               </div>
-              <span className="text-xs text-green-700 dark:text-green-400 transition-colors duration-200">
+              <span className="text-xs text-betting-green transition-colors duration-200">
                 Q{liveStats.game.quarter} • {liveStats.game.time_remaining}
               </span>
             </div>
             
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="text-center">
-                <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">
+                <div className="text-xs text-betting-green mb-1 transition-colors duration-200">
                   {liveStats.game.is_home ? 'HOME' : 'AWAY'}
                 </div>
-                <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">
+                <div className="text-lg font-bold text-betting-green transition-colors duration-200">
                   {liveStats.game.is_home ? liveStats.game.home_team : liveStats.game.away_team}
                 </div>
-                <div className="text-2xl font-bold text-green-900 dark:text-green-200 mt-1 transition-colors duration-200">
+                <div className="text-2xl font-bold text-betting-green mt-1 transition-colors duration-200">
                   {liveStats.game.is_home ? liveStats.game.home_score : liveStats.game.away_score}
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">
+                <div className="text-xs text-betting-green mb-1 transition-colors duration-200">
                   {liveStats.game.is_home ? 'AWAY' : 'HOME'}
                 </div>
-                <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">
+                <div className="text-lg font-bold text-betting-green transition-colors duration-200">
                   {liveStats.game.is_home ? liveStats.game.away_team : liveStats.game.home_team}
                 </div>
-                <div className="text-2xl font-bold text-green-900 dark:text-green-200 mt-1 transition-colors duration-200">
+                <div className="text-2xl font-bold text-betting-green mt-1 transition-colors duration-200">
                   {liveStats.game.is_home ? liveStats.game.away_score : liveStats.game.home_score}
                 </div>
               </div>
@@ -775,23 +768,23 @@ export default function PlayerProfile() {
 
             {liveStats.stats && (
               <div className="border-t border-green-200 dark:border-green-800 pt-3 mt-3">
-                <div className="text-xs font-semibold text-green-800 dark:text-green-300 mb-2 transition-colors duration-200">Current Stats</div>
+                <div className="text-xs font-semibold text-betting-green mb-2 transition-colors duration-200">Current Stats</div>
                 <div className="grid grid-cols-4 gap-2">
                   <div className="text-center">
-                    <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">PTS</div>
-                    <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">{liveStats.stats.pts}</div>
+                    <div className="text-xs text-betting-green mb-1 transition-colors duration-200">PTS</div>
+                    <div className="text-lg font-bold text-betting-green transition-colors duration-200">{liveStats.stats.pts}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">REB</div>
-                    <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">{liveStats.stats.reb}</div>
+                    <div className="text-xs text-betting-green mb-1 transition-colors duration-200">REB</div>
+                    <div className="text-lg font-bold text-betting-green transition-colors duration-200">{liveStats.stats.reb}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">AST</div>
-                    <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">{liveStats.stats.ast}</div>
+                    <div className="text-xs text-betting-green mb-1 transition-colors duration-200">AST</div>
+                    <div className="text-lg font-bold text-betting-green transition-colors duration-200">{liveStats.stats.ast}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xs text-green-700 dark:text-green-400 mb-1 transition-colors duration-200">MIN</div>
-                    <div className="text-lg font-bold text-green-900 dark:text-green-200 transition-colors duration-200">{liveStats.stats.minutes.toFixed(1)}</div>
+                    <div className="text-xs text-betting-green mb-1 transition-colors duration-200">MIN</div>
+                    <div className="text-lg font-bold text-betting-green transition-colors duration-200">{liveStats.stats.minutes.toFixed(1)}</div>
                   </div>
                 </div>
                 {liveStats.stats.fouls > 0 && (
@@ -805,7 +798,7 @@ export default function PlayerProfile() {
             )}
 
             {liveStats.context && (
-              <div className="border-t border-green-200 dark:border-green-800 pt-2 mt-2 text-xs text-green-700 dark:text-green-400 transition-colors duration-200">
+              <div className="border-t border-green-200 dark:border-green-800 pt-2 mt-2 text-xs text-betting-green transition-colors duration-200">
                 <div className="flex items-center justify-between">
                   <span>Pace: {liveStats.context.live_pace.toFixed(1)}</span>
                   <span>•</span>
@@ -825,14 +818,14 @@ export default function PlayerProfile() {
       
       {loading ? (
         <div className="mt-4">
-          <PageLoader message="Loading player stats..." progress={loadingProgress} />
+          <PageLoader message="Loading player stats..." />
         </div>
       ) : error ? (
         <div className="mt-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-300 transition-colors duration-200">
           <div className="font-semibold mb-2">Error loading player data</div>
           <div>{error}</div>
           <div className="mt-3">
-            <Link to="/explore" className="text-blue-600 dark:text-blue-400 hover:underline text-sm transition-colors duration-200">
+            <Link to="/explore" className="text-primary-container hover:underline text-sm transition-colors duration-200">
               ← Return to Explore
             </Link>
           </div>
@@ -844,7 +837,7 @@ export default function PlayerProfile() {
             {playerName || `Player ${id}`} doesn't have game statistics for the {season} season yet.
           </div>
           <div className="flex gap-3 justify-center">
-            <Link to="/explore" className="text-blue-600 dark:text-blue-400 hover:underline text-sm transition-colors duration-200">
+            <Link to="/explore" className="text-primary-container hover:underline text-sm transition-colors duration-200">
               ← Return to Explore
             </Link>
             {season !== '2024-25' && (
@@ -854,7 +847,7 @@ export default function PlayerProfile() {
                   setError(null)
                   setLoading(true)
                 }}
-                className="text-blue-600 dark:text-blue-400 hover:underline text-sm transition-colors duration-200"
+                className="text-primary-container hover:underline text-sm transition-colors duration-200"
               >
                 Try Previous Season
               </button>
@@ -864,25 +857,25 @@ export default function PlayerProfile() {
       ) : (
         <div id="player-profile-main" role="main" aria-labelledby="player-profile-title" className="space-y-4">
           {/* Controls (TailGrids: Toolbar) */}
-          <div className="mt-3 bg-white dark:bg-slate-800 rounded-lg sm:rounded-xl shadow-md ring-1 ring-gray-100 dark:ring-slate-700 p-2 sm:p-3 md:p-4 flex items-center gap-2 sm:gap-3 flex-wrap transition-colors duration-200">
-            <div className="text-[10px] sm:text-xs font-semibold text-gray-600 dark:text-gray-400 transition-colors duration-200">Window</div>
-            <select aria-label="Select window" value={windowN} onChange={(e) => setWindowN(Number(e.target.value))} className="px-2 sm:px-3 pr-8 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200">
+          <div className="mt-3 bg-surface-container rounded-lg sm:rounded shadow-md border border-outline/20 p-2 sm:p-3 md:p-4 flex items-center gap-2 sm:gap-3 flex-wrap transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs font-semibold text-on-surface-variant transition-colors duration-200">Window</div>
+            <select aria-label="Select window" value={windowN} onChange={(e) => setWindowN(Number(e.target.value))} className="px-2 sm:px-3 pr-8 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded border border-outline/30 bg-surface-container-high text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container/30 transition-colors duration-200">
               {[5,10,20].map(n => <option key={n} value={n}>{n} games</option>)}
             </select>
-            <div className="text-[10px] sm:text-xs font-semibold text-gray-600 dark:text-gray-400 ml-1 transition-colors duration-200">Hit Rate</div>
-            <select value={hrStat} onChange={(e) => setHrStat(e.target.value as 'PTS'|'REB'|'AST'|'3PM'|'PRA')} className="px-2 sm:px-3 pr-8 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 transition-colors duration-200">
+            <div className="text-[10px] sm:text-xs font-semibold text-on-surface-variant ml-1 transition-colors duration-200">Hit Rate</div>
+            <select value={hrStat} onChange={(e) => setHrStat(e.target.value as 'PTS'|'REB'|'AST'|'3PM'|'PRA')} className="px-2 sm:px-3 pr-8 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded border border-outline/30 bg-surface-container-high text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container/30 transition-colors duration-200">
               {['PTS','REB','AST','3PM','PRA'].map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <input value={hrLine} onChange={(e) => setHrLine(e.target.value)} inputMode="decimal" placeholder="Line" className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600/20 dark:focus:ring-blue-400/20 w-20 sm:w-auto transition-colors duration-200" />
+            <input value={hrLine} onChange={(e) => setHrLine(e.target.value)} inputMode="decimal" placeholder="Line" className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded border border-outline/30 bg-surface-container-high text-on-surface focus:outline-none focus:ring-2 focus:ring-primary-container/30 w-20 sm:w-auto transition-colors duration-200" />
             <div className="flex items-center gap-1 sm:gap-2">
-              <button onClick={() => setHrDir('over')} aria-pressed={hrDir==='over'} aria-label="Select Over" className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border text-xs sm:text-sm font-medium shadow-sm transition-colors duration-200 ${hrDir==='over' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 border-gray-300 dark:border-slate-600'}`}>Over</button>
-              <button onClick={() => setHrDir('under')} aria-pressed={hrDir==='under'} aria-label="Select Under" className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border text-xs sm:text-sm font-medium shadow-sm transition-colors duration-200 ${hrDir==='under' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 border-gray-300 dark:border-slate-600'}`}>Under</button>
+              <button onClick={() => setHrDir('over')} aria-pressed={hrDir==='over'} aria-label="Select Over" className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded border text-xs sm:text-sm font-medium shadow-sm transition-colors duration-200 ${hrDir==='over' ? 'bg-primary-container text-on-primary border-primary-container' : 'bg-surface-container-high text-on-surface border-outline/30'}`}>Over</button>
+              <button onClick={() => setHrDir('under')} aria-pressed={hrDir==='under'} aria-label="Select Under" className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded border text-xs sm:text-sm font-medium shadow-sm transition-colors duration-200 ${hrDir==='under' ? 'bg-primary-container text-on-primary border-primary-container' : 'bg-surface-container-high text-on-surface border-outline/30'}`}>Under</button>
             </div>
             <button 
               onClick={() => evalLine.mutate()} 
               aria-label="Evaluate line against recent performance" 
               disabled={!hrLine || evalLine.isPending} 
-              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-2 ${(!hrLine || evalLine.isPending) ? 'opacity-70 cursor-not-allowed' : ''} bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all w-full sm:w-auto`}
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-2 ${(!hrLine || evalLine.isPending) ? 'opacity-70 cursor-not-allowed' : ''} bg-primary-container hover:brightness-110 text-on-primary shadow-sm transition-all w-full sm:w-auto`}
             >
               {evalLine.isPending ? (
                 <>
@@ -906,7 +899,7 @@ export default function PlayerProfile() {
               { key: 'AST', vals: enrichedLogs.map(g=>g.ast), season: seasonAverages.ast, color: 'text-amber-600 bg-amber-50', bar: 'bg-amber-500' },
               { key: 'REB', vals: enrichedLogs.map(g=>g.reb), season: seasonAverages.reb, color: 'text-emerald-600 bg-emerald-50', bar: 'bg-emerald-600' },
               { key: '3PM', vals: enrichedLogs.map(g=>g.tpm), season: seasonAverages.tpm, color: 'text-fuchsia-600 bg-fuchsia-50', bar: 'bg-fuchsia-600' },
-              { key: 'PRA', vals: enrichedLogs.map(g=> (g.pra as number)), season: seasonAverages.pra, color: 'text-slate-600 bg-slate-50', bar: 'bg-slate-600' },
+              { key: 'PRA', vals: enrichedLogs.map(g=> (g.pra as number)), season: seasonAverages.pra, color: 'text-on-surface-variant bg-surface-container-high', bar: 'bg-surface-container-highest' },
             ] as const
             const recs = stats.map(s => {
               const line = roundHalf(s.season)
@@ -924,18 +917,15 @@ export default function PlayerProfile() {
               <div className="mt-3 overflow-x-auto px-1 py-2 -mx-2 sm:mx-0">
                 <div className="flex gap-2 sm:gap-3">
                   {recs.map((r, i) => (
-                  <div key={i} className="w-[240px] sm:w-[280px] flex-none rounded-xl sm:rounded-2xl bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 p-3 sm:p-4 transition-colors duration-200">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${r.color}`}>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5"><path d="M12 3l4 7H8l4-7Zm0 18l-4-7h8l-4 7Z"/></svg>
-                      </div>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors duration-200 ${r.dir==='OVER' ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 ring-1 ring-green-600/20 dark:ring-green-600/50' : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 ring-1 ring-red-600/20 dark:ring-red-600/50'}`}>{r.dir==='OVER' ? 'Trending up' : 'Trending down'}</span>
+                  <div key={i} className="w-[240px] sm:w-[280px] flex-none rounded bg-surface-container shadow-sm border border-outline/20 p-3 sm:p-4 transition-colors duration-200">
+                    <div className="flex items-start justify-between gap-3"> 
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors duration-200 ${r.dir==='OVER' ? 'bg-betting-green/15 text-betting-green border border-betting-green/30' : 'bg-error/15 text-error border border-error/30'}`}>{r.dir==='OVER' ? 'Trending up' : 'Trending down'}</span>
                     </div>
-                    <div className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400 transition-colors duration-200">{r.key} {r.dir} {r.line.toFixed(1)}</div>
-                    <div className="mt-0.5 text-2xl font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{r.confidence}%</div>
-                    <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 transition-colors duration-200">{r.reason}</div>
-                    <div className="mt-2 h-2 rounded-full bg-gray-100 dark:bg-slate-700 transition-colors duration-200" aria-label={`Confidence ${r.confidence}%`}>
-                      <div className={`h-2 rounded-full ${r.dir==='OVER' ? 'bg-green-600' : 'bg-red-600'}`} style={{ width: `${Math.max(0, Math.min(100, r.confidence))}%` }} />
+                    <div className="mt-2 text-xs font-medium text-on-surface-variant transition-colors duration-200">{r.key} {r.dir} {r.line.toFixed(1)}</div>
+                    <div className="mt-0.5 text-2xl font-semibold text-on-surface transition-colors duration-200">{r.confidence}%</div>
+                    <div className="mt-1 text-[11px] text-on-surface-variant transition-colors duration-200">{r.reason}</div>
+                    <div className="mt-2 h-2 rounded-full bg-surface-container-high transition-colors duration-200" aria-label={`Confidence ${r.confidence}%`}>
+                      <div className={`h-2 rounded-full ${r.dir==='OVER' ? 'bg-betting-green' : 'bg-error'}`} style={{ width: `${Math.max(0, Math.min(100, r.confidence))}%` }} />
                     </div>
                   </div>
                   ))}
@@ -943,8 +933,6 @@ export default function PlayerProfile() {
               </div>
             )
           })()}
-
-          
 
           {/* Season averages summary removed */}
 
@@ -959,10 +947,10 @@ export default function PlayerProfile() {
             const hitCount = lastNFlags.filter(Boolean).length
             const rate = vals.length ? Math.round((hitCount / vals.length) * 100) : 0
             return (
-              <div className="card p-4 mt-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg transition-colors duration-200">
+              <div className="card p-4 mt-3 bg-surface-container border border-outline/20 rounded-lg transition-colors duration-200">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 transition-colors duration-200">Hit Rate vs Line</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 transition-colors duration-200">{hrStat} {hrDir.toUpperCase()} {lineVal.toFixed(1)} • {rate}%</div>
+                  <div className="text-sm font-semibold text-on-surface transition-colors duration-200">Hit Rate vs Line</div>
+                  <div className="text-sm text-on-surface-variant transition-colors duration-200">{hrStat} {hrDir.toUpperCase()} {lineVal.toFixed(1)} • {rate}%</div>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {vals.map((v, i) => {
@@ -995,20 +983,20 @@ export default function PlayerProfile() {
             return (
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 transition-colors duration-200">Opponent Analysis</div>
-                  <button onClick={() => setShowOpponent(v => !v)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200" aria-label="Toggle opponent analysis">
+                  <div className="text-sm font-semibold text-on-surface transition-colors duration-200">Opponent Analysis</div>
+                  <button onClick={() => setShowOpponent(v => !v)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-surface-container-high transition-colors duration-200" aria-label="Toggle opponent analysis">
                     {showOpponent ? (
-                      <svg className="w-4 h-4 text-slate-600 dark:text-slate-400 transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/></svg>
+                      <svg className="w-4 h-4 text-on-surface-variant transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/></svg>
                     ) : (
-                      <svg className="w-4 h-4 text-slate-600 dark:text-slate-400 transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M2.1 3.5 1 4.6l3.3 3.3C2 9.7 1 12 1 12s4 7 11 7c2.3 0 4.3-.7 6-.1l3 3 1.1-1.1L2.1 3.5ZM12 17c-2.8 0-5-2.2-5-5 0-.6.1-1.1.3-1.6l1.5 1.5c-.1.3-.1.7-.1 1.1 0 1.9 1.5 3.5 3.5 3.5.4 0 .8-.1 1.1-.2l1.5 1.5c-.5.2-1.1.2-1.8.2Z"/></svg>
+                      <svg className="w-4 h-4 text-on-surface-variant transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M2.1 3.5 1 4.6l3.3 3.3C2 9.7 1 12 1 12s4 7 11 7c2.3 0 4.3-.7 6-.1l3 3 1.1-1.1L2.1 3.5ZM12 17c-2.8 0-5-2.2-5-5 0-.6.1-1.1.3-1.6l1.5 1.5c-.1.3-.1.7-.1 1.1 0 1.9 1.5 3.5 3.5 3.5.4 0 .8-.1 1.1-.2l1.5 1.5c-.5.2-1.1.2-1.8.2Z"/></svg>
                     )}
                   </button>
                 </div>
                 {showOpponent && (
-                  <div className="overflow-x-auto">
-                    <div className="flex gap-3 p-1">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
                       {/* Head-to-Head Card */}
-                      <div className="w-[180px] flex-none">
+                      <div className="w-full h-full [&>div]:h-full">
                         <MatchupCard
                           title="Head-to-Head"
                           stats={[
@@ -1039,50 +1027,72 @@ export default function PlayerProfile() {
                           ]}
                         />
                       </div>
-                      {/* Opponent Defense Rank Card */}
-                      <div className="w-[180px] flex-none">
-                        {playerContextLoading ? (
-                          <div className="h-[120px] rounded-lg bg-gray-100 dark:bg-slate-700 animate-pulse flex items-center justify-center">
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Loading ranks…</span>
-                          </div>
-                        ) : (
-                          <>
-                            <MatchupCard
-                              title="Opponent Defense Rank"
-                              stats={[
-                                { label: 'PTS Def Rank', value: playerContext?.opponent_defense?.rank_pts != null ? `#${playerContext.opponent_defense.rank_pts}` : '—' },
-                                { label: 'REB Def Rank', value: playerContext?.opponent_defense?.rank_reb != null ? `#${playerContext.opponent_defense.rank_reb}` : '—' },
-                                { label: 'AST Def Rank', value: playerContext?.opponent_defense?.rank_ast != null ? `#${playerContext.opponent_defense.rank_ast}` : '—' },
-                                { label: '3PM Def Rank', value: playerContext?.opponent_defense?.rank_3pm != null ? `#${playerContext.opponent_defense.rank_3pm}` : '—' },
-                              ]}
-                            />
-                            {opponentDefenseEmpty && (
-                              <p className="mt-1.5 text-[10px] text-amber-600 dark:text-amber-400">Refresh defensive ranks in Admin to load.</p>
-                            )}
-                          </>
-                        )}
+                      {/* Opponent Defense + Matchup Card */}
+                      <div className="w-full h-full">
+                        {(() => {
+                          const defRankPts = playerContext?.opponent_defense?.rank_pts
+                          const opponentRank = playerContext?.opponent_performance?.conference_rank
+                          const h2hGames = playerContext?.h2h?.games_played || 0
+                          const h2hPts = playerContext?.h2h?.avg_pts
+                          const seasonPts = seasonAverages.pts
+
+                          let defensiveRating = '—'
+                          if (defRankPts != null) {
+                            // Lower rank = better defense = tougher matchup for our player
+                            if (defRankPts <= 8) defensiveRating = 'Tough'
+                            else if (defRankPts <= 16) defensiveRating = 'Neutral'
+                            else defensiveRating = 'Friendly'
+                          } else if (h2hPts != null && seasonPts > 0 && h2hGames > 0) {
+                            const ptsDiff = seasonPts - h2hPts
+                            if (ptsDiff > 2) defensiveRating = 'Strong'
+                            else if (ptsDiff > 0) defensiveRating = 'Moderate'
+                            else if (ptsDiff > -2) defensiveRating = 'Weak'
+                            else defensiveRating = 'Very Weak'
+                          } else if (opponentRank != null) {
+                            if (opponentRank <= 5) defensiveRating = 'Strong'
+                            else if (opponentRank <= 10) defensiveRating = 'Moderate'
+                            else defensiveRating = 'Weak'
+                          }
+
+                          const primary = playerContext?.opponent_team_abbr || '—'
+                          const historical = h2hGames > 0 ? `${h2hGames} games` : '—'
+                          const numTeams = 30
+                          const defSummary = defRankPts != null
+                            ? `Def #${defRankPts} of ${numTeams} (${defensiveRating})`
+                            : defensiveRating
+
+                          if (playerContextLoading) {
+                            return (
+                              <div className="h-full min-h-[180px] rounded-lg bg-surface-container-high animate-pulse flex items-center justify-center">
+                                <span className="text-xs text-on-surface-variant">Loading matchup…</span>
+                              </div>
+                            )
+                          }
+
+                          return (
+                            <div className="h-full bg-surface-container border border-outline/20 rounded-lg p-3 transition-colors duration-200 flex flex-col">
+                              <div className="font-semibold text-on-surface mb-2 text-xs transition-colors duration-200">Opponent Defense & Matchup</div>
+                              <div className="space-y-1.5">
+                                <div className="text-[11px] text-on-surface flex items-center justify-between transition-colors duration-200"><span>PTS Def Rank</span><span className="font-bold">{playerContext?.opponent_defense?.rank_pts != null ? `#${playerContext.opponent_defense.rank_pts}` : '—'}</span></div>
+                                <div className="text-[11px] text-on-surface flex items-center justify-between transition-colors duration-200"><span>REB Def Rank</span><span className="font-bold">{playerContext?.opponent_defense?.rank_reb != null ? `#${playerContext.opponent_defense.rank_reb}` : '—'}</span></div>
+                                <div className="text-[11px] text-on-surface flex items-center justify-between transition-colors duration-200"><span>AST Def Rank</span><span className="font-bold">{playerContext?.opponent_defense?.rank_ast != null ? `#${playerContext.opponent_defense.rank_ast}` : '—'}</span></div>
+                                <div className="text-[11px] text-on-surface flex items-center justify-between transition-colors duration-200"><span>3PM Def Rank</span><span className="font-bold">{playerContext?.opponent_defense?.rank_3pm != null ? `#${playerContext.opponent_defense.rank_3pm}` : '—'}</span></div>
+                              </div>
+                              <div className="mt-2 border-t border-outline/15 pt-2 space-y-1">
+                                <div className="text-[11px] text-on-surface flex items-center justify-between transition-colors duration-200"><span>Opponent</span><span className="font-semibold">{primary}</span></div>
+                                <div className="text-[11px] text-on-surface flex items-center justify-between transition-colors duration-200"><span>Rating</span><span className="font-semibold">{defSummary}</span></div>
+                                <div className="text-[11px] text-on-surface flex items-center justify-between transition-colors duration-200"><span>H2H</span><span className="font-semibold">{historical}</span></div>
+                              </div>
+                              {opponentDefenseEmpty && (
+                                <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-400">Refresh defensive ranks in Admin to load.</p>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </div>
-                      {/* Opponent defense vs player position (insight engine) */}
-                      {(() => {
-                        const posDef = playerContext?.opponent_defense_vs_position as { position?: string; rank_pts?: number; rank_reb?: number; rank_ast?: number; rank_3pm?: number } | undefined
-                        if (!posDef?.position) return null
-                        return (
-                          <div className="w-[180px] flex-none">
-                            <MatchupCard
-                              title={`Vs your position (${posDef.position})`}
-                              stats={[
-                                { label: 'PTS', value: posDef.rank_pts != null ? `#${posDef.rank_pts}` : '—' },
-                                { label: 'REB', value: posDef.rank_reb != null ? `#${posDef.rank_reb}` : '—' },
-                                { label: 'AST', value: posDef.rank_ast != null ? `#${posDef.rank_ast}` : '—' },
-                                { label: '3PM', value: posDef.rank_3pm != null ? `#${posDef.rank_3pm}` : '—' },
-                              ]}
-                            />
-                          </div>
-                        )
-                      })()}
                       {/* Opponent Offense (pace / scoring context) */}
                       {(playerContext?.opponent_offense && (playerContext.opponent_offense.rank_pts != null || playerContext.opponent_offense.rank_3pm != null)) && (
-                        <div className="w-[180px] flex-none">
+                        <div className="w-full h-full [&>div]:h-full">
                           <MatchupCard
                             title="Opponent Offense Rank"
                             stats={[
@@ -1094,62 +1104,22 @@ export default function PlayerProfile() {
                           />
                         </div>
                       )}
-                      {/* Recent Form Card */}
-                      <div className="w-[180px] flex-none">
-                        <MatchupCard
-                          title="Recent Form"
-                          stats={[
-                            { label: `L${windowN} PTS Avg`, value: ptsRecent.toFixed(1), valueColor: trend >= 0 ? 'text-green-700' : 'text-red-700' },
-                            { label: 'Season PTS Avg', value: ptsSeason.toFixed(1) },
-                          ]}
-                          tags={[trendTag]}
-                        />
-                      </div>
-                      {/* Game Context Card */}
-                      <div className="w-[180px] flex-none">
-                        <MatchupCard
-                          title="Game Context"
-                          stats={[
-                            { label: 'Home PTS', value: homeGames.length ? homePts.toFixed(1) : '—' },
-                            { label: 'Away PTS', value: awayGames.length ? awayPts.toFixed(1) : '—' },
-                            { 
-                              label: 'Rest Days', 
-                              value: playerContext?.rest_days != null 
-                                ? `${playerContext.rest_days}` 
-                                : '—' 
-                            },
-                            { 
-                              label: 'Injury Status', 
-                              value: [
-                                playerContext?.injury_status || 'Healthy',
-                                playerContext?.injury_description,
-                              ].filter(Boolean).join(' — ') || 'Healthy',
-                              valueColor: playerContext?.is_injured ? 'text-red-600' : 'text-green-600'
-                            },
-                            ...(opponentPaceRank?.pace_rank != null ? [{
-                              label: 'Opp Pace',
-                              value: `#${opponentPaceRank.pace_rank}${opponentPaceRank.possessions != null ? ` (${opponentPaceRank.possessions.toFixed(0)} poss)` : ''}`,
-                              valueColor: opponentPaceRank.pace_rank <= 5 ? 'text-orange-600 dark:text-orange-400' : opponentPaceRank.pace_rank >= 26 ? 'text-blue-600 dark:text-blue-400' : undefined,
-                            }] : []),
-                          ]}
-                        />
-                      </div>
                       {/* Matchup Advantage Score Card */}
                       {playerContext?.matchup_advantage && Object.keys(playerContext.matchup_advantage).length > 0 && (
-                        <div className="w-[180px] flex-none">
-                          <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-3 transition-colors duration-200">
-                            <div className="font-semibold text-gray-700 dark:text-slate-200 mb-2 text-xs transition-colors duration-200">Matchup Advantage</div>
-                            <div className="text-[10px] text-gray-400 dark:text-gray-500 mb-2 transition-colors duration-200">Player avg − opp allowed</div>
+                        <div className="w-full h-full">
+                          <div className="h-full bg-surface-container border border-outline/20 rounded-lg p-3 transition-colors duration-200">
+                            <div className="font-semibold text-on-surface mb-2 text-xs transition-colors duration-200">Matchup Advantage</div>
+                            <div className="text-[10px] text-on-surface-variant/60 mb-2 transition-colors duration-200">Player avg − opp allowed</div>
                             {(['pts', 'reb', 'ast', '3pm'] as const).map(stat => {
                               const val = playerContext.matchup_advantage[stat]
                               if (val == null) return null
                               const isPos = val > 0.5
                               const isNeg = val < -0.5
-                              const color = isPos ? 'text-green-600 dark:text-green-400' : isNeg ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
+                              const color = isPos ? 'text-green-600 dark:text-green-400' : isNeg ? 'text-red-600 dark:text-red-400' : 'text-on-surface-variant'
                               const label = stat === '3pm' ? '3PM' : stat.toUpperCase()
                               return (
                                 <div key={stat} className="flex justify-between items-center py-0.5">
-                                  <span className="text-xs text-gray-600 dark:text-slate-400 transition-colors duration-200">{label}</span>
+                                  <span className="text-xs text-on-surface-variant transition-colors duration-200">{label}</span>
                                   <span className={`text-xs font-bold transition-colors duration-200 ${color}`}>
                                     {val > 0 ? '+' : ''}{val.toFixed(1)}
                                   </span>
@@ -1160,100 +1130,126 @@ export default function PlayerProfile() {
                         </div>
                       )}
 
-                      {/* Hot/Cold Streak Card */}
-                      {streakData?.streaks && Object.keys(streakData.streaks).length > 0 && (
-                        <div className="w-[180px] flex-none">
-                          <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-3 transition-colors duration-200">
-                            <div className="font-semibold text-gray-700 dark:text-slate-200 mb-2 text-xs transition-colors duration-200">Streaks vs Season Avg</div>
-                            {(['pts', 'reb', 'ast', 'tpm'] as const).map(stat => {
-                              const s = streakData.streaks[stat]
-                              if (!s) return null
-                              const isHot = s.hot
-                              const isCold = s.cold
-                              const streak = isHot ? s.streak_over : isCold ? s.streak_under : 0
-                              const label = stat === 'tpm' ? '3PM' : stat.toUpperCase()
-                              return (
-                                <div key={stat} className="flex justify-between items-center py-0.5">
-                                  <span className="text-xs text-gray-600 dark:text-slate-400 transition-colors duration-200">{label}</span>
-                                  {isHot ? (
-                                    <span className="text-xs font-bold text-orange-500 dark:text-orange-400 transition-colors duration-200">🔥 {streak}G</span>
-                                  ) : isCold ? (
-                                    <span className="text-xs font-bold text-blue-500 dark:text-blue-400 transition-colors duration-200">❄️ {streak}G</span>
-                                  ) : (
-                                    <span className="text-xs text-gray-400 dark:text-gray-500 transition-colors duration-200">{s.recent5_avg.toFixed(1)} avg</span>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
+                      {/* Position / Context / Streaks row */}
+                      <div className="w-full sm:col-span-2 grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch">
+                        {/* Opponent defense vs player position (insight engine) */}
+                        {(() => {
+                          const posDef = playerContext?.opponent_defense_vs_position as { position?: string; rank_pts?: number; rank_reb?: number; rank_ast?: number; rank_3pm?: number } | undefined
+                          if (!posDef?.position) return null
+                          return (
+                            <div className="w-full h-full [&>div]:h-full">
+                              <MatchupCard
+                                title={`Vs your position (${posDef.position})`}
+                                stats={[
+                                  { label: 'PTS', value: posDef.rank_pts != null ? `#${posDef.rank_pts}` : '—' },
+                                  { label: 'REB', value: posDef.rank_reb != null ? `#${posDef.rank_reb}` : '—' },
+                                  { label: 'AST', value: posDef.rank_ast != null ? `#${posDef.rank_ast}` : '—' },
+                                  { label: '3PM', value: posDef.rank_3pm != null ? `#${posDef.rank_3pm}` : '—' },
+                                ]}
+                              />
+                            </div>
+                          )
+                        })()}
 
-                      {/* Usage Trend Card */}
+                        {/* Game Context Card */}
+                        <div className="w-full h-full [&>div]:h-full">
+                          <MatchupCard
+                            title="Game Context"
+                            stats={[
+                              { label: 'Home PTS', value: homeGames.length ? homePts.toFixed(1) : '—' },
+                              { label: 'Away PTS', value: awayGames.length ? awayPts.toFixed(1) : '—' },
+                              {
+                                label: 'Rest Days',
+                                value: playerContext?.rest_days != null
+                                  ? `${playerContext.rest_days}`
+                                  : '—'
+                              },
+                              {
+                                label: 'Injury Status',
+                                value: [
+                                  playerContext?.injury_status || 'Healthy',
+                                  playerContext?.injury_description,
+                                ].filter(Boolean).join(' — ') || 'Healthy',
+                                valueColor: playerContext?.is_injured ? 'text-red-600' : 'text-green-600'
+                              },
+                              ...(opponentPaceRank?.pace_rank != null ? [{
+                                label: 'Opp Pace',
+                                value: `#${opponentPaceRank.pace_rank}${opponentPaceRank.possessions != null ? ` (${opponentPaceRank.possessions.toFixed(0)} poss)` : ''}`,
+                                valueColor: opponentPaceRank.pace_rank <= 5 ? 'text-orange-600 dark:text-orange-400' : opponentPaceRank.pace_rank >= 26 ? 'text-primary-container' : undefined,
+                              }] : []),
+                            ]}
+                          />
+                        </div>
+
+                        {/* Hot/Cold Streak Card */}
+                        {streakData?.streaks && Object.keys(streakData.streaks).length > 0 && (
+                          <div className="w-full h-full">
+                            <div className="h-full bg-surface-container border border-outline/20 rounded-lg p-3 transition-colors duration-200 flex flex-col">
+                              <div className="font-semibold text-on-surface mb-2 text-xs transition-colors duration-200">Streaks vs Season Avg</div>
+                              <div className="space-y-0.5">
+                              {(['pts', 'reb', 'ast', 'tpm'] as const).map(stat => {
+                                const s = streakData.streaks[stat]
+                                if (!s) return null
+                                const isHot = s.hot
+                                const isCold = s.cold
+                                const streak = isHot ? s.streak_over : isCold ? s.streak_under : 0
+                                const label = stat === 'tpm' ? '3PM' : stat.toUpperCase()
+                                return (
+                                  <div key={stat} className="flex justify-between items-center py-0.5">
+                                    <span className="text-[11px] text-on-surface-variant transition-colors duration-200">{label}</span>
+                                    {isHot ? (
+                                      <span className="text-[11px] font-bold text-orange-500 dark:text-orange-400 transition-colors duration-200">🔥 {streak}G</span>
+                                    ) : isCold ? (
+                                      <span className="text-[11px] font-bold text-blue-500 dark:text-blue-400 transition-colors duration-200">❄️ {streak}G</span>
+                                    ) : (
+                                      <span className="text-[11px] text-on-surface-variant/60 transition-colors duration-200">{s.recent5_avg.toFixed(1)} avg</span>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+
+                    {/* Right column: Recent Form · Usage Trend · Prop Correlations */}
+                    <div className="flex flex-col gap-3">
+                      {/* Recent Form */}
+                      <div className="bg-surface-container border border-outline/20 rounded p-3">
+                        <div className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Recent Form</div>
+                        <div className="flex justify-between items-center py-1 border-b border-outline/10">
+                          <span className="text-xs text-on-surface-variant">L{windowN} PTS Avg</span>
+                          <span className={`text-xs font-bold ${trend >= 0 ? 'text-betting-green' : 'text-error'}`}>{ptsRecent.toFixed(1)}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1">
+                          <span className="text-xs text-on-surface-variant">Season PTS Avg</span>
+                          <span className="text-xs font-bold text-on-surface">{ptsSeason.toFixed(1)}</span>
+                        </div>
+                        <div className="mt-2">
+                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${trendTag === 'HOT' ? 'bg-betting-green/15 text-betting-green' : trendTag === 'COLD' ? 'bg-error/15 text-error' : 'bg-surface-container-high text-on-surface-variant'}`}>{trendTag}</span>
+                        </div>
+                      </div>
+
+                      {/* Usage Trend */}
                       {(() => {
                         const usageRecent = avg(recentN.map(g=> (g.pts + g.ast + g.reb)))
                         const usageSeason = seasonAverages.pra
                         const usageDelta = usageRecent - usageSeason
                         const usageTrend = usageDelta > 1 ? '↑' : usageDelta < -1 ? '↓' : '→'
                         return (
-                          <div className="w-[180px] flex-none bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-lg p-3 transition-colors duration-200">
-                            <div className="font-semibold text-purple-900 dark:text-purple-100 mb-2 text-xs transition-colors duration-200">Usage Trend (Proxy)</div>
-                            <div className="text-[11px] text-purple-800 dark:text-purple-200 flex items-center justify-between transition-colors duration-200"><span>Season PRA</span><span className="font-bold">{usageSeason.toFixed(1)}</span></div>
-                            <div className="text-[11px] text-purple-800 dark:text-purple-200 flex items-center justify-between mt-1 transition-colors duration-200"><span>Recent (L{windowN})</span><span className="font-bold">{usageRecent.toFixed(1)}</span></div>
-                            <div className="mt-1.5 text-xs text-purple-900 dark:text-purple-100 font-semibold transition-colors duration-200">{usageTrend} {usageDelta >= 0 ? '+' : ''}{usageDelta.toFixed(1)}</div>
+                          <div className="bg-surface-container border border-outline/20 rounded p-3">
+                            <div className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Usage Trend (Proxy)</div>
+                            <div className="text-[11px] text-on-surface flex items-center justify-between"><span>Season PRA</span><span className="font-bold">{usageSeason.toFixed(1)}</span></div>
+                            <div className="text-[11px] text-on-surface flex items-center justify-between mt-1"><span>Recent (L{windowN})</span><span className="font-bold">{usageRecent.toFixed(1)}</span></div>
+                            <div className="mt-1.5 text-xs font-bold text-on-surface">{usageTrend} {usageDelta >= 0 ? '+' : ''}{usageDelta.toFixed(1)}</div>
                           </div>
                         )
                       })()}
-                      {/* Defensive Matchup Card */}
-                      {(() => {
-                        // Prefer opponent def rank (PTS) for rating when available; else H2H or conference rank
-                        const defRankPts = playerContext?.opponent_defense?.rank_pts
-                        const opponentRank = playerContext?.opponent_performance?.conference_rank
-                        const h2hGames = playerContext?.h2h?.games_played || 0
-                        const h2hPts = playerContext?.h2h?.avg_pts
-                        const seasonPts = seasonAverages.pts
-                        
-                        let defensiveRating = '—'
-                        if (defRankPts != null) {
-                          // Lower rank = better defense = tougher matchup for our player
-                          if (defRankPts <= 8) defensiveRating = 'Tough'
-                          else if (defRankPts <= 16) defensiveRating = 'Neutral'
-                          else defensiveRating = 'Friendly'
-                        } else if (h2hPts != null && seasonPts > 0 && h2hGames > 0) {
-                          const ptsDiff = seasonPts - h2hPts
-                          if (ptsDiff > 2) defensiveRating = 'Strong'
-                          else if (ptsDiff > 0) defensiveRating = 'Moderate'
-                          else if (ptsDiff > -2) defensiveRating = 'Weak'
-                          else defensiveRating = 'Very Weak'
-                        } else if (opponentRank != null) {
-                          if (opponentRank <= 5) defensiveRating = 'Strong'
-                          else if (opponentRank <= 10) defensiveRating = 'Moderate'
-                          else defensiveRating = 'Weak'
-                        }
-                        
-                        const primary = playerContext?.opponent_team_abbr || '—'
-                        const historical = h2hGames > 0 ? `${h2hGames} games` : '—'
-                        const numTeams = 30
-                        const defSummary = defRankPts != null
-                          ? `Def #${defRankPts} of ${numTeams} (${defensiveRating})`
-                          : defensiveRating
-                        
-                        return (
-                          <div className="w-[180px] flex-none bg-teal-50 dark:bg-teal-900/20 border-2 border-teal-200 dark:border-teal-700 rounded-lg p-3 transition-colors duration-200">
-                            <div className="font-semibold text-teal-900 dark:text-teal-100 mb-2 text-xs transition-colors duration-200">Defensive Matchup</div>
-                            <div className="text-[11px] text-teal-800 dark:text-teal-200 transition-colors duration-200">
-                              <span>Opponent:</span> <span className="font-semibold">{primary}</span>
-                            </div>
-                            <div className="text-[11px] text-teal-800 dark:text-teal-200 mt-1 transition-colors duration-200">
-                              <span>Rating:</span> <span className="font-semibold">{defSummary}</span>
-                            </div>
-                            <div className="text-[11px] text-teal-800 dark:text-teal-200 mt-1 transition-colors duration-200">
-                              <span>H2H:</span> <span className="font-semibold">{historical}</span>
-                            </div>
-                          </div>
-                        )
-                      })()}
-                      {/* Prop Correlations Card */}
+
+                      {/* Prop Correlations */}
                       {(() => {
                         const recentPts = recentN.map(g=>g.pts)
                         const recentAst = recentN.map(g=>g.ast)
@@ -1263,11 +1259,11 @@ export default function PlayerProfile() {
                         const corrAstReb = pearsonCorrelation(recentAst, recentReb)
                         const fmt = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}`
                         return (
-                          <div className="w-[180px] flex-none bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-700 rounded-lg p-3 transition-colors duration-200">
-                            <div className="font-semibold text-orange-900 dark:text-orange-100 mb-2 text-xs transition-colors duration-200">Prop Correlations (L{windowN})</div>
-                            <div className="text-[11px] text-orange-800 dark:text-orange-200 flex items-center justify-between transition-colors duration-200"><span>PTS ↔ AST</span><span className="font-bold">{fmt(corrPtsAst)}</span></div>
-                            <div className="text-[11px] text-orange-800 dark:text-orange-200 flex items-center justify-between mt-1 transition-colors duration-200"><span>PTS ↔ REB</span><span className="font-bold">{fmt(corrPtsReb)}</span></div>
-                            <div className="text-[11px] text-orange-800 dark:text-orange-200 flex items-center justify-between mt-1 transition-colors duration-200"><span>AST ↔ REB</span><span className="font-bold">{fmt(corrAstReb)}</span></div>
+                          <div className="bg-surface-container border border-outline/20 rounded p-3">
+                            <div className="text-xs font-black uppercase tracking-widest text-on-surface-variant mb-2">Prop Correlations (L{windowN})</div>
+                            <div className="text-[11px] text-on-surface flex items-center justify-between"><span>PTS ↔ AST</span><span className="font-bold">{fmt(corrPtsAst)}</span></div>
+                            <div className="text-[11px] text-on-surface flex items-center justify-between mt-1"><span>PTS ↔ REB</span><span className="font-bold">{fmt(corrPtsReb)}</span></div>
+                            <div className="text-[11px] text-on-surface flex items-center justify-between mt-1"><span>AST ↔ REB</span><span className="font-bold">{fmt(corrAstReb)}</span></div>
                           </div>
                         )
                       })()}
@@ -1473,7 +1469,7 @@ export default function PlayerProfile() {
               return {
                 prop: (
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900 dark:text-slate-100 transition-colors duration-200">{r.label}</span>
+                    <span className="font-medium text-on-surface transition-colors duration-200">{r.label}</span>
                     <select
                       value={currentDir}
                       onChange={(e) => {
@@ -1484,7 +1480,7 @@ export default function PlayerProfile() {
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="text-xs px-1.5 pr-6 py-0.5 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
+                      className="text-xs px-1.5 pr-6 py-0.5 border border-outline/30 rounded bg-surface-container-high text-on-surface focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
                     >
                       <option value="over">Over</option>
                       <option value="under">Under</option>
@@ -1504,7 +1500,7 @@ export default function PlayerProfile() {
                         }
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-20 px-2 py-1 text-xs border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
+                      className="w-20 px-2 py-1 text-xs border border-outline/30 rounded bg-surface-container-high text-on-surface focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
                       placeholder="Line"
                     />
                   </div>
@@ -1528,7 +1524,7 @@ export default function PlayerProfile() {
                   <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors duration-200 ${
                     r.trend==='Fire' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 ring-2 ring-red-200 dark:ring-red-700/50' :
                     r.trend==='Hot' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 ring-2 ring-orange-200 dark:ring-orange-700/50' :
-                    r.trend==='Neutral' ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 ring-2 ring-gray-200 dark:ring-gray-700' :
+                    r.trend==='Neutral' ? 'bg-surface-container-high text-on-surface border border-outline/30' :
                     'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 ring-2 ring-blue-200 dark:ring-blue-700/50'
                   }`}>{r.trend}</span>
                 ),
@@ -1538,21 +1534,21 @@ export default function PlayerProfile() {
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 transition-colors duration-200">Historical Prop Performance</div>
+                    <div className="text-sm font-semibold text-on-surface transition-colors duration-200">Historical Prop Performance</div>
                     <select
                       value={histLastN}
                       onChange={(e) => setHistLastN(Number(e.target.value) as 5 | 10)}
-                      className="text-xs px-2 pr-8 py-1 border border-gray-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
+                      className="text-xs px-2 pr-8 py-1 border border-outline/30 rounded bg-surface-container-high text-on-surface focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
                     >
                       <option value={5}>Last 5</option>
                       <option value={10}>Last 10</option>
                     </select>
                   </div>
-                  <button onClick={() => setShowHistorical(v => !v)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200" aria-label="Toggle historical section">
+                  <button onClick={() => setShowHistorical(v => !v)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-surface-container-high transition-colors duration-200" aria-label="Toggle historical section">
                     {showHistorical ? (
-                      <svg className="w-4 h-4 text-slate-600 dark:text-slate-400 transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/></svg>
+                      <svg className="w-4 h-4 text-on-surface-variant transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/></svg>
                     ) : (
-                      <svg className="w-4 h-4 text-slate-600 dark:text-slate-400 transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M2.1 3.5 1 4.6l3.3 3.3C2 9.7 1 12 1 12s4 7 11 7c2.3 0 4.3-.7 6-.1l3 3 1.1-1.1L2.1 3.5ZM12 17c-2.8 0-5-2.2-5-5 0-.6.1-1.1.3-1.6l1.5 1.5c-.1.3-.1.7-.1 1.1 0 1.9 1.5 3.5 3.5 3.5.4 0 .8-.1 1.1-.2l1.5 1.5c-.5.2-1.1.2-1.8.2Z"/></svg>
+                      <svg className="w-4 h-4 text-on-surface-variant transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M2.1 3.5 1 4.6l3.3 3.3C2 9.7 1 12 1 12s4 7 11 7c2.3 0 4.3-.7 6-.1l3 3 1.1-1.1L2.1 3.5ZM12 17c-2.8 0-5-2.2-5-5 0-.6.1-1.1.3-1.6l1.5 1.5c-.1.3-.1.7-.1 1.1 0 1.9 1.5 3.5 3.5 3.5.4 0 .8-.1 1.1-.2l1.5 1.5c-.5.2-1.1.2-1.8.2Z"/></svg>
                     )}
                   </button>
                 </div>
@@ -1682,7 +1678,7 @@ export default function PlayerProfile() {
                     className={`px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 ${
                       createBet.isPending
                         ? 'bg-gray-400 text-white cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-primary-container hover:brightness-110 text-on-primary'
                     }`}
                   >
                     {createBet.isPending ? (
@@ -1732,7 +1728,7 @@ export default function PlayerProfile() {
               <div className="mt-3">
                 <DataTable<GameRow> columns={columns} rows={rows} caption="Game Logs" defaultPageSize={10} pageSizeOptions={[10,20,50]} />
                 {logs.length === 0 && (
-                  <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 transition-colors duration-200">No recent game logs.</div>
+                  <div className="px-4 py-3 text-sm text-on-surface-variant transition-colors duration-200">No recent game logs.</div>
                 )}
               </div>
             )

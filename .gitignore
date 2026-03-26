@@ -40,6 +40,7 @@ Thumbs.db
 *.local
 *.db
 *.db-journal
+*.sql
 .env
 celerybeat-schedule
 
