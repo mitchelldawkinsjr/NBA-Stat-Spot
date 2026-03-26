@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiGet, apiPost, getApiBaseDisplay } from '../utils/api'
+import { isAdminGateEnabled, lockAdminPage } from '../utils/adminGate'
 
 async function fetchHealth() {
   return apiGet('/api/v1/admin/health')
@@ -151,6 +152,7 @@ interface ActivityLog {
 }
 
 export default function AdminDashboard() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [integritySeason, setIntegritySeason] = useState('2025-26')
   const [settleDateInput, setSettleDateInput] = useState('')
@@ -685,12 +687,26 @@ export default function AdminDashboard() {
 
   return (
     <div className="container mx-auto px-2 sm:px-3 md:px-4 max-w-7xl">
-      <div className="mt-2">
-        <h1 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-on-surface transition-colors duration-200">ADMIN DASHBOARD</h1>
-        <p className="mt-0.5 text-xs text-on-surface-variant transition-colors duration-200">
-          Monitor system health, data consistency, and refresh cached services.
-          <span className="ml-1 text-on-surface-variant">API: {getApiBaseDisplay()}</span>
-        </p>
+      <div className="mt-2 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-on-surface transition-colors duration-200">ADMIN DASHBOARD</h1>
+          <p className="mt-0.5 text-xs text-on-surface-variant transition-colors duration-200">
+            Monitor system health, data consistency, and refresh cached services.
+            <span className="ml-1 text-on-surface-variant">API: {getApiBaseDisplay()}</span>
+          </p>
+        </div>
+        {isAdminGateEnabled() && (
+          <button
+            type="button"
+            onClick={() => {
+              lockAdminPage()
+              navigate('/')
+            }}
+            className="shrink-0 px-3 py-1.5 text-xs font-black uppercase tracking-widest rounded-lg border border-outline/30 bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
+          >
+            Lock admin
+          </button>
+        )}
       </div>
 
       {/* Connection error banner */}

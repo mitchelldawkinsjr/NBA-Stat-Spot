@@ -67,11 +67,15 @@ export async function apiFetch(
     ? `${API_BASE_URL}/${cleanEndpoint}`
     : `/${cleanEndpoint}`
 
+  const adminSecret = (import.meta.env.VITE_ADMIN_SECRET || '').trim()
+  const needsAdminHeader = cleanEndpoint.includes('api/v1/admin') && adminSecret.length > 0
+
   const doFetch = (targetUrl: string) =>
     fetch(targetUrl, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...(needsAdminHeader ? { 'X-Admin-Secret': adminSecret } : {}),
         ...options?.headers,
       },
     })

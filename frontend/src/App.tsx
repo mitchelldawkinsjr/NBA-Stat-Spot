@@ -6,6 +6,7 @@ import PlayerProfile from './pages/PlayerProfile'
 import TeamProfile from './pages/TeamProfile'
 import ExplorePage from './pages/ExplorePage'
 import AdminDashboard from './pages/AdminDashboard'
+import { AdminGate } from './components/AdminGate'
 import OverUnderPage from './pages/OverUnderPage'
 import GamePredictionPage from './pages/GamePredictionPage'
 import AccuracyPage from './pages/AccuracyPage'
@@ -27,7 +28,7 @@ function App() {
               <Route path="/bets" element={<BetTracker />} />
               <Route path="/player/:id" element={<PlayerProfile />} />
               <Route path="/team/:id" element={<TeamProfile />} />
-              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin" element={<AdminGate><AdminDashboard /></AdminGate>} />
               <Route path="/over-under" element={<OverUnderPage />} />
               <Route path="/game/:gameId" element={<GamePredictionPage />} />
               <Route path="/accuracy" element={<AccuracyPage />} />
