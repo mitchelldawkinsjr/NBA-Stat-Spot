@@ -175,7 +175,7 @@ export function QuickPropLab() {
   return (
     <div className="overflow-hidden rounded-lg bg-surface-container border border-outline/20 shadow-sm transition-colors duration-200">
       {/* Header */}
-      <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 border-b border-outline/20 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 transition-colors duration-200">
+      <div className="px-2.5 sm:px-3 py-1.5 sm:py-2 border-b border-outline/20 bg-gradient-to-r from-purple-900/20 to-indigo-900/20 transition-colors duration-200">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
           <div>
             <h3 className="text-sm sm:text-base font-semibold text-on-surface transition-colors duration-200">Quick Prop Lab</h3>

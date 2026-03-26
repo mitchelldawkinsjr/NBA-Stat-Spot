@@ -90,11 +90,11 @@ export function PageLoader({ message = 'Loading player data...', progress }: { m
   const displayProgress = progress !== undefined ? progress : 0
   
   return (
-    <div className="min-h-[500px] flex items-center justify-center bg-gradient-to-br from-gray-50 dark:from-slate-900 via-white dark:via-slate-800 to-blue-50/30 dark:to-blue-900/20 rounded-xl shadow-lg ring-1 ring-gray-200/50 dark:ring-slate-700/50 p-12 relative overflow-hidden transition-colors duration-200">
+    <div className="min-h-[500px] flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900/20 rounded-xl shadow-lg ring-1 ring-slate-700/50 p-12 relative overflow-hidden transition-colors duration-200">
       {/* Background decorative elements */}
-      <div className="absolute inset-0 opacity-5 dark:opacity-10">
-        <div className="absolute top-10 left-10 w-32 h-32 bg-blue-500 dark:bg-blue-400 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-10 right-10 w-40 h-40 bg-purple-500 dark:bg-purple-400 rounded-full blur-3xl"></div>
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute top-10 left-10 w-32 h-32 bg-blue-400 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-10 right-10 w-40 h-40 bg-purple-400 rounded-full blur-3xl"></div>
       </div>
       
       <div className="text-center relative z-10 w-full max-w-md">

@@ -113,7 +113,7 @@ export default function ExplorePage() {
       {viewMode === 'search' ? (
         <div className="space-y-6">
           {/* Prominent Player Search Section */}
-          <div className="card p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700/50 shadow-lg transition-colors duration-200">
+          <div className="card p-4 sm:p-6 bg-gradient-to-br from-blue-900/20 to-indigo-900/20 border-2 border-blue-700/50 shadow-lg transition-colors duration-200">
             <div className="mb-4">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-on-surface mb-2 transition-colors duration-200">Find a Player</h3>
               <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 transition-colors duration-200">Search for any NBA player to view their detailed prop analysis</p>

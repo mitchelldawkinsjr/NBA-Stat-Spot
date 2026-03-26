@@ -22,9 +22,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null
       if (stored === 'dark' || stored === 'light') return stored
-      return getSystemTheme()
+      return 'dark'
     }
-    return 'light'
+    return 'dark'
   })
 
   useEffect(() => {
