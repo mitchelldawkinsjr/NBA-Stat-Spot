@@ -686,31 +686,31 @@ export default function PlayerProfile() {
               </div>
               {/* Minimal season averages inline under name with form badges */}
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
+                <span className="inline-flex items-center gap-1 rounded bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
                   PTS {seasonAverages.pts.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.pts.color}`}>
                     {statFormBadges.pts.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
+                <span className="inline-flex items-center gap-1 rounded bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
                   REB {seasonAverages.reb.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.reb.color}`}>
                     {statFormBadges.reb.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
+                <span className="inline-flex items-center gap-1 rounded bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
                   AST {seasonAverages.ast.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.ast.color}`}>
                     {statFormBadges.ast.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
+                <span className="inline-flex items-center gap-1 rounded bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
                   3PM {seasonAverages.tpm.toFixed(1)}
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold ${statFormBadges.tpm.color}`}>
                     {statFormBadges.tpm.tag}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
+                <span className="inline-flex items-center gap-1 rounded bg-surface-container-high px-2 py-0.5 text-[10px] font-medium text-on-surface transition-colors duration-200">
                   MIN {seasonAverages.minutes.toFixed(1)}
                 </span>
               </div>
@@ -789,7 +789,7 @@ export default function PlayerProfile() {
                 </div>
                 {liveStats.stats.fouls > 0 && (
                   <div className="mt-2 text-center">
-                    <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 ring-1 ring-yellow-600/20 dark:ring-yellow-600/50 transition-colors duration-200">
+                    <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-yellow-900/30 text-yellow-300 ring-1 ring-yellow-600/50 transition-colors duration-200">
                       {liveStats.stats.fouls} Foul{liveStats.stats.fouls !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -821,7 +821,7 @@ export default function PlayerProfile() {
           <PageLoader message="Loading player stats..." />
         </div>
       ) : error ? (
-        <div className="mt-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-300 transition-colors duration-200">
+        <div className="mt-3 rounded-lg border border-red-800 bg-red-900/20 p-3 text-sm text-red-300 transition-colors duration-200">
           <div className="font-semibold mb-2">Error loading player data</div>
           <div>{error}</div>
           <div className="mt-3">
@@ -956,7 +956,7 @@ export default function PlayerProfile() {
                   {vals.map((v, i) => {
                     const hit = compare(v)
                     return (
-                      <div key={i} className={`flex items-center justify-center w-6 h-6 rounded transition-colors duration-200 ${hit ? 'bg-emerald-500/15 dark:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-600/20 dark:ring-emerald-600/40' : 'bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 ring-1 ring-red-600/20 dark:ring-red-600/40'}`} title={`${v} ${hit ? 'hit' : 'miss'}`}>
+                      <div key={i} className={`flex items-center justify-center w-6 h-6 rounded transition-colors duration-200 ${hit ? 'bg-emerald-500/25 text-emerald-300 ring-1 ring-emerald-600/40' : 'bg-red-500/20 text-red-400 ring-1 ring-red-600/40'}`} title={`${v} ${hit ? 'hit' : 'miss'}`}>
                         {hit ? (
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
                         ) : (
@@ -984,7 +984,7 @@ export default function PlayerProfile() {
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-semibold text-on-surface transition-colors duration-200">Opponent Analysis</div>
-                  <button onClick={() => setShowOpponent(v => !v)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-surface-container-high transition-colors duration-200" aria-label="Toggle opponent analysis">
+                  <button onClick={() => setShowOpponent(v => !v)} className="p-1 rounded hover:bg-surface-container-high transition-colors duration-200" aria-label="Toggle opponent analysis">
                     {showOpponent ? (
                       <svg className="w-4 h-4 text-on-surface-variant transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/></svg>
                     ) : (
@@ -1522,10 +1522,10 @@ export default function PlayerProfile() {
                 margin: (r.margin >= 0 ? '+' : '') + r.margin.toFixed(1),
                 trend: (
                   <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors duration-200 ${
-                    r.trend==='Fire' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 ring-2 ring-red-200 dark:ring-red-700/50' :
-                    r.trend==='Hot' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 ring-2 ring-orange-200 dark:ring-orange-700/50' :
+                    r.trend==='Fire' ? 'bg-red-900/30 text-red-300 ring-2 ring-red-700/50' :
+                    r.trend==='Hot' ? 'bg-orange-900/30 text-orange-300 ring-2 ring-orange-700/50' :
                     r.trend==='Neutral' ? 'bg-surface-container-high text-on-surface border border-outline/30' :
-                    'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 ring-2 ring-blue-200 dark:ring-blue-700/50'
+                    'bg-blue-900/30 text-blue-300 ring-2 ring-blue-700/50'
                   }`}>{r.trend}</span>
                 ),
               }
@@ -1544,7 +1544,7 @@ export default function PlayerProfile() {
                       <option value={10}>Last 10</option>
                     </select>
                   </div>
-                  <button onClick={() => setShowHistorical(v => !v)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-surface-container-high transition-colors duration-200" aria-label="Toggle historical section">
+                  <button onClick={() => setShowHistorical(v => !v)} className="p-1 rounded hover:bg-surface-container-high transition-colors duration-200" aria-label="Toggle historical section">
                     {showHistorical ? (
                       <svg className="w-4 h-4 text-on-surface-variant transition-colors duration-200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-11 7-11 7s4 7 11 7 11-7 11-7-4-7-11-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/></svg>
                     ) : (
