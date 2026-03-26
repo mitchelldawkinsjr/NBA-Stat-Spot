@@ -748,14 +748,17 @@ export function GoodBetsDashboard() {
           ) : pickOfTheDay ? (
             <div className="relative overflow-hidden bg-surface-container rounded min-h-[380px] flex flex-col md:flex-row group border border-outline-variant/20">
               <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent z-10" />
-              <div className="absolute right-0 top-0 h-full w-full md:w-2/3 bg-surface-container-low flex items-center justify-center overflow-hidden">
+              <button
+                onClick={() => navigate(`/player/${pickOfTheDay.playerId}`)}
+                className="absolute right-0 top-0 h-full w-full md:w-2/3 bg-surface-container-low flex items-center justify-center overflow-hidden cursor-pointer"
+              >
                 <PlayerAvatar
                   playerId={pickOfTheDay.playerId}
                   playerName={pickOfTheDay.playerName}
                   size="large"
-                  className="w-full h-full object-cover object-center opacity-60 group-hover:scale-105 transition-transform duration-1000 grayscale brightness-75"
+                  className="w-full h-full object-cover object-center opacity-60 group-hover:opacity-90 group-hover:scale-105 group-hover:grayscale-0 group-hover:brightness-100 transition-all duration-700 grayscale brightness-75"
                 />
-              </div>
+              </button>
               <div className="relative z-20 p-8 flex flex-col justify-end h-full w-full md:w-3/5 min-h-[380px]">
                 <div className="flex items-center gap-2 mb-4">
                   <span className="bg-primary-container text-on-primary text-[10px] font-black px-3 py-1 rounded uppercase tracking-[0.2em] flex items-center gap-1.5">
@@ -920,9 +923,12 @@ export function GoodBetsDashboard() {
               {bestBets.slice(0, 8).map((b, i) => (
                 <div key={i} className="bg-surface-container rounded overflow-hidden flex flex-col border border-outline-variant/20 hover:border-primary-container/50 transition-all duration-300">
                   <div className="p-5 flex gap-4">
-                    <div className="w-16 h-16 rounded bg-background overflow-hidden shrink-0 border border-outline-variant/20">
-                      <PlayerAvatar playerId={b.playerId ?? 0} playerName={b.playerName} size="medium" className="w-full h-full object-cover grayscale brightness-75" />
-                    </div>
+                    <button
+                      onClick={() => navigate(`/player/${b.playerId}`)}
+                      className="group/avatar w-16 h-16 rounded bg-background overflow-hidden shrink-0 border border-outline-variant/20 hover:border-primary-container/50 transition-colors cursor-pointer"
+                    >
+                      <PlayerAvatar playerId={b.playerId ?? 0} playerName={b.playerName} size="medium" className="w-full h-full object-cover grayscale brightness-75 group-hover/avatar:grayscale-0 group-hover/avatar:brightness-100 transition-all duration-300" />
+                    </button>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start mb-1">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-on-surface truncate">{b.playerName}</h4>
@@ -992,12 +998,12 @@ export function GoodBetsDashboard() {
                   <button
                     key={p.id}
                     onClick={() => navigate(`/player/${p.id}`)}
-                    className="w-full flex items-center gap-4 bg-background p-4 rounded border border-outline-variant/10 hover:border-betting-green/30 transition-colors text-left"
+                    className="group w-full flex items-center gap-4 bg-background p-4 rounded border border-outline-variant/10 hover:border-betting-green/30 transition-colors text-left"
                   >
                     <span className={`text-xl font-black italic w-8 ${i === 0 ? 'text-betting-green' : i === 1 ? 'text-primary' : 'text-on-surface-variant'}`}>
                       #{String(i + 1).padStart(2, '0')}
                     </span>
-                    <PlayerAvatar playerId={p.id} playerName={p.name} size="small" className="w-8 h-8 rounded shrink-0" />
+                    <PlayerAvatar playerId={p.id} playerName={p.name} size="small" className="w-8 h-8 rounded shrink-0 grayscale brightness-75 group-hover:grayscale-0 group-hover:brightness-100 transition-all duration-300" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-black uppercase tracking-widest truncate">{p.name}</p>
                       <p className="text-[10px] text-on-surface-variant font-medium truncate">
@@ -1102,9 +1108,12 @@ export function GoodBetsDashboard() {
                     <tr key={i} className="hover:bg-surface-container-high transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded bg-background overflow-hidden border border-outline-variant/20">
-                            <PlayerAvatar playerId={b.playerId ?? 0} playerName={b.playerName} size="small" className="w-full h-full object-cover grayscale opacity-70" />
-                          </div>
+                          <button
+                            onClick={() => navigate(`/player/${b.playerId}`)}
+                            className="group/avatar w-8 h-8 rounded bg-background overflow-hidden border border-outline-variant/20 hover:border-primary-container/50 transition-colors cursor-pointer shrink-0"
+                          >
+                            <PlayerAvatar playerId={b.playerId ?? 0} playerName={b.playerName} size="small" className="w-full h-full object-cover grayscale opacity-70 group-hover/avatar:grayscale-0 group-hover/avatar:opacity-100 transition-all duration-300" />
+                          </button>
                           <div>
                             <p className="text-on-surface">{b.playerName}</p>
                             <p className="text-[8px] text-on-surface-variant opacity-60 normal-case">{b.type}</p>
