@@ -837,6 +837,9 @@ export function GoodBetsDashboard() {
                 const pred = predictions.find(p => p.away === bestMatchOfTheDay.away && p.home === bestMatchOfTheDay.home) || predictions[0]
                 if (!pred) return null
                 const homeWinPct = Math.round(Number(pred.win_probability_home))
+                const awayWinPct = 100 - homeWinPct
+                const favorsHome = pred.predicted_winner === pred.home
+                const winnerPct = favorsHome ? homeWinPct : awayWinPct
                 return (
                   <div>
                     <div className="flex justify-between items-center mb-4">
@@ -846,10 +849,10 @@ export function GoodBetsDashboard() {
                       </div>
                       <div className="flex-1 px-4 text-center">
                         <div className="h-1 w-full bg-outline-variant rounded-full mb-2 overflow-hidden flex">
-                          <div className="bg-error h-full" style={{ width: `${100 - homeWinPct}%` }} />
+                          <div className="bg-error h-full" style={{ width: `${awayWinPct}%` }} />
                           <div className="bg-betting-green h-full" style={{ width: `${homeWinPct}%` }} />
                         </div>
-                        <p className="text-[9px] font-black tracking-[0.2em] text-betting-green uppercase">{homeWinPct}% WIN PROB</p>
+                        <p className="text-[9px] font-black tracking-[0.2em] text-betting-green uppercase">{winnerPct}% WIN PROB</p>
                       </div>
                       <div className="text-center">
                         <img src={teamLogoUrl(pred.home)} alt={pred.home} className="w-10 h-10 mb-1 mx-auto grayscale opacity-60" onError={e => (e.target as HTMLImageElement).style.display = 'none'} />
