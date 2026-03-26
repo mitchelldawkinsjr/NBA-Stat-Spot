@@ -1,9 +1,9 @@
 type Trend = 'up' | 'down' | 'neutral'
 
 export function PropCard({ label, value, trend, trendText, confidence, recommendation, highlight, details }: { label: string; value: string | number; trend: Trend; trendText: string; confidence: number; recommendation: string; highlight?: boolean; details?: Array<{ label: string; value: string }> }) {
-  const trendColor = trend === 'up' ? 'text-green-600' : trend === 'down' ? 'text-red-600' : 'text-yellow-600'
+  const trendColor = trend === 'up' ? 'text-betting-green' : trend === 'down' ? 'text-error' : 'text-primary-container'
   const arrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'
-  const borderClass = highlight ? 'border-blue-700' : 'border-blue-600'
+  const borderClass = highlight ? 'border-primary' : 'border-primary-container/60'
   const clamped = Math.max(0, Math.min(100, Number(confidence) || 0))
   
   // Color based on confidence level with granular thresholds (5% increments)
@@ -62,12 +62,12 @@ export function PropCard({ label, value, trend, trendText, confidence, recommend
     barColorHex = '#4b5563' // gray-600
   }
   return (
-    <div className={`bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-slate-800 dark:via-slate-800 dark:to-slate-700 rounded-lg p-2.5 sm:p-3 border-l-2 ${borderClass} shadow-sm transition-colors duration-200`}> 
+    <div className={`rounded-lg bg-surface-container p-2.5 sm:p-3 border-l-2 ${borderClass} shadow-sm ring-1 ring-outline/15 transition-colors duration-200`}>
       <div className="flex items-center justify-between">
         <div className="text-[9px] sm:text-[10px] font-semibold text-on-surface-variant uppercase tracking-widest mb-0.5 transition-colors duration-200">{label}</div>
-        <span className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${recommendation === 'OVER' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'} transition-colors duration-200`}>{recommendation}</span>
+        <span className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${recommendation === 'OVER' ? 'bg-betting-green/15 text-betting-green ring-1 ring-betting-green/30' : 'bg-error/15 text-error ring-1 ring-error/30'} transition-colors duration-200`}>{recommendation}</span>
       </div>
-      <div className={`text-xl sm:text-2xl font-extrabold ${highlight ? 'text-blue-800 dark:text-blue-300' : 'text-blue-900 dark:text-blue-200'} transition-colors duration-200`}>{value}</div>
+      <div className={`text-xl sm:text-2xl font-extrabold ${highlight ? 'text-primary' : 'text-on-surface'} transition-colors duration-200`}>{value}</div>
       <div className={`mt-0.5 text-[11px] font-bold ${trendColor} transition-colors duration-200`}>{arrow} {trendText}</div>
       <div
         className="mt-1.5 h-2 bg-surface-container-high rounded-full overflow-hidden transition-colors duration-200"
