@@ -11,39 +11,42 @@ type Row = {
 }
 
 export function SplitsTable({ rows }: { rows: Row[] }) {
-  function rowClass(h?: Row['highlight']) {
-    if (h === 'blue') return 'bg-blue-50/50 dark:bg-blue-900/20'
-    if (h === 'green') return 'bg-green-50/50 dark:bg-green-900/20'
-    if (h === 'purple') return 'bg-purple-50/50 dark:bg-purple-900/20'
+  function rowHighlight(h?: Row['highlight']) {
+    if (h === 'blue') return 'bg-blue-900/20'
+    if (h === 'green') return 'bg-emerald-900/20'
+    if (h === 'purple') return 'bg-purple-900/20'
     return ''
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-outline-variant/30 bg-surface-container shadow-sm transition-colors duration-200">
-      <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-        <thead className="bg-gray-50 dark:bg-surface-container-high transition-colors duration-200">
+    <div className="overflow-x-auto rounded-lg border border-outline/20 bg-surface-container shadow-sm">
+      <table className="min-w-full divide-y divide-outline/10">
+        <thead className="bg-surface-container-high">
           <tr>
-            <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Split</th>
-            <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">Games</th>
-            <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">MIN</th>
-            <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">PTS</th>
-            <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">AST</th>
-            <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">REB</th>
-            <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">3PM</th>
-            <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider transition-colors duration-200">PRA</th>
+            {['Split', 'G', 'MIN', 'PTS', 'AST', 'REB', '3PM', 'PRA'].map(h => (
+              <th
+                key={h}
+                className="px-3 py-2 text-left text-[10px] sm:text-xs font-bold text-on-surface-variant uppercase tracking-wider whitespace-nowrap"
+              >
+                {h}
+              </th>
+            ))}
           </tr>
         </thead>
-        <tbody className="bg-surface-container divide-y divide-gray-100 dark:divide-slate-700 transition-colors duration-200">
+        <tbody className="divide-y divide-outline/10">
           {rows.map((r, i) => (
-            <tr key={i} className={`${rowClass(r.highlight)} hover:bg-gray-50 dark:hover:bg-surface-container-high transition-colors duration-200`}>
-              <td className="px-4 py-2 text-sm font-semibold text-gray-800 dark:text-slate-200 transition-colors duration-200">{r.label}</td>
-              <td className="px-4 py-2 text-sm text-gray-700 dark:text-slate-300 transition-colors duration-200">{r.games}</td>
-              <td className="px-4 py-2 text-sm text-gray-900 dark:text-on-surface transition-colors duration-200">{r.minutes.toFixed(1)}</td>
-              <td className="px-4 py-2 text-sm text-gray-900 dark:text-on-surface transition-colors duration-200">{r.pts.toFixed(1)}</td>
-              <td className="px-4 py-2 text-sm text-gray-900 dark:text-on-surface transition-colors duration-200">{r.ast.toFixed(1)}</td>
-              <td className="px-4 py-2 text-sm text-gray-900 dark:text-on-surface transition-colors duration-200">{r.reb.toFixed(1)}</td>
-              <td className="px-4 py-2 text-sm text-gray-900 dark:text-on-surface transition-colors duration-200">{r.threes.toFixed(1)}</td>
-              <td className="px-4 py-2 text-sm text-gray-900 dark:text-on-surface transition-colors duration-200">{r.pra.toFixed(1)}</td>
+            <tr
+              key={i}
+              className={`hover:bg-surface-container-high transition-colors ${rowHighlight(r.highlight)}`}
+            >
+              <td className="px-3 py-2 text-xs sm:text-sm font-semibold text-on-surface whitespace-nowrap">{r.label}</td>
+              <td className="px-3 py-2 text-xs sm:text-sm text-on-surface-variant whitespace-nowrap">{r.games}</td>
+              <td className="px-3 py-2 text-xs sm:text-sm text-on-surface whitespace-nowrap">{r.minutes.toFixed(1)}</td>
+              <td className="px-3 py-2 text-xs sm:text-sm text-on-surface whitespace-nowrap">{r.pts.toFixed(1)}</td>
+              <td className="px-3 py-2 text-xs sm:text-sm text-on-surface whitespace-nowrap">{r.ast.toFixed(1)}</td>
+              <td className="px-3 py-2 text-xs sm:text-sm text-on-surface whitespace-nowrap">{r.reb.toFixed(1)}</td>
+              <td className="px-3 py-2 text-xs sm:text-sm text-on-surface whitespace-nowrap">{r.threes.toFixed(1)}</td>
+              <td className="px-3 py-2 text-xs sm:text-sm text-on-surface whitespace-nowrap">{r.pra.toFixed(1)}</td>
             </tr>
           ))}
         </tbody>
@@ -51,5 +54,3 @@ export function SplitsTable({ rows }: { rows: Row[] }) {
     </div>
   )
 }
-
-

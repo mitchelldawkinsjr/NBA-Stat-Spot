@@ -63,27 +63,39 @@ export function DataTable<Row extends Record<string, unknown>>({
   }
 
   return (
-    <div className="rounded-xl sm:rounded-2xl bg-white dark:bg-slate-800 shadow-sm ring-1 ring-gray-100 dark:ring-slate-700 transition-colors duration-200">
+    <div className="rounded-xl bg-surface-container shadow-sm ring-1 ring-outline/20">
+      {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3">
-        {caption && <div className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-slate-100 transition-colors duration-200">{caption}</div>}
+        {caption && (
+          <div className="text-xs sm:text-sm font-semibold text-on-surface">{caption}</div>
+        )}
         <div className="flex items-center gap-2">
-          <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 transition-colors duration-200">Rows</span>
+          <span className="text-[10px] sm:text-xs text-on-surface-variant">Rows</span>
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
-            className="px-2 pr-6 sm:pr-8 py-1 sm:py-1.5 rounded-md border border-gray-300 dark:border-slate-600 text-[10px] sm:text-xs bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-colors duration-200"
+            className="px-2 pr-6 sm:pr-8 py-1 sm:py-1.5 rounded-md border border-outline/30 text-[10px] sm:text-xs bg-surface-container-high text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             {pageSizeOptions.map(opt => (<option key={opt} value={opt}>{opt}</option>))}
           </select>
         </div>
       </div>
-      <div className="overflow-x-auto -mx-2 sm:mx-0">
+
+      {/* Scrollable table */}
+      <div className="overflow-x-auto">
         <table className="min-w-full text-xs sm:text-sm">
-          <thead className={`${stickyHeader ? 'sticky top-0 z-10' : ''} bg-gray-50 dark:bg-slate-700 border-b border-gray-100 dark:border-slate-600 transition-colors duration-200`}>
+          <thead className={`${stickyHeader ? 'sticky top-0 z-10' : ''} bg-surface-container-high border-b border-outline/20`}>
             <tr>
               {columns.map(col => (
-                <th key={col.key} scope="col" className={`px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 ${col.align === 'right' ? 'text-right' : 'text-left'} transition-colors duration-200`}>
-                  <button onClick={() => toggleSort(col.key)} className="inline-flex items-center gap-1 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-200">
+                <th
+                  key={col.key}
+                  scope="col"
+                  className={`px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                >
+                  <button
+                    onClick={() => toggleSort(col.key)}
+                    className="inline-flex items-center gap-1 hover:text-on-surface transition-colors"
+                  >
                     <span>{col.header}</span>
                     <SortIcon active={sortKey === col.key} dir={sortDir} />
                   </button>
@@ -91,24 +103,45 @@ export function DataTable<Row extends Record<string, unknown>>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-slate-700 transition-colors duration-200">
+          <tbody className="divide-y divide-outline/10">
             {visible.map((row, idx) => (
-              <tr key={idx} className={`${idx % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50 dark:bg-slate-700/50'} transition-colors duration-200`}>
+              <tr
+                key={idx}
+                className={idx % 2 === 0 ? 'bg-surface-container' : 'bg-surface-container-low'}
+              >
                 {columns.map(col => (
-                  <td key={col.key} className={`px-2 sm:px-4 py-2 sm:py-2.5 ${col.align === 'right' ? 'text-right' : 'text-left'} text-gray-800 dark:text-slate-200 transition-colors duration-200`}>{row[col.key] as ReactNode}</td>
+                  <td
+                    key={col.key}
+                    className={`px-3 sm:px-4 py-2 sm:py-2.5 text-on-surface whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                  >
+                    {row[col.key] as ReactNode}
+                  </td>
                 ))}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-100 dark:border-slate-700 text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 transition-colors duration-200">
+
+      {/* Pagination */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3 border-t border-outline/20 text-[10px] sm:text-xs text-on-surface-variant">
         <div>Page {currentPage} of {totalPages}</div>
         <div className="flex items-center gap-1">
-          <button onClick={() => setPage(1)} disabled={currentPage === 1} className="px-1.5 sm:px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 disabled:opacity-50 text-[10px] sm:text-xs transition-colors duration-200">« First</button>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-1.5 sm:px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 disabled:opacity-50 text-[10px] sm:text-xs transition-colors duration-200">‹ Prev</button>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-1.5 sm:px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 disabled:opacity-50 text-[10px] sm:text-xs transition-colors duration-200">Next ›</button>
-          <button onClick={() => setPage(totalPages)} disabled={currentPage === totalPages} className="px-1.5 sm:px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-slate-100 disabled:opacity-50 text-[10px] sm:text-xs transition-colors duration-200">Last »</button>
+          {[
+            { label: '« First', action: () => setPage(1), disabled: currentPage === 1 },
+            { label: '‹ Prev', action: () => setPage(p => Math.max(1, p - 1)), disabled: currentPage === 1 },
+            { label: 'Next ›', action: () => setPage(p => Math.min(totalPages, p + 1)), disabled: currentPage === totalPages },
+            { label: 'Last »', action: () => setPage(totalPages), disabled: currentPage === totalPages },
+          ].map(({ label, action, disabled }) => (
+            <button
+              key={label}
+              onClick={action}
+              disabled={disabled}
+              className="px-1.5 sm:px-2 py-1 rounded-md border border-outline/20 bg-surface-container-high text-on-surface disabled:opacity-40 hover:bg-surface-container-highest transition-colors text-[10px] sm:text-xs"
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -117,7 +150,12 @@ export function DataTable<Row extends Record<string, unknown>>({
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
   return (
-    <svg className={`h-3.5 w-3.5 transition-colors duration-200 ${active ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <svg
+      className={`h-3.5 w-3.5 transition-colors ${active ? 'text-on-surface' : 'text-on-surface-variant/40'}`}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
       {dir === 'asc' ? (
         <path d="M7 14l5-5 5 5H7z" />
       ) : (
@@ -132,8 +170,5 @@ function valueForSort(v: unknown): number | string {
   if (typeof v === 'number') return v
   if (typeof v === 'string') return v.toLowerCase()
   if (typeof v === 'boolean') return v ? 1 : 0
-  // ReactNode or object – stringify length as a coarse fallback
   try { return JSON.stringify(v).length } catch { return '' }
 }
-
-
