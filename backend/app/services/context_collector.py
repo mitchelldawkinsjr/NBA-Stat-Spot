@@ -513,7 +513,7 @@ class ContextCollector:
     @staticmethod
     def _get_team_ppg_from_player_logs(season: Optional[str] = None) -> Dict[int, float]:
         """
-        Compute each team's PPG from player game logs (sum team pts per game, then average).
+        Compute each team's PPG from player game logs (sum ALL players' pts per game, then average).
         Used when TeamStatsService returns default 112.5 so game prediction page shows real data.
         Returns {team_id: ppg}. Cached 24h.
         """
@@ -524,48 +524,16 @@ class ContextCollector:
             cached = cache.get(cache_key)
             if cached is not None and isinstance(cached, dict):
                 return {int(k): float(v) for k, v in cached.items() if v is not None and isinstance(v, (int, float))}
-            teams = NBADataService.fetch_all_teams()
-            if not teams:
-                return {}
-            team_game_pts: Dict[int, List[float]] = {}
-            for t in teams:
-                tid = t.get("id")
-                if tid:
-                    team_game_pts[tid] = []
-            players_per_team = 6
-            games_per_player = 25
-            all_players = NBADataService.fetch_all_players_including_rookies()
-            players_by_team: Dict[int, List[Dict[str, Any]]] = {}
-            for p in all_players:
-                team_id = p.get("team_id")
-                if team_id:
-                    players_by_team.setdefault(team_id, [])
-                    if len(players_by_team[team_id]) < players_per_team:
-                        players_by_team[team_id].append(p)
-            for team_id, team_players in players_by_team.items():
-                if team_id not in team_game_pts:
-                    continue
-                per_game: Dict[str, float] = {}
-                for player in team_players:
-                    pid = player.get("id")
-                    if not pid:
-                        continue
-                    try:
-                        logs = NBADataService.fetch_player_game_log(pid, season_to_use)
-                    except Exception:
-                        continue
-                    for g in logs[:games_per_player]:
-                        gd = g.get("game_date")
-                        if not gd:
-                            continue
-                        per_game[gd] = per_game.get(gd, 0.0) + float(g.get("pts", 0) or 0)
-                for pts in per_game.values():
-                    if pts > 0:
-                        team_game_pts[team_id].append(pts)
+            
+            # Use the accurate offensive averages from _calculate_all_team_ranks
+            # which sums ALL players' contributions per game
+            _, _, _, team_off_avg = ContextCollector._calculate_all_team_ranks(season_to_use)
+            
             result: Dict[int, float] = {}
-            for team_id, pts_list in team_game_pts.items():
-                if pts_list:
-                    result[team_id] = round(sum(pts_list) / len(pts_list), 1)
+            for team_id, avgs in team_off_avg.items():
+                if avgs and avgs.get("pts"):
+                    result[team_id] = round(avgs["pts"], 1)
+            
             cache.set(cache_key, result, ttl=86400)
             logger.info("Team PPG from logs computed", season=season_to_use, teams_with_ppg=len(result))
             return result
