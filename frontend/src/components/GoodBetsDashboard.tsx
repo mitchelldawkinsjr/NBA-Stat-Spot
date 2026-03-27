@@ -1030,7 +1030,7 @@ export function GoodBetsDashboard() {
               </div>
             ) : featuredPlayers.length === 0 ? (
               <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest text-center py-6">
-                {featuredFilter === 'hot' ? 'No hot form data today' : 'No featured players for today's slate'}
+                {featuredFilter === 'hot' ? 'No hot form data today' : "No featured players for today's slate"}
               </p>
             ) : (
               <>
