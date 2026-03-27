@@ -476,6 +476,11 @@ export function GoodBetsDashboard() {
       .slice(0, 8)
   }, [topPicks, dailyData, today, games.length])
 
+  const filteredHighConvictionBets = useMemo(() => {
+    if (highConvictionCategory === 'ALL') return bestBets
+    return bestBets.filter(b => String(b.type || '').toUpperCase() === highConvictionCategory)
+  }, [bestBets, highConvictionCategory])
+
   const playersToWatch = useMemo(() => {
     if (games.length === 0) return []
     const items = (dailyData?.items ?? []) as SuggestionItem[]
@@ -929,11 +934,20 @@ export function GoodBetsDashboard() {
             <h2 className="text-[10px] font-black tracking-[0.2em] text-primary-container uppercase flex items-center gap-2">
               <span className="w-1.5 h-1.5 bg-primary-container rounded-full" /> HIGH CONVICTION PROPS
             </h2>
-            <div className="flex gap-1.5">
+            <div className="flex flex-wrap gap-1.5 justify-end">
               {(['ALL','PTS','REB','AST','3PM'] as const).map(cat => (
-                <span key={cat} className="bg-surface-container-low px-3 py-1.5 text-[9px] font-black rounded uppercase tracking-widest cursor-pointer hover:bg-primary-container/20 hover:text-primary-container transition-all">
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setHighConvictionCategory(cat)}
+                  className={`px-3 py-1.5 text-[9px] font-black rounded uppercase tracking-widest transition-all ${
+                    highConvictionCategory === cat
+                      ? 'bg-primary-container text-on-primary'
+                      : 'bg-surface-container-low text-on-surface-variant border border-outline-variant/30 hover:bg-primary-container/20 hover:text-primary-container cursor-pointer'
+                  }`}
+                >
                   {cat}
-                </span>
+                </button>
               ))}
             </div>
           </div>
@@ -952,9 +966,15 @@ export function GoodBetsDashboard() {
             <div className="bg-surface-container p-8 rounded text-center border border-outline-variant/20">
               <p className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">Props are being generated — check back soon.</p>
             </div>
+          ) : filteredHighConvictionBets.length === 0 ? (
+            <div className="bg-surface-container p-8 rounded text-center border border-outline-variant/20">
+              <p className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">
+                No {highConvictionCategory === 'ALL' ? '' : `${highConvictionCategory} `}props in this list — try another filter.
+              </p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {bestBets.slice(0, 8).map((b, i) => (
+              {filteredHighConvictionBets.slice(0, 8).map((b, i) => (
                 <div key={i} className="bg-surface-container rounded overflow-hidden flex flex-col border border-outline-variant/20 hover:border-primary-container/50 transition-all duration-300">
                   <div className="p-5 flex gap-4">
                     <button
