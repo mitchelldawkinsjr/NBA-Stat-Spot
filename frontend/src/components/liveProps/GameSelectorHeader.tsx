@@ -16,7 +16,10 @@ export function GameSelectorHeader({ games, selectedId, onSelect }: Props) {
   }
 
   return (
-    <section className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+    <section
+      className="flex w-full min-w-0 flex-nowrap gap-4 overflow-x-auto overflow-y-visible overscroll-x-contain pb-2 [-webkit-overflow-scrolling:touch] touch-pan-x scroll-smooth [scrollbar-width:thin] [scrollbar-color:rgba(255,107,0,0.45)_transparent]"
+      aria-label="Today's games"
+    >
       {games.map(g => {
         const active = g.game_id === selectedId
         const label = `${g.away_team} @ ${g.home_team}`

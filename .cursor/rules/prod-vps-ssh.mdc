@@ -1,0 +1,20 @@
+---
+description: Production server access uses vps ssh — run remote work there
+alwaysApply: true
+---
+
+# Production environment (`prod`)
+
+**`vps ssh`** connects to the production server — run it to get an interactive shell on prod; no separate hostname is implied beyond what that CLI is configured to use.
+
+When the user says they want to **go to the prod environment**, **work on prod**, **run something on production**, or similar, they mean:
+
+1. Use **`vps ssh`** to reach the server.
+2. **Run operational commands there** (e.g. `docker`, `docker exec`, logs, DB checks, backfill scripts) on the remote host after connecting.
+
+## Agent behavior
+
+- Prefer **`vps ssh`** for prod access; do not substitute a generic `ssh user@host` unless the user explicitly names one.
+- Prefer executing **`vps ssh`** (with a remote command only if non-interactive SSH is supported) or document: **`vps ssh`** → then run the needed commands on the server.
+- Do **not** assume the sandbox can reach prod; if `vps ssh` fails locally (missing CLI, keys, or network), say so and give the exact commands for the user to run on their machine.
+- Do not put secrets or hostnames in rules; use placeholders in docs if needed.

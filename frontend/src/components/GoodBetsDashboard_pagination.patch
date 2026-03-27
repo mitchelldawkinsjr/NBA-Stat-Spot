@@ -1,0 +1,16 @@
+This patch adds:
+1. Helper functions for hot form ledger subtitles
+2. High conviction category filter state & wiring
+3. Hot form ledger pagination (8 items per page)
+4. Improved hot form date normalization & loading states
+5. Enriched ledger rows with tier, line, direction, tags
+
+Apply with:
+- Add helper functions after teamLogoUrl
+- Add state: highConvictionCategory, hotFormLedgerPage, HOT_FORM_PAGE_SIZE = 8
+- Add useEffect to reset page on filter change
+- Replace HIGH CONVICTION filter spans with buttons
+- Add filteredHighConvictionBets memo
+- Update hotPlayers date logic + featuredPlayers slice logic
+- Add paginatedFeaturedPlayers + pagination controls
+- Update ledger row rendering with globalIndex, tags, tier

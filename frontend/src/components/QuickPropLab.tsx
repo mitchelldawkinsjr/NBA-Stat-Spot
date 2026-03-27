@@ -1,10 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { PlayerSearch } from './PlayerSearch'
 import { useSeason } from '../context/SeasonContext'
-import { apiPost } from '../utils/api'
+import { apiGet, apiPost } from '../utils/api'
 import type { SuggestionItem } from './SuggestionCards'
+
+const BOOK_PRIORITY = ['draftkings', 'fanduel', 'betmgm', 'caesars'] as const
+
+const BOOK_LABEL: Record<string, string> = {
+  draftkings: 'DraftKings',
+  fanduel: 'FanDuel',
+  betmgm: 'BetMGM',
+  caesars: 'Caesars',
+}
+
+type PlayerOddsPayload = {
+  playerId?: number
+  gameDate?: string | null
+  props?: Record<
+    string,
+    {
+      byBook?: Record<string, { line?: number; over?: number; under?: number }>
+      bestLine?: { over?: number; under?: number }
+      source?: string
+    }
+  >
+}
 
 const TYPES = ['PTS','REB','AST','3PM','PRA'] as const
 type PropType = typeof TYPES[number]
@@ -42,11 +64,34 @@ function PropLabResult({ s, playerName, playerId }: { s: SuggestionItem; playerN
         </span>
       </div>
 
+      {s.liveOdds?.byBook && Object.keys(s.liveOdds.byBook).length > 0 && (
+        <div className="px-4 pb-3 pt-1">
+          <p className="text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Sportsbook lines</p>
+          <div className="rounded-lg border border-outline/20 divide-y divide-outline-variant/20 overflow-hidden">
+            {Object.entries(s.liveOdds.byBook).map(([bk, row]) => (
+              <div key={bk} className="flex justify-between items-center px-3 py-2 text-xs bg-surface-container">
+                <span className="font-medium text-on-surface capitalize">{bk.replace(/_/g, ' ')}</span>
+                <span className="text-on-surface-variant">
+                  Line {row.line != null ? row.line : '—'} · O{' '}
+                  {row.over != null ? (row.over > 0 ? `+${Math.round(row.over)}` : `${Math.round(row.over)}`) : '—'} / U{' '}
+                  {row.under != null ? (row.under > 0 ? `+${Math.round(row.under)}` : `${Math.round(row.under)}`) : '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Stats grid */}
       <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
         {s.marketLine != null && (
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wider">Market Line</span>
+            <span className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wider flex items-center gap-1">
+              Market line
+              {(s as { lineSource?: string }).lineSource === 'live_odds' && (
+                <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-betting-green/15 text-betting-green">LIVE</span>
+              )}
+            </span>
             <span className="text-lg font-bold text-on-surface">{typeof s.marketLine === 'number' ? (Number.isInteger(s.marketLine) ? s.marketLine : s.marketLine.toFixed(1)) : s.marketLine}</span>
           </div>
         )}
@@ -127,11 +172,52 @@ export function QuickPropLab() {
   const [player, setPlayer] = useState<{ id: number; name: string } | null>(null)
   const [propType, setPropType] = useState<PropType>('PTS')
   const [line, setLine] = useState<string>('')
+  const [lineManual, setLineManual] = useState(false)
+  const [preferredBook, setPreferredBook] = useState<string>('')
   const [season, setSeason] = useState<string>(globalSeason)
   const [lastN, setLastN] = useState<number | ''>('')
   const [home, setHome] = useState<'any'|'home'|'away'>('any')
   const [result, setResult] = useState<{ suggestions?: Array<{ type: string }> } | null>(null)
   const [runError, setRunError] = useState<string | null>(null)
+
+  const { data: playerOdds } = useQuery({
+    queryKey: ['odds-player', player?.id],
+    queryFn: () => apiGet<PlayerOddsPayload>(`/api/v1/odds/player/${player!.id}`),
+    enabled: !!player?.id,
+    staleTime: 60_000,
+  })
+
+  const booksWithLines = useMemo(() => {
+    const books = playerOdds?.props?.[propType]?.byBook
+    if (!books) return [] as string[]
+    return BOOK_PRIORITY.filter((bk) => books[bk]?.line != null)
+  }, [playerOdds, propType])
+
+  const liveLineForProp = useMemo(() => {
+    const p = playerOdds?.props?.[propType]
+    const books = p?.byBook
+    if (!books) return null
+    if (preferredBook && books[preferredBook]?.line != null) {
+      const ln = books[preferredBook].line
+      if (ln != null && !Number.isNaN(Number(ln))) return String(ln)
+    }
+    for (const bk of BOOK_PRIORITY) {
+      const ln = books[bk]?.line
+      if (ln != null && !Number.isNaN(Number(ln))) return String(ln)
+    }
+    const first = Object.values(books).find((x) => x.line != null)
+    return first?.line != null ? String(first.line) : null
+  }, [playerOdds, propType, preferredBook])
+
+  useEffect(() => {
+    setLineManual(false)
+    setPreferredBook('')
+  }, [player?.id, propType])
+
+  useEffect(() => {
+    if (lineManual || !player?.id) return
+    if (liveLineForProp != null) setLine(liveLineForProp)
+  }, [liveLineForProp, propType, player?.id, lineManual])
 
   const canRun = !!player?.id && line !== ''
 
@@ -215,14 +301,42 @@ export function QuickPropLab() {
         {/* Input Fields */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div>
-            <label className="block text-xs font-medium text-on-surface-variant mb-1.5 transition-colors duration-200">Line</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-on-surface-variant transition-colors duration-200">Line</label>
+              {liveLineForProp != null && !lineManual && (
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-betting-green">Live</span>
+              )}
+            </div>
             <input 
               value={line} 
-              onChange={(e) => setLine(e.target.value)} 
+              onChange={(e) => {
+                setLineManual(true)
+                setLine(e.target.value)
+              }} 
               placeholder={`${propType} line (e.g. 24.5)`} 
               inputMode="decimal" 
               className="w-full px-2.5 py-2 text-sm border border-outline/30 rounded-md text-on-surface bg-surface-container-high focus:outline-none focus:ring-2 focus:ring-purple-500/20 dark:focus:ring-purple-400/20 transition-colors duration-200"
             />
+            {booksWithLines.length > 0 && (
+              <div className="mt-2">
+                <label className="block text-[10px] font-medium text-on-surface-variant mb-1">Sportsbook line source</label>
+                <select
+                  value={preferredBook}
+                  onChange={(e) => {
+                    setPreferredBook(e.target.value)
+                    setLineManual(false)
+                  }}
+                  className="w-full px-2 py-1.5 text-xs border border-outline/30 rounded-md text-on-surface bg-surface-container-high"
+                >
+                  <option value="">Auto (DK → FD → MGM → Caesars)</option>
+                  {booksWithLines.map((bk) => (
+                    <option key={bk} value={bk}>
+                      {BOOK_LABEL[bk] ?? bk}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-on-surface-variant mb-1.5 transition-colors duration-200">Season</label>

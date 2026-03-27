@@ -487,6 +487,18 @@ def refresh_high_hit_rate(
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@router.post("/refresh/odds-sync")
+@limiter.limit("30/hour")
+def refresh_odds_sync(request: Request, db: Session = Depends(get_db)):
+    """Fetch NBA odds from The Odds API and upsert prop_bet_lines (requires THE_ODDS_API_KEY)."""
+    from ..services.odds_service import sync_nba_odds
+
+    try:
+        return sync_nba_odds(db)
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 @router.post("/refresh/top-picks")
 @limiter.limit("5/hour")
 def refresh_top_picks(

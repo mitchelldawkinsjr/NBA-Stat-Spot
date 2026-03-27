@@ -50,6 +50,13 @@ type SuggestionItem = {
   heat_index?: number
   /** 0-1 volatility (CV) over recent games */
   volatility_index?: number
+  /** Synced sportsbook lines from The Odds API */
+  liveOdds?: {
+    byBook?: Record<string, { line?: number; over?: number; under?: number }>
+    bestLine?: { over?: number; under?: number }
+    source?: string
+  }
+  lineSource?: string
 }
 
 /** API often returns snake_case; SuggestionItem supports both. Pick of the day is the same shape. */
@@ -140,10 +147,21 @@ export function SuggestionCards({ suggestions, horizontal = false, onAddToTracke
         {/* Stats grid */}
         <div className="space-y-0.5 text-[10px] text-on-surface-variant transition-colors duration-200">
           {s.marketLine != null && (
-            <div className="flex justify-between items-center">
-              <span className="text-on-surface-variant">{s.type} line:</span>
-              <span className="font-bold text-on-surface">
+            <div className="flex justify-between items-center gap-1">
+              <span className="text-on-surface-variant shrink-0">{s.type} line:</span>
+              <span className="font-bold text-on-surface text-right flex flex-wrap items-center justify-end gap-1">
                 {typeof s.marketLine === 'number' ? (Number.isInteger(s.marketLine) ? s.marketLine : s.marketLine.toFixed(1)) : s.marketLine}
+                {s.lineSource === 'live_odds' && (
+                  <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-betting-green/15 text-betting-green border border-betting-green/25">LIVE</span>
+                )}
+              </span>
+            </div>
+          )}
+          {s.lineSource === 'live_odds' && s.fairLine != null && s.marketLine != null && s.fairLine !== s.marketLine && (
+            <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
+              <span>vs fair</span>
+              <span className={s.fairLine > s.marketLine ? 'text-betting-green font-semibold' : 'text-error font-semibold'}>
+                fair {typeof s.fairLine === 'number' ? s.fairLine.toFixed(1) : s.fairLine}
               </span>
             </div>
           )}

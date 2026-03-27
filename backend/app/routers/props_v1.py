@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request, Query, Path
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..services.nba_api_service import NBADataService
@@ -62,6 +62,7 @@ class PropSuggestionResponse(BaseModel):
     type: str = Field(..., description="Prop type: PTS, REB, AST, 3PM, or PRA", example="PTS")
     marketLine: float = Field(..., description="The market betting line", example=24.5)
     fairLine: float = Field(..., description="Calculated fair line based on historical data", example=25.2)
+    liveOdds: Optional[Dict[str, Any]] = Field(None, description="Per-book lines from The Odds API when synced")
     direction: str = Field(..., description="Recommended direction: 'over' or 'under'", example="over")
     confidence: float = Field(..., description="Confidence score (0-100)", example=75.5)
     suggestion: str = Field(..., description="Suggestion: 'strong_over', 'over', 'under', 'strong_under'", example="over")
@@ -73,6 +74,7 @@ class PropSuggestionResponse(BaseModel):
     confidenceSource: Optional[str] = Field(None, description="Source of confidence: 'ml' or 'rule_based'", example="ml")
     rationale: Optional[List[str]] = Field(None, description="Explanation for the suggestion", example=["Based on recent form and hit rate", "Player has exceeded this line in 8 of last 10 games"])
     rationaleSource: Optional[str] = Field(None, description="Source of rationale: 'llm' or 'rule_based'", example="llm")
+    lineSource: Optional[str] = Field(None, description="Origin of market line: 'user', 'live_odds', or omitted")
 
 
 class PlayerSuggestResponse(BaseModel):
@@ -152,7 +154,8 @@ def suggest_player_props(request: Request, req: PlayerSuggestRequest, db: Sessio
         g["pra"] = float(g.get("pts", 0) or 0) + float(g.get("reb", 0) or 0) + float(g.get("ast", 0) or 0)
 
     suggestions: List[Dict] = []
-    lines = req.marketLines or {}
+    user_supplied_market_lines = bool(req.marketLines)
+    lines = dict(req.marketLines or {})
     # Use provided direction or default to "over"
     direction = (req.direction or "over").lower()
     if direction not in ("over", "under"):
@@ -176,6 +179,14 @@ def suggest_player_props(request: Request, req: PlayerSuggestRequest, db: Sessio
             game_date_obj = datetime.strptime(req.game_date, "%Y-%m-%d").date()
         except Exception:
             pass
+
+    from ..services.odds_service import build_live_odds_payload, get_lines_for_player_game
+
+    if not lines:
+        try:
+            lines = get_lines_for_player_game(db, req.playerId, game_date_obj)
+        except Exception:
+            lines = {}
     
     # Determine if home game (simplified - would need game context)
     is_home_game = True  # Default assumption
@@ -245,6 +256,16 @@ def suggest_player_props(request: Request, req: PlayerSuggestRequest, db: Sessio
             else:
                 suggestion["rationale"] = [ev.get("rationale", {}).get("summary", "Based on recent form and hit rate")]
             
+            try:
+                suggestion["liveOdds"] = build_live_odds_payload(db, req.playerId, game_date_obj, disp_key)
+            except Exception:
+                suggestion["liveOdds"] = None
+
+            if user_supplied_market_lines:
+                suggestion["lineSource"] = "user"
+            elif lines:
+                suggestion["lineSource"] = "live_odds"
+            
             suggestions.append(suggestion)
         except Exception as e:
             import structlog
@@ -291,7 +312,8 @@ def daily_props(
     limit: Optional[int] = Query(None, description="Maximum number of results to return. No limit by default.", example=50, ge=1),
     season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26"),
     last_n: Optional[int] = Query(None, description="Number of recent games to consider for analysis", example=10, ge=1),
-    hot_form_only: bool = Query(False, description="If True, only return props for players in good/hot form (recent performance above season)")
+    hot_form_only: bool = Query(False, description="If True, only return props for players in good/hot form (recent performance above season)"),
+    db: Session = Depends(get_db),
 ):
     """
     Get top daily props for all players playing today.
@@ -300,12 +322,22 @@ def daily_props(
     """
     from datetime import date as date_type, datetime
     from ..routers.admin_v1 import _get_daily_props_cache, _set_daily_props_cache
-    
+    from ..services.odds_service import enrich_prop_items_with_live_lines
+
     # Determine the target date - use provided date or today
     if date:
         target_date_str = date
     else:
         target_date_str = datetime.now().strftime("%Y-%m-%d")
+
+    def _enrich_live_lines(items):
+        if not items:
+            return items
+        try:
+            enrich_prop_items_with_live_lines(db, items, target_date_str)
+        except Exception:
+            pass
+        return items
     
     # Hot form: use daily cache so 6am cron can prefill; fallback to live fetch
     if hot_form_only:
@@ -316,6 +348,7 @@ def daily_props(
             items = cached_hot.get("items", [])
             if limit and limit > 0:
                 items = items[:limit]
+            _enrich_live_lines(items)
             return {
                 "items": items,
                 "total": len(items),
@@ -340,6 +373,7 @@ def daily_props(
                     pass
             if limit and limit > 0:
                 items = items[:limit]
+            _enrich_live_lines(items)
             return {
                 "items": items,
                 "total": len(items),
@@ -378,7 +412,7 @@ def daily_props(
         # Apply limit if provided (but return all by default)
         if limit and limit > 0:
             items = items[:limit]
-        
+        _enrich_live_lines(items)
         # Return all items - frontend will handle pagination
         return {
             "items": items,
@@ -415,6 +449,7 @@ def daily_props(
                 except Exception:
                     pass  # Cache update failed, but don't fail the request
         
+        _enrich_live_lines(all_items)
         # Return all items - frontend will handle pagination
         return {
             "items": all_items,
@@ -441,6 +476,7 @@ def daily_props(
                     items = [item for item in items if (item.get("confidence") or 0) >= min_confidence]
                 if limit and limit > 0:
                     items = items[:limit]
+                _enrich_live_lines(items)
                 return {
                     "items": items,
                     "total": len(items),
@@ -907,9 +943,11 @@ def top_picks(
     limit: int = Query(12, description="Max results", ge=1),
     min_confidence: float = Query(62.0, description="Minimum confidence (62+ = strong/lock only)"),
     refresh: bool = Query(False, description="If true, skip cache and refetch (use when cached result is empty)"),
+    db: Session = Depends(get_db),
 ):
     from datetime import datetime as _dt
     from ..routers.admin_v1 import _cache
+    from ..services.odds_service import enrich_prop_items_with_live_lines
 
     target = date or _dt.now().strftime("%Y-%m-%d")
     cache_key = f"top_picks:{target}"
@@ -925,6 +963,10 @@ def top_picks(
                     _cache.delete(cache_key)
                     result = BestPicksService.get_top_picks(date=date, season=season, limit=limit, min_confidence=min_confidence)
                     if result.get("items"):
+                        try:
+                            enrich_prop_items_with_live_lines(db, result["items"], target)
+                        except Exception:
+                            pass
                         _cache.set(cache_key, result, ttl=86400)
                     result["cached"] = False
                     if limit:
@@ -935,11 +977,19 @@ def top_picks(
                     pass
         if limit:
             items = items[:limit]
+        try:
+            enrich_prop_items_with_live_lines(db, items, target)
+        except Exception:
+            pass
         return {**cached, "items": items, "returned": len(items), "cached": True}
 
     result = BestPicksService.get_top_picks(date=date, season=season, limit=limit, min_confidence=min_confidence)
 
     if result.get("items"):
+        try:
+            enrich_prop_items_with_live_lines(db, result["items"], target)
+        except Exception:
+            pass
         try:
             _cache.set(cache_key, result, ttl=86400)
         except Exception:

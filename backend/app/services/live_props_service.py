@@ -93,6 +93,31 @@ def _game_to_summary(g: LiveGame) -> Dict[str, Any]:
     }
 
 
+def _empty_trend_block() -> Dict[str, Any]:
+    return {
+        PERIOD_LABELS[n]: {
+            "hit_rate_percentage": 0,
+            "hits": 0,
+            "total": 0,
+            "results": [],
+        }
+        for n in PERIODS
+    }
+
+
+def _live_box_stats(
+    game: LiveGame, player_id: int, nba_live: Dict[int, Dict[str, Any]]
+) -> Tuple[float, float, float, float]:
+    pstats = nba_live.get(int(player_id), {})
+    pts = float(pstats.get("pts", 0) or 0)
+    reb = float(pstats.get("reb", 0) or 0)
+    ast = float(pstats.get("ast", 0) or 0)
+    minutes_played = float(pstats.get("minutes", 0) or 0)
+    if (game.quarter or 0) == 0 or game.is_final:
+        return 0.0, 0.0, 0.0, 0.0
+    return pts, reb, ast, minutes_played
+
+
 def _process_player(
     game: LiveGame,
     player: Dict[str, Any],
@@ -105,17 +130,52 @@ def _process_player(
     if not player_id:
         return None
     try:
-        logs = NBADataService.fetch_player_game_log(int(player_id), season)
+        pid_int = int(player_id)
+    except (TypeError, ValueError):
+        return None
+
+    try:
+        logs = NBADataService.fetch_player_game_log(pid_int, season)
     except Exception:
-        return None
-    if not logs or len(logs) < 3:
-        return None
+        logs = []
+
+    pts, reb, ast, minutes_played = _live_box_stats(game, pid_int, nba_live)
+    name = player.get("name") or f"Player {player_id}"
+    pos = (player.get("position") or "").strip() or "—"
+    headshot_url = f"https://cdn.nba.com/headshots/nba/latest/260x190/{pid_int}.png"
+
+    # Roster-only / no game log: still return a row so every roster player appears.
+    if not logs:
+        line = max(0.5, round(pts * 2) / 2.0) if pts > 0 else 8.0
+        prog = LiveGameContextService.compute_stat_progression(
+            pts, line, minutes_played, live_pace=game_live_pace
+        )
+        over_odds, under_odds = _mock_american_odds(f"{pid_int}:{line}:{STAT_KEY}:nodata")
+        prop_row = {
+            "prop_type": "points",
+            "stat_key": STAT_KEY,
+            "line": line,
+            "suggestion": "over",
+            "confidence": 0.0,
+            "odds_over": over_odds,
+            "odds_under": under_odds,
+            "progression": prog,
+            "trend": _empty_trend_block(),
+            "rationale_summary": "No NBA game log for this season yet — roster listing only; trends unavailable.",
+        }
+        return {
+            "player_id": pid_int,
+            "name": name,
+            "team": team_abbr,
+            "position": pos,
+            "rotation_tier": False,
+            "headshot_url": headshot_url,
+            "live_stats": {"pts": int(pts), "reb": int(reb), "ast": int(ast)},
+            "props": [prop_row],
+        }
+
     minutes_list = [float(g.get("minutes", 0) or 0) for g in logs if g.get("minutes")]
-    avg_min = 0.0
-    if minutes_list:
-        avg_min = sum(minutes_list) / len(minutes_list)
-        if avg_min < 12.0:
-            return None
+    avg_min = sum(minutes_list) / len(minutes_list) if minutes_list else 0.0
     rotation_tier = avg_min >= 22.0
 
     for g in logs:
@@ -132,22 +192,10 @@ def _process_player(
         label = PERIOD_LABELS[n]
         trend[label] = StatsCalculator.trend_period(logs, line, STAT_KEY, direction, n)
 
-    pstats = nba_live.get(int(player_id), {})
-    pts = float(pstats.get("pts", 0) or 0)
-    reb = float(pstats.get("reb", 0) or 0)
-    ast = float(pstats.get("ast", 0) or 0)
-    minutes_played = float(pstats.get("minutes", 0) or 0)
-
-    if (game.quarter or 0) == 0 or game.is_final:
-        pts, reb, ast, minutes_played = 0.0, 0.0, 0.0, 0.0
-
     prog = LiveGameContextService.compute_stat_progression(
         pts, line, minutes_played, live_pace=game_live_pace
     )
-    over_odds, under_odds = _mock_american_odds(f"{player_id}:{line}:{STAT_KEY}")
-
-    name = player.get("name") or f"Player {player_id}"
-    pos = (player.get("position") or "").strip() or "—"
+    over_odds, under_odds = _mock_american_odds(f"{pid_int}:{line}:{STAT_KEY}")
 
     prop_row = {
         "prop_type": "points",
@@ -163,12 +211,12 @@ def _process_player(
     }
 
     return {
-        "player_id": int(player_id),
+        "player_id": pid_int,
         "name": name,
         "team": team_abbr,
         "position": pos,
         "rotation_tier": rotation_tier,
-        "headshot_url": f"https://cdn.nba.com/headshots/nba/latest/260x190/{player_id}.png",
+        "headshot_url": headshot_url,
         "live_stats": {"pts": int(pts), "reb": int(reb), "ast": int(ast)},
         "props": [prop_row],
     }
@@ -243,7 +291,7 @@ def get_live_props_dashboard(
         }
 
     cache = get_cache_service()
-    cache_key = f"live_props_dash:v3:{target_game.game_id}:{season_use}:{int(include_live_box)}"
+    cache_key = f"live_props_dash:v4:{target_game.game_id}:{season_use}:{int(include_live_box)}"
     if use_response_cache:
         cached = cache.get(cache_key)
         if cached is not None:

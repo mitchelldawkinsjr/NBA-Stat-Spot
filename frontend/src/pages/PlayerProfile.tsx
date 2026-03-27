@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useSeason } from '../context/SeasonContext'
-import { apiFetch, apiPost } from '../utils/api'
+import { apiFetch, apiGet, apiPost } from '../utils/api'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from '../context/SnackbarContext'
 import { SuggestionCards } from '../components/SuggestionCards'
@@ -34,12 +34,81 @@ type GameLog = {
   minutes?: number
 }
 
+const LIVE_BOOK_ORDER = ['draftkings', 'fanduel', 'betmgm', 'caesars'] as const
+const LIVE_BOOK_LABEL: Record<string, string> = {
+  draftkings: 'DraftKings',
+  fanduel: 'FanDuel',
+  betmgm: 'BetMGM',
+  caesars: 'Caesars',
+}
+
+function fmtUsdAmerican(n: number | undefined | null): string {
+  if (n == null || Number.isNaN(n)) return '—'
+  const v = Math.round(n)
+  return v > 0 ? `+${v}` : `${v}`
+}
+
+type LiveOddsApi = {
+  props?: Record<
+    string,
+    { byBook?: Record<string, { line?: number; over?: number; under?: number }> }
+  >
+}
+
+function oddsCardFromProp(data: LiveOddsApi | undefined, prop: 'PTS' | 'AST' | 'REB' | '3PM', label: string, color: 'blue' | 'green') {
+  const books = data?.props?.[prop]?.byBook
+  if (!books) return null
+  const rows: { book: string; over: string; under: string }[] = []
+  let bestOver = '—'
+  let bestUnder = '—'
+  let bestOn = -Infinity
+  let bestUn = -Infinity
+  let lineNum: number | undefined
+  for (const bk of LIVE_BOOK_ORDER) {
+    const r = books[bk]
+    if (!r) continue
+    if (r.line != null) lineNum = r.line
+    const o = fmtUsdAmerican(r.over)
+    const u = fmtUsdAmerican(r.under)
+    rows.push({ book: LIVE_BOOK_LABEL[bk] || bk, over: o, under: u })
+    if (r.over != null && r.over > bestOn) {
+      bestOn = r.over
+      bestOver = o
+    }
+    if (r.under != null && r.under > bestUn) {
+      bestUn = r.under
+      bestUnder = u
+    }
+  }
+  if (rows.length === 0) return null
+  return {
+    title: `${label} – O/U ${lineNum != null ? lineNum : ''}`.trim(),
+    odds: rows,
+    bestOver,
+    bestUnder,
+    color,
+  }
+}
+
 export default function PlayerProfile() {
   const { id } = useParams()
   const { season } = useSeason()
   const navigate = useNavigate()
   const { showSnackbar } = useSnackbar()
   const queryClient = useQueryClient()
+
+  const playerIdNum = useMemo(() => {
+    if (!id) return NaN
+    const n = parseInt(id, 10)
+    return Number.isFinite(n) ? n : NaN
+  }, [id])
+
+  const { data: profileLiveOdds, isFetching: profileOddsFetching, refetch: refetchProfileOdds } = useQuery({
+    queryKey: ['odds-player-profile', playerIdNum],
+    queryFn: () => apiGet<LiveOddsApi>(`api/v1/odds/player/${playerIdNum}`),
+    enabled: Number.isFinite(playerIdNum),
+    staleTime: 60_000,
+  })
   const [logs, setLogs] = useState<GameLog[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
@@ -1588,25 +1657,63 @@ export default function PlayerProfile() {
           })()}
 
 
-          {/* Live Odds Comparison hidden for now */}
-          {(() => {
-            const showLiveOdds = false
-            if (!showLiveOdds) return null
-            function roundHalf(x: number) { return Math.round(x * 2) / 2 }
-            const linePts = roundHalf(seasonAverages.pts)
-            const lineAst = roundHalf(seasonAverages.ast)
-            const books = [
-              { book: 'DraftKings', over: '-115', under: '-105' },
-              { book: 'FanDuel', over: '-120', under: '+100' },
-              { book: 'BetMGM', over: '-110', under: '-110' },
-            ]
-            return (
-              <div className="grid sm:grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 mt-4">
-                <OddsCard title={`Points - Over/Under ${linePts}`} color="blue" odds={books} bestOver="-110" bestUnder="+100" />
-                <OddsCard title={`Assists - Over/Under ${lineAst}`} color="green" odds={books} bestOver="+100" bestUnder="-112" />
+          {/* Live odds from The Odds API (synced into prop_bet_lines) */}
+          {Number.isFinite(playerIdNum) && (
+            <div className="mt-4 md:mt-6 rounded-xl border border-outline-variant/30 bg-surface-container p-4 md:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                <h3 className="text-xs font-semibold text-on-surface uppercase tracking-wider">Live odds comparison</h3>
+                <button
+                  type="button"
+                  onClick={() => refetchProfileOdds()}
+                  disabled={profileOddsFetching}
+                  className="text-xs font-medium text-primary-container hover:underline disabled:opacity-50 self-start sm:self-auto"
+                >
+                  {profileOddsFetching ? 'Refreshing…' : 'Refresh'}
+                </button>
               </div>
-            )
-          })()}
+              <p className="text-[11px] text-on-surface-variant mb-4">
+                Major US books (DraftKings, FanDuel, BetMGM, Caesars) when synced. Set <code className="text-on-surface">THE_ODDS_API_KEY</code> and run odds sync if this section is empty.
+              </p>
+              {(() => {
+                const cards = [
+                  oddsCardFromProp(profileLiveOdds, 'PTS', 'Points', 'blue'),
+                  oddsCardFromProp(profileLiveOdds, 'REB', 'Rebounds', 'green'),
+                  oddsCardFromProp(profileLiveOdds, 'AST', 'Assists', 'green'),
+                  oddsCardFromProp(profileLiveOdds, '3PM', '3-pointers', 'blue'),
+                ].filter(Boolean) as Array<{
+                  title: string
+                  odds: { book: string; over: string; under: string }[]
+                  bestOver: string
+                  bestUnder: string
+                  color: 'blue' | 'green'
+                }>
+                if (cards.length === 0 && !profileOddsFetching) {
+                  return (
+                    <p className="text-sm text-on-surface-variant">
+                      No sportsbook lines in cache for this player yet. Sync NBA odds from the admin refresh endpoint or <code className="text-on-surface">scripts/sync_odds_api.py</code>.
+                    </p>
+                  )
+                }
+                if (cards.length === 0 && profileOddsFetching) {
+                  return <p className="text-sm text-on-surface-variant">Loading odds…</p>
+                }
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+                    {cards.map((c, i) => (
+                      <OddsCard
+                        key={`${c.title}-${i}`}
+                        title={c.title}
+                        color={c.color}
+                        odds={c.odds}
+                        bestOver={c.bestOver}
+                        bestUnder={c.bestUnder}
+                      />
+                    ))}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
 
           
 

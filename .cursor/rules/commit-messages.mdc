@@ -1,0 +1,10 @@
+---
+description: Commit message conventions — no Cursor branding
+alwaysApply: true
+---
+
+# Commit messages
+
+- **Do not** include "made with Cursor", "via Cursor", or any Cursor/IDE branding in commit messages.
+- Keep messages about the change only: concise, imperative, professional (e.g. "fix: use most-recent games for over/under").
+- Use conventional style when helpful: `fix:`, `feat:`, `docs:`, etc.

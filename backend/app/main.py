@@ -8,6 +8,7 @@ load_dotenv()
 
 from .database import Base, engine
 from .models import user_bets, user_parlays, player_context, market_context, ai_features, app_settings  # Import models so tables are created (prediction_accuracy via __init__)
+from .models import prop_bet_lines  # noqa: F401 — PropBetLine table for synced odds
 from .models.player_game_log_cache import PlayerGameLogCache  # ensures table is created on startup
 from .services.cache_service import CacheEntry  # Import cache model so table is created
 from .routers.props_v1 import router as props_v1_router
@@ -23,6 +24,7 @@ from .routers import games_enhanced_v1
 from .routers import accuracy_v1
 from .routers import insights_v1
 from .routers import live_props_v1
+from .routers import odds_v1
 
 
 app = FastAPI(
@@ -234,3 +236,4 @@ app.include_router(games_enhanced_v1.router)
 app.include_router(accuracy_v1.router)
 app.include_router(insights_v1.router)
 app.include_router(live_props_v1.router)
+app.include_router(odds_v1.router)
