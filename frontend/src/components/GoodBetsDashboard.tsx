@@ -19,6 +19,31 @@ function teamLogoUrl(abbr: string): string {
   return a ? `https://a.espncdn.com/i/teamlogos/nba/500/${a}.png` : ''
 }
 
+function suggestionDirection(s: SuggestionItem): string {
+  const raw =
+    s.suggestion ||
+    s.chosenDirection ||
+    (s.fairLine != null && s.marketLine != null && s.fairLine >= s.marketLine ? 'over' : 'under')
+  return String(raw || '').toUpperCase()
+}
+
+function formatPropLine(s: SuggestionItem): string {
+  const line = s.marketLine ?? s.fairLine
+  if (line == null) return ''
+  return typeof line === 'number' && !Number.isInteger(line) ? line.toFixed(1) : String(line)
+}
+
+/** One-line summary for Hot Form ledger rows (line, direction, matchup). */
+function hotLedgerSubtitle(s: SuggestionItem): string {
+  const type = (s.type || 'PROP').toString().toUpperCase()
+  const dir = suggestionDirection(s)
+  const lineStr = formatPropLine(s)
+  const core = lineStr ? `${type} ${dir} ${lineStr}` : `${type} ${dir}`.trim()
+  const opp = s.opponentAbbr || s.opponent_abbr
+  const bits = [core, opp ? `vs ${opp}` : null].filter(Boolean) as string[]
+  return bits.join(' · ')
+}
+
 async function fetchPredictions(date?: string) {
   const params = new URLSearchParams()
   if (date) params.append('date', date)
@@ -131,7 +156,15 @@ export function GoodBetsDashboard() {
   const [shouldLoadTopPicks, setShouldLoadTopPicks] = useState(false)
   const [statLeadersFilterToday, setStatLeadersFilterToday] = useState(false) // Toggle for filtering by today - default to "All"
   const [featuredFilter, setFeaturedFilter] = useState<'all' | 'hot'>('hot') // Players to Watch: default Hot form; All = today's players from daily props
+  const [highConvictionCategory, setHighConvictionCategory] = useState<'ALL' | 'PTS' | 'REB' | 'AST' | '3PM'>('ALL')
+  const [hotFormLedgerPage, setHotFormLedgerPage] = useState(0)
+  const HOT_FORM_PAGE_SIZE = 8
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Reset ledger page when filter changes
+  useEffect(() => {
+    setHotFormLedgerPage(0)
+  }, [featuredFilter])
   
   // Cooldown for refresh button (20 minutes = 1200000ms, backend allows 3/hour)
   const REFRESH_COOLDOWN_MS = 20 * 60 * 1000 // 20 minutes
@@ -501,8 +534,16 @@ export function GoodBetsDashboard() {
 
   const featuredPlayers = useMemo(() => {
     const list = featuredFilter === 'hot' ? hotPlayers : playersToWatch
-    return list.slice(0, 8)
+    return list
   }, [featuredFilter, hotPlayers, playersToWatch])
+
+  const paginatedFeaturedPlayers = useMemo(() => {
+    const start = hotFormLedgerPage * HOT_FORM_PAGE_SIZE
+    return featuredPlayers.slice(start, start + HOT_FORM_PAGE_SIZE)
+  }, [featuredPlayers, hotFormLedgerPage, HOT_FORM_PAGE_SIZE])
+
+  const hotFormLedgerTotalPages = Math.max(1, Math.ceil(featuredPlayers.length / HOT_FORM_PAGE_SIZE))
+  const hotFormLedgerHasMore = featuredPlayers.length > HOT_FORM_PAGE_SIZE
 
   // Add prop to bet tracker from dashboard suggestions
   const { addToTracker, isAdding: isAddingToTracker } = useAddPropToTracker()
@@ -988,31 +1029,78 @@ export function GoodBetsDashboard() {
                 {[1,2,3].map(i => <div key={i} className="bg-background h-14 rounded animate-pulse" />)}
               </div>
             ) : featuredPlayers.length === 0 ? (
-              <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest text-center py-6">No hot form data today</p>
+              <p className="text-on-surface-variant text-xs font-bold uppercase tracking-widest text-center py-6">
+                {featuredFilter === 'hot' ? 'No hot form data today' : 'No featured players for today's slate'}
+              </p>
             ) : (
+              <>
               <div className="space-y-3">
-                {featuredPlayers.map((p, i) => (
+                {paginatedFeaturedPlayers.map((p, i) => {
+                  const globalIndex = hotFormLedgerPage * HOT_FORM_PAGE_SIZE + i
+                  return (
                   <button
                     key={p.id}
                     onClick={() => navigate(`/player/${p.id}`)}
-                    className="group w-full flex items-center gap-4 bg-background p-4 rounded border border-outline-variant/10 hover:border-betting-green/30 transition-colors text-left"
+                    className="group w-full flex items-start gap-4 bg-background p-4 rounded border border-outline-variant/10 hover:border-betting-green/30 transition-colors text-left"
                   >
-                    <span className={`text-xl font-black italic w-8 ${i === 0 ? 'text-betting-green' : i === 1 ? 'text-primary' : 'text-on-surface-variant'}`}>
-                      #{String(i + 1).padStart(2, '0')}
+                    <span className={`text-xl font-black italic w-8 shrink-0 leading-none pt-0.5 ${globalIndex === 0 ? 'text-betting-green' : globalIndex === 1 ? 'text-primary' : 'text-on-surface-variant'}`}>
+                      #{String(globalIndex + 1).padStart(2, '0')}
                     </span>
                     <PlayerAvatar playerId={p.id} playerName={p.name} size="small" className="w-8 h-8 rounded shrink-0 grayscale brightness-75 group-hover:grayscale-0 group-hover:brightness-100 transition-all duration-300" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black uppercase tracking-widest truncate">{p.name}</p>
-                      <p className="text-[10px] text-on-surface-variant font-medium truncate">
-                        {p.highlight.type} · {p.highlight.confidence}% conf
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs font-black uppercase tracking-widest truncate">{p.name}</p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {p.highlight.tier ? (
+                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${tierColor(p.highlight.tier)}`}>
+                              {tierLabel(p.highlight.tier)}
+                            </span>
+                          ) : null}
+                          <span className={`text-xs font-black tracking-tighter ${(p.confidence ?? 0) >= 70 ? 'text-betting-green' : 'text-primary'}`}>
+                            {Math.round(Number(p.confidence) || 0)}%
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-on-surface-variant font-medium leading-snug mt-1 line-clamp-2">
+                        {hotLedgerSubtitle(p.highlight)}
                       </p>
+                      {p.tags.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {p.tags.map(tag => (
+                            <span key={tag} className="text-[8px] font-bold text-on-surface/50 uppercase tracking-wide bg-surface-container-low px-1.5 py-0.5 rounded">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
-                    <span className={`text-xs font-black tracking-tighter ${(p.confidence ?? 0) >= 70 ? 'text-betting-green' : 'text-primary'}`}>
-                      {p.confidence}%
-                    </span>
                   </button>
-                ))}
+                )})}
               </div>
+              {hotFormLedgerHasMore && (
+                <div className="flex items-center justify-between gap-2 mt-4 pt-4 border-t border-outline-variant/10">
+                  <button
+                    onClick={() => setHotFormLedgerPage(Math.max(0, hotFormLedgerPage - 1))}
+                    disabled={hotFormLedgerPage === 0}
+                    className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant hover:text-primary-container transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">chevron_left</span>
+                    PREV
+                  </button>
+                  <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">
+                    Page {hotFormLedgerPage + 1} of {hotFormLedgerTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setHotFormLedgerPage(Math.min(hotFormLedgerTotalPages - 1, hotFormLedgerPage + 1))}
+                    disabled={hotFormLedgerPage >= hotFormLedgerTotalPages - 1}
+                    className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-on-surface-variant hover:text-primary-container transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    NEXT
+                    <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                  </button>
+                </div>
+              )}
+              </>
             )}
           </div>
         </section>
