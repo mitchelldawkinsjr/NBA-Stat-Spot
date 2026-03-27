@@ -1137,7 +1137,13 @@ export function GoodBetsDashboard() {
                   </thead>
                   <tbody className="text-[10px] font-black uppercase tracking-widest">
                     {(['PTS','AST','REB'] as const).flatMap(cat =>
-                      (statLeaders[cat] ?? []).slice(0, 2).map((s: any, j: number) => (
+                      (statLeaders[cat] ?? []).slice(0, 2).map((s: any, j: number) => {
+                        // For SEASON: s has {playerId, playerName, PTS, AST, REB, 3PM}
+                        // For TODAY: s has {playerId, playerName, fairLine, marketLine, type}
+                        const statValue = statLeadersFilterToday 
+                          ? (s.fairLine ?? s.marketLine ?? 0)
+                          : (s[cat] ?? 0)
+                        return (
                         <tr key={`${cat}-${j}`} className="border-b border-outline-variant/10 hover:bg-background/50 transition-colors">
                           <td className="py-3 px-2">
                             <button onClick={() => navigate(`/player/${s.playerId}`)} className="flex items-center gap-2 hover:text-primary-container transition-colors text-left">
@@ -1145,10 +1151,12 @@ export function GoodBetsDashboard() {
                               <span className="truncate max-w-[100px]">{s.playerName}</span>
                             </button>
                           </td>
-                          <td className="py-3 px-2 text-right text-primary">{(s.fairLine ?? s.marketLine ?? 0).toFixed(1)}</td>
+                          <td className="py-3 px-2 text-right text-primary">
+                            {typeof statValue === 'number' ? statValue.toFixed(1) : statValue}
+                          </td>
                           <td className="py-3 px-2 text-right text-on-surface-variant">{cat}</td>
                         </tr>
-                      ))
+                      )})
                     )}
                   </tbody>
                 </table>
