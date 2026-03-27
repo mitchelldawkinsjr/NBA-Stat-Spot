@@ -574,7 +574,7 @@ export function GoodBetsDashboard() {
 
   const statLeaders = useMemo(() => {
     const empty = { PTS: [] as any[], AST: [] as any[], REB: [] as any[], '3PM': [] as any[] }
-    // "All" = league-wide stat leaders (cached from admin refresh)
+    // "SEASON" = league-wide stat leaders (cached from admin refresh)
     if (!statLeadersFilterToday) {
       const raw = leagueStatLeadersData?.items
       if (!raw || typeof raw !== 'object') return empty
@@ -582,26 +582,22 @@ export function GoodBetsDashboard() {
         PTS: (raw.PTS || []).map((l: any) => ({
           playerId: l.playerId,
           playerName: l.playerName || 'Unknown',
-          fairLine: l.value,
-          marketLine: l.value,
+          PTS: l.PTS,
         })),
         AST: (raw.AST || []).map((l: any) => ({
           playerId: l.playerId,
           playerName: l.playerName || 'Unknown',
-          fairLine: l.value,
-          marketLine: l.value,
+          AST: l.AST,
         })),
         REB: (raw.REB || []).map((l: any) => ({
           playerId: l.playerId,
           playerName: l.playerName || 'Unknown',
-          fairLine: l.value,
-          marketLine: l.value,
+          REB: l.REB,
         })),
         '3PM': (raw['3PM'] || []).map((l: any) => ({
           playerId: l.playerId,
           playerName: l.playerName || 'Unknown',
-          fairLine: l.value,
-          marketLine: l.value,
+          '3PM': l['3PM'],
         })),
       }
     }
