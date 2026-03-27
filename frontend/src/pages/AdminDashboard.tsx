@@ -124,6 +124,14 @@ async function refreshGamePredictions(date?: string) {
   return apiGet(`/api/v1/games/predictions${params}`)
 }
 
+async function warmPlayerGameLogs(season?: string) {
+  const params = new URLSearchParams()
+  if (season) params.set('season', season)
+  params.set('players_per_team', '6')
+  params.set('games_per_player', '25')
+  return apiPost(`/api/v1/admin/warm/player-game-logs?${params}`)
+}
+
 async function settleAccuracy(settleDate?: string, season?: string) {
   const params = new URLSearchParams()
   if (settleDate) params.set('settle_date', settleDate)
@@ -591,6 +599,25 @@ export default function AdminDashboard() {
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Refresh game predictions failed', error.message)
+    }
+  })
+
+  const warmPlayerGameLogsMutation = useMutation({
+    mutationFn: () => warmPlayerGameLogs(integritySeason),
+    onMutate: () => {
+      addActivityLog('info', `Warming player game logs for all teams...`, `Season: ${integritySeason}, 6 players/team, 25 games/player. This may take 1-2 minutes.`)
+    },
+    onSuccess: (data: { players_warmed?: number; teams_warmed?: number; total_teams?: number; errors?: number }) => {
+      addActivityLog(
+        'success',
+        'Player game logs warmed',
+        `${data?.players_warmed ?? 0} players across ${data?.teams_warmed ?? 0}/${data?.total_teams ?? 30} teams. ${data?.errors ?? 0} errors. Now refresh ranks to rebuild with all teams.`
+      )
+      refetchCacheStatus()
+      refetchHealth()
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Warm player game logs failed', error.message)
     }
   })
 
@@ -1483,9 +1510,17 @@ export default function AdminDashboard() {
       <div className="mt-2 rounded-lg bg-surface-container shadow-sm border border-outline/20 p-3 transition-colors duration-200">
         <div className="mb-2">
           <h2 className="text-sm font-semibold text-on-surface transition-colors duration-200">Player & context</h2>
-          <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Clean names and refresh opponent defense ranks for player profiles</p>
+          <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Warm player logs and refresh ranks for complete team coverage (all 30 teams)</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => warmPlayerGameLogsMutation.mutate()}
+            disabled={warmPlayerGameLogsMutation.isPending}
+            className="px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 text-purple-900 dark:text-purple-300 text-xs font-semibold rounded-lg disabled:opacity-50 border border-purple-300 dark:border-purple-700 transition-colors duration-200"
+            title="Fetch game logs for top 6 players per team (25 games each) - takes 1-2 minutes"
+          >
+            {warmPlayerGameLogsMutation.isPending ? 'Warming...' : 'Warm Player Game Logs'}
+          </button>
           <button
             onClick={() => cleanRecentNamesMutation.mutate()}
             disabled={cleanRecentNamesMutation.isPending}

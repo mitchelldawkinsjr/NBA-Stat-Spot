@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date, timedelta
 from sqlalchemy.orm import Session
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..database import get_db
 from ..services.prop_scanner import PropScannerService
 from ..models.players import Player
@@ -1347,6 +1348,83 @@ def refresh_player_logs_cache(
                 **result
             }
     except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.post("/warm/player-game-logs")
+def warm_player_game_logs(
+    season: Optional[str] = Query(None, description="Season (e.g., '2025-26'). Defaults to current season."),
+    players_per_team: int = Query(6, description="Number of top players per team to warm"),
+    games_per_player: int = Query(25, description="Number of recent games per player to fetch")
+):
+    """
+    Warm player game log caches for all teams to ensure complete ranking data.
+    Fetches game logs for top N players from each team so that defensive/offensive/pace rankings
+    include all 30 teams instead of just teams with recently-accessed players.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    season_to_use = season or get_current_season()
+    
+    try:
+        teams = NBADataService.fetch_all_teams()
+        if not teams:
+            return {"status": "error", "message": "No teams found"}
+        
+        all_players = NBADataService.fetch_all_players_including_rookies() or []
+        players_by_team: Dict[int, List[Dict[str, Any]]] = {}
+        for player in all_players:
+            team_id = player.get("team_id")
+            if not team_id:
+                continue
+            tid = int(team_id)
+            players_by_team.setdefault(tid, [])
+            if len(players_by_team[tid]) < players_per_team:
+                players_by_team[tid].append(player)
+        
+        tasks = [
+            (int(player.get("id")), team_id, season_to_use, games_per_player)
+            for team_id, team_players in players_by_team.items()
+            for player in team_players
+            if player.get("id")
+        ]
+        
+        players_warmed = 0
+        teams_warmed = set()
+        errors = 0
+        
+        def _fetch_and_cache(args: tuple[int, int, str, int]) -> tuple[bool, int]:
+            pid, tid, season_str, n_games = args
+            try:
+                logs = NBADataService.fetch_player_game_log(pid, season_str)
+                if logs:
+                    return True, tid
+                return False, tid
+            except Exception:
+                return False, tid
+        
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = {pool.submit(_fetch_and_cache, task): task for task in tasks}
+            for future in as_completed(futures):
+                try:
+                    success, team_id = future.result(timeout=60.0)
+                    if success:
+                        players_warmed += 1
+                        teams_warmed.add(team_id)
+                    else:
+                        errors += 1
+                except Exception:
+                    errors += 1
+        
+        return {
+            "status": "success",
+            "message": f"Player game logs warmed for {len(teams_warmed)} teams",
+            "players_warmed": players_warmed,
+            "teams_warmed": len(teams_warmed),
+            "total_teams": len(teams),
+            "errors": errors,
+            "season": season_to_use
+        }
+    except Exception as e:
+        logger.error("Failed to warm player game logs", error=str(e))
         return {"status": "error", "message": str(e)}
 
 @router.get("/rate-limits")
