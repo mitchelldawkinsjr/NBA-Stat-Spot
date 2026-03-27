@@ -119,6 +119,11 @@ async function clearGamePredictionsCache() {
   return apiPost('/api/v1/admin/cache/clear/game-predictions')
 }
 
+async function refreshGamePredictions(date?: string) {
+  const params = date ? `?date=${encodeURIComponent(date)}` : ''
+  return apiGet(`/api/v1/games/predictions${params}`)
+}
+
 async function settleAccuracy(settleDate?: string, season?: string) {
   const params = new URLSearchParams()
   if (settleDate) params.set('settle_date', settleDate)
@@ -555,17 +560,37 @@ export default function AdminDashboard() {
     onMutate: () => {
       addActivityLog('info', 'Clearing game predictions cache...')
     },
-    onSuccess: (data: { game_predictions_cleared?: number; game_prediction_detail_cleared?: number }) => {
+    onSuccess: (data: { game_predictions_cleared?: number; game_prediction_detail_cleared?: number; team_key_players_cleared?: number }) => {
       addActivityLog(
         'success',
         'Game predictions cache cleared',
-        `List: ${data?.game_predictions_cleared ?? 0}, Detail: ${data?.game_prediction_detail_cleared ?? 0}. Next request will rebuild with current ranks/stats.`
+        `List: ${data?.game_predictions_cleared ?? 0}, Detail: ${data?.game_prediction_detail_cleared ?? 0}, Key players: ${data?.team_key_players_cleared ?? 0}. Next request will rebuild with current ranks/stats.`
       )
       refetchCacheStatus()
       queryClient.invalidateQueries({ queryKey: ['games-predictions'] })
     },
     onError: (error: Error) => {
       addActivityLog('error', 'Clear game predictions cache failed', error.message)
+    }
+  })
+
+  const refreshGamePredictionsMutation = useMutation({
+    mutationFn: () => refreshGamePredictions(),
+    onMutate: () => {
+      addActivityLog('info', 'Refreshing game predictions (rebuilding from ESPN, ranks, team stats)...')
+    },
+    onSuccess: (data: { predictions?: any[] }) => {
+      const count = data?.predictions?.length ?? 0
+      addActivityLog(
+        'success',
+        'Game predictions refreshed',
+        `${count} game predictions rebuilt and cached`
+      )
+      refetchCacheStatus()
+      queryClient.invalidateQueries({ queryKey: ['games-predictions'] })
+    },
+    onError: (error: Error) => {
+      addActivityLog('error', 'Refresh game predictions failed', error.message)
     }
   })
 
@@ -1214,7 +1239,7 @@ export default function AdminDashboard() {
           <p className="text-xs text-on-surface-variant mt-0.5 transition-colors duration-200">Warm and refresh caches that feed the main dashboard</p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
           <button
             onClick={() => warmDashboardMutation.mutate()}
             disabled={warmDashboardMutation.isPending}
@@ -1235,6 +1260,13 @@ export default function AdminDashboard() {
             className="px-3 py-2 bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/50 text-violet-900 dark:text-violet-300 text-xs font-semibold rounded-lg disabled:opacity-60 border border-violet-300 dark:border-violet-700 transition-colors duration-200"
           >
             {refreshTopPicksMutation.isPending ? 'Refreshing...' : 'Refresh Top Picks'}
+          </button>
+          <button
+            onClick={() => refreshGamePredictionsMutation.mutate()}
+            disabled={refreshGamePredictionsMutation.isPending}
+            className="px-3 py-2 bg-teal-100 dark:bg-teal-900/30 hover:bg-teal-200 dark:hover:bg-teal-900/50 text-teal-900 dark:text-teal-300 text-xs font-semibold rounded-lg disabled:opacity-60 border border-teal-300 dark:border-teal-700 transition-colors duration-200"
+          >
+            {refreshGamePredictionsMutation.isPending ? 'Refreshing...' : 'Refresh Game Predictions'}
           </button>
           <button
             onClick={() => refreshStatLeadersMutation.mutate()}
@@ -1290,6 +1322,14 @@ export default function AdminDashboard() {
               className="px-3 py-1.5 text-xs bg-sky-100 dark:bg-sky-900/30 hover:bg-sky-200 dark:hover:bg-sky-900/50 text-sky-900 dark:text-sky-300 rounded disabled:opacity-50 border border-sky-300 dark:border-sky-700 transition-colors duration-200"
             >
               {clearGamePredictionsCacheMutation.isPending ? 'Clearing...' : 'Clear Game Predictions'}
+            </button>
+            <button
+              onClick={() => refreshGamePredictionsMutation.mutate()}
+              disabled={refreshGamePredictionsMutation.isPending}
+              className="px-3 py-1.5 text-xs bg-teal-100 dark:bg-teal-900/30 hover:bg-teal-200 dark:hover:bg-teal-900/50 text-teal-900 dark:text-teal-300 rounded disabled:opacity-50 border border-teal-300 dark:border-teal-700 transition-colors duration-200"
+              title="Rebuild game predictions with current ranks and team stats"
+            >
+              {refreshGamePredictionsMutation.isPending ? 'Refreshing...' : 'Refresh Game Predictions'}
             </button>
           </div>
         </div>
@@ -1408,7 +1448,7 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess || clearTodaysGamesCacheMutation.isSuccess || clearGamePredictionsCacheMutation.isSuccess || cacheCleanupMutation.isSuccess || refreshStatLeadersMutation.isSuccess || refreshTopPicksMutation.isSuccess) && (
+        {(clearAllCacheMutation.isSuccess || clearDailyPropsCacheMutation.isSuccess || clearTeamsCacheMutation.isSuccess || clearTodaysGamesCacheMutation.isSuccess || clearGamePredictionsCacheMutation.isSuccess || cacheCleanupMutation.isSuccess || refreshStatLeadersMutation.isSuccess || refreshTopPicksMutation.isSuccess || refreshGamePredictionsMutation.isSuccess) && (
           <div className="mt-2 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded text-xs text-emerald-800 dark:text-emerald-300 transition-colors duration-200">
             {clearAllCacheMutation.isSuccess ? 'All caches cleared. Refresh the page or click Warm dashboard to reload data.' : 'Cache cleared / refreshed. Next request will use updated data.'}
           </div>
