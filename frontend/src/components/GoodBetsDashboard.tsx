@@ -1144,7 +1144,7 @@ export function GoodBetsDashboard() {
                           <td className="py-3 px-2">
                             <button onClick={() => navigate(`/player/${s.playerId}`)} className="flex items-center gap-2 hover:text-primary-container transition-colors text-left">
                               <PlayerAvatar playerId={s.playerId} playerName={s.playerName} size="small" className="w-6 h-6 rounded shrink-0" />
-                              <span className="truncate max-w-[100px]">{s.playerName}</span>
+                              <span>{s.playerName}</span>
                             </button>
                           </td>
                           <td className="py-3 px-2 text-right text-primary">
