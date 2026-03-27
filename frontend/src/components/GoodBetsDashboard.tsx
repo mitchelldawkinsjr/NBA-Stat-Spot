@@ -1141,16 +1141,16 @@ export function GoodBetsDashboard() {
                           : (s[cat] ?? 0)
                         return (
                         <tr key={`${cat}-${j}`} className="border-b border-outline-variant/10 hover:bg-background/50 transition-colors">
-                          <td className="py-3 px-2">
-                            <button onClick={() => navigate(`/player/${s.playerId}`)} className="flex items-center gap-2 hover:text-primary-container transition-colors text-left">
-                              <PlayerAvatar playerId={s.playerId} playerName={s.playerName} size="small" className="w-6 h-6 rounded shrink-0" />
-                              <span>{s.playerName}</span>
+                          <td className="py-4 px-3">
+                            <button onClick={() => navigate(`/player/${s.playerId}`)} className="flex items-center gap-3 hover:text-primary-container transition-colors text-left">
+                              <PlayerAvatar playerId={s.playerId} playerName={s.playerName} size="small" className="w-8 h-8 rounded shrink-0" />
+                              <span className="text-sm">{s.playerName}</span>
                             </button>
                           </td>
-                          <td className="py-3 px-2 text-right text-primary">
+                          <td className="py-4 px-3 text-right text-primary text-base font-bold">
                             {typeof statValue === 'number' ? statValue.toFixed(1) : statValue}
                           </td>
-                          <td className="py-3 px-2 text-right text-on-surface-variant">{cat}</td>
+                          <td className="py-4 px-3 text-right text-on-surface-variant text-sm">{cat}</td>
                         </tr>
                       )})
                     )}
