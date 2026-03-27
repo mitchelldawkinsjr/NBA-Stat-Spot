@@ -513,7 +513,7 @@ class ContextCollector:
     @staticmethod
     def _get_team_ppg_from_player_logs(season: Optional[str] = None) -> Dict[int, float]:
         """
-        Compute each team's PPG from player game logs (sum ALL players' pts per game, then average).
+        Compute each team's PPG from actual game box scores via ESPN schedule.
         Used when TeamStatsService returns default 112.5 so game prediction page shows real data.
         Returns {team_id: ppg}. Cached 24h.
         """
@@ -525,17 +525,66 @@ class ContextCollector:
             if cached is not None and isinstance(cached, dict):
                 return {int(k): float(v) for k, v in cached.items() if v is not None and isinstance(v, (int, float))}
             
-            # Use the accurate offensive averages from _calculate_all_team_ranks
-            # which sums ALL players' contributions per game
-            _, _, _, team_off_avg = ContextCollector._calculate_all_team_ranks(season_to_use)
+            teams = NBADataService.fetch_all_teams()
+            if not teams:
+                return {}
             
+            from .espn_api_service import get_espn_service
+            espn = get_espn_service()
             result: Dict[int, float] = {}
-            for team_id, avgs in team_off_avg.items():
-                if avgs and avgs.get("pts"):
-                    result[team_id] = round(avgs["pts"], 1)
             
-            cache.set(cache_key, result, ttl=86400)
-            logger.info("Team PPG from logs computed", season=season_to_use, teams_with_ppg=len(result))
+            for team in teams:
+                team_id = team.get("id")
+                team_abbr = (team.get("abbreviation") or "").strip().upper()
+                espn_slug = (team.get("abbreviation") or "").strip().lower()
+                
+                if not team_id or not espn_slug:
+                    continue
+                
+                try:
+                    # Get team's recent games from ESPN schedule
+                    schedule = espn.get_team_schedule(espn_slug)
+                    if not schedule:
+                        continue
+                    
+                    events = schedule.get("events", [])
+                    team_scores = []
+                    
+                    # Look through recent completed games
+                    for event in events[:25]:  # Last 25 games
+                        competitions = event.get("competitions", [])
+                        if not competitions:
+                            continue
+                        
+                        comp = competitions[0]
+                        # Only count completed games
+                        status = comp.get("status", {})
+                        if status.get("type", {}).get("name") != "STATUS_FINAL":
+                            continue
+                        
+                        competitors = comp.get("competitors", [])
+                        for competitor in competitors:
+                            comp_abbr = competitor.get("team", {}).get("abbreviation", "").upper()
+                            if comp_abbr == team_abbr:
+                                score = competitor.get("score")
+                                if score and isinstance(score, (int, float, str)):
+                                    team_scores.append(float(score))
+                                break
+                    
+                    # Calculate PPG from actual game scores
+                    if team_scores:
+                        ppg = round(sum(team_scores) / len(team_scores), 1)
+                        result[int(team_id)] = ppg
+                        logger.debug("Team PPG calculated from ESPN", team=team_abbr, ppg=ppg, games=len(team_scores))
+                
+                except Exception as e:
+                    logger.debug("Failed to get PPG for team from ESPN", team=team_abbr, error=str(e))
+                    continue
+            
+            if result:
+                cache.set(cache_key, result, ttl=86400)
+                logger.info("Team PPG from ESPN box scores computed", season=season_to_use, teams_with_ppg=len(result))
+            
             return result
         except Exception as e:
             logger.warning("Team PPG from logs failed", season=season, error=str(e))
