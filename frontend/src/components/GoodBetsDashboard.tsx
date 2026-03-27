@@ -965,7 +965,7 @@ export function GoodBetsDashboard() {
                     </button>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start mb-1">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-on-surface truncate">{b.playerName}</h4>
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-on-surface">{b.playerName}</h4>
                         <span className={`text-[8px] font-black px-1.5 py-0.5 rounded shrink-0 ml-1 ${tierColor(b.tier)}`}>{tierLabel(b.tier)}</span>
                       </div>
                       <p className={`text-[10px] font-black uppercase tracking-widest mb-3 ${b.suggestion === 'over' ? 'text-betting-green' : 'text-error'}`}>
@@ -1045,7 +1045,7 @@ export function GoodBetsDashboard() {
                     <PlayerAvatar playerId={p.id} playerName={p.name} size="small" className="w-8 h-8 rounded shrink-0 grayscale brightness-75 group-hover:grayscale-0 group-hover:brightness-100 transition-all duration-300" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-xs font-black uppercase tracking-widest truncate">{p.name}</p>
+                        <p className="text-xs font-black uppercase tracking-widest">{p.name}</p>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {p.highlight.tier ? (
                             <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${tierColor(p.highlight.tier)}`}>
