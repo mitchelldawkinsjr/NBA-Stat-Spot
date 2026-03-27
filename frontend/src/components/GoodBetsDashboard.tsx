@@ -679,7 +679,7 @@ export function GoodBetsDashboard() {
 
         {/* Game Cards */}
         {gamesLoading ? (
-          <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+          <div className="flex gap-4 overflow-x-auto pb-4 [-webkit-overflow-scrolling:touch]">
             {[1,2,3].map(i => (
               <div key={i} className="min-w-[280px] bg-surface-container h-28 rounded animate-pulse" />
             ))}
@@ -695,7 +695,7 @@ export function GoodBetsDashboard() {
             <p className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">No games scheduled today</p>
           </div>
         ) : (
-          <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+          <div className="flex gap-4 overflow-x-auto pb-4 [-webkit-overflow-scrolling:touch]">
             {games.map((g: any, idx: number) => {
               const gameId = g.gameId != null ? String(g.gameId) : ''
               let live = liveGamesMap[gameId]
