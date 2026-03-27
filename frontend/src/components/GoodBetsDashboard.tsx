@@ -158,7 +158,7 @@ export function GoodBetsDashboard() {
   const [featuredFilter, setFeaturedFilter] = useState<'all' | 'hot'>('hot') // Players to Watch: default Hot form; All = today's players from daily props
   const [highConvictionCategory, setHighConvictionCategory] = useState<'ALL' | 'PTS' | 'REB' | 'AST' | '3PM'>('ALL')
   const [hotFormLedgerPage, setHotFormLedgerPage] = useState(0)
-  const HOT_FORM_PAGE_SIZE = 8
+  const HOT_FORM_PAGE_SIZE = 5
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Reset ledger page when filter changes
