@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NBA Stat Spot | Hardwood Analytics</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0e0e0e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1c1b1b;
+            border-radius: 4px;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "primary": "#FF6B00",
+                "on-primary": "#000000",
+                "background": "#0e0e0e",
+                "surface": "#131313",
+                "surface-variant": "#1c1b1b",
+                "on-surface": "#e5e2e1",
+                "on-surface-variant": "#a19e9d",
+                "outline": "#353534",
+                "secondary": "#4edea3",
+                "error": "#ffb4ab",
+                "error-container": "#93000a",
+              },
+              fontFamily: {
+                "headline": ["Inter", "sans-serif"],
+                "body": ["Inter", "sans-serif"],
+              },
+              borderRadius: {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+              },
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary/30 antialiased">
+<!-- Top Navigation Bar (Consistent with COMPONENTS_7) -->
+<header class="fixed top-0 w-full z-50 bg-[#131313] shadow-none">
+<nav class="flex justify-between items-center w-full px-6 py-3 h-16">
+<div class="text-2xl font-black uppercase italic tracking-tighter text-[#FF6B00]">
+            KINETIC
+        </div>
+<div class="hidden md:flex gap-8 items-center">
+<a class="text-sm font-bold uppercase tracking-tight text-[#FF6B00] border-b-2 border-[#FF6B00] pb-1" href="#">LIVE</a>
+<a class="text-sm font-medium uppercase tracking-tight text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">PROPS</a>
+<a class="text-sm font-medium uppercase tracking-tight text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">MATCHUPS</a>
+<a class="text-sm font-medium uppercase tracking-tight text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">INJURIES</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-[#e5e2e1] opacity-70 hover:bg-[#353534] p-2 rounded transition-all scale-95 active:scale-90">notifications</button>
+<button class="material-symbols-outlined text-[#e5e2e1] opacity-70 hover:bg-[#353534] p-2 rounded transition-all scale-95 active:scale-90">account_circle</button>
+</div>
+</nav>
+<div class="h-[1px] bg-[#1c1b1b] w-full"></div>
+</header>
+<!-- Side Navigation Bar (Consistent with COMPONENTS_7) -->
+<aside class="fixed left-0 top-0 h-screen w-64 hidden lg:flex flex-col bg-[#0e0e0e] z-40 pt-20 shadow-2xl shadow-black/50 border-r border-[#1c1b1b]">
+<div class="px-6 mb-8">
+<div class="text-sm font-black text-[#FF6B00] uppercase tracking-widest">Performance Ledger</div>
+<div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Pro Tier Access</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="bg-[#1c1b1b] text-[#FF6B00] rounded-r-lg border-l-4 border-[#FF6B00] flex items-center gap-3 px-4 py-3 mx-2 text-sm font-medium uppercase tracking-widest transition-transform active:translate-x-1" href="#">
+<span class="material-symbols-outlined">sports_basketball</span> NBA
+        </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 mx-2 text-sm font-medium uppercase tracking-widest hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1" href="#">
+<span class="material-symbols-outlined">school</span> NCAAB
+        </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 mx-2 text-sm font-medium uppercase tracking-widest hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1" href="#">
+<span class="material-symbols-outlined">woman</span> WNBA
+        </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 mx-2 text-sm font-medium uppercase tracking-widest hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1" href="#">
+<span class="material-symbols-outlined">public</span> EURO
+        </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 mx-2 text-sm font-medium uppercase tracking-widest hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1" href="#">
+<span class="material-symbols-outlined">layers</span> G-LEAGUE
+        </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 mx-2 text-sm font-medium uppercase tracking-widest hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1" href="#">
+<span class="material-symbols-outlined">history</span> LEGENDS
+        </a>
+</nav>
+<div class="p-4">
+<button class="w-full py-3 bg-[#FF6B00] text-black rounded font-black text-xs tracking-widest uppercase hover:brightness-110 transition-all active:scale-95">
+            DEPOSIT FUNDS
+        </button>
+</div>
+<div class="p-4 space-y-1">
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-2 text-xs font-medium uppercase tracking-widest hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined text-sm">settings</span> Settings
+        </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-2 text-xs font-medium uppercase tracking-widest hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined text-sm">help_outline</span> Support
+        </a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="lg:ml-64 pt-24 pb-32 px-4 md:px-8 max-w-none">
+<!-- Header & Action Row -->
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
+<div>
+<h1 class="font-black text-5xl md:text-7xl text-on-surface tracking-tighter leading-[0.9] uppercase italic">
+                OVER/UNDER <span class="text-primary">INTELLIGENCE</span>
+</h1>
+<p class="mt-4 text-on-surface-variant max-w-lg font-medium tracking-tight">
+                Kinetic high-density performance ledger. 14 games analyzed for today's slate using proprietary hardwood modeling.
+            </p>
+</div>
+<div class="flex flex-wrap gap-3">
+<button class="flex items-center gap-2 px-8 py-4 bg-primary text-black font-black text-sm tracking-widest rounded-none hover:brightness-110 transition-all active:scale-95">
+<span class="material-symbols-outlined">psychology</span>
+                ANALYZE SLATE
+            </button>
+<button class="flex items-center justify-center p-4 bg-surface-variant text-on-surface rounded-none hover:bg-[#353534] transition-colors">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+</div>
+</div>
+<!-- Live Games Horizontal Feed -->
+<section class="max-w-7xl mx-auto mb-12">
+<div class="flex items-center justify-between mb-4 px-1">
+<h3 class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant flex items-center gap-2">
+<span class="w-2 h-2 bg-error animate-pulse"></span>
+                Live Ledger
+            </h3>
+<span class="text-[10px] text-outline font-bold uppercase tracking-widest">Kinetic Update • Syncing</span>
+</div>
+<div class="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+<!-- Game 1 -->
+<div class="flex-shrink-0 w-72 bg-surface border border-outline/30 p-5 rounded-none">
+<div class="flex justify-between items-center mb-4">
+<span class="text-[10px] font-black text-outline uppercase tracking-widest">Q3 4:12</span>
+<span class="px-2 py-0.5 bg-error-container text-error text-[9px] font-black rounded-none uppercase">Live</span>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<span class="font-black text-lg italic">LAL</span>
+<span class="font-black text-2xl tracking-tighter">88</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-black text-lg italic">GSW</span>
+<span class="font-black text-2xl tracking-tighter">92</span>
+</div>
+</div>
+<div class="mt-5 pt-4 border-t border-outline/30 flex justify-between items-center">
+<span class="text-[10px] text-on-surface-variant font-bold">PACE 104.2</span>
+<span class="text-[10px] text-secondary font-black">O 228.5</span>
+</div>
+</div>
+<!-- Game 2 -->
+<div class="flex-shrink-0 w-72 bg-surface border border-outline/30 p-5 rounded-none">
+<div class="flex justify-between items-center mb-4">
+<span class="text-[10px] font-black text-outline uppercase tracking-widest">HT</span>
+<span class="px-2 py-0.5 bg-error-container text-error text-[9px] font-black rounded-none uppercase">Live</span>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<span class="font-black text-lg italic">BOS</span>
+<span class="font-black text-2xl tracking-tighter">56</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-black text-lg italic">MIL</span>
+<span class="font-black text-2xl tracking-tighter">54</span>
+</div>
+</div>
+<div class="mt-5 pt-4 border-t border-outline/30 flex justify-between items-center">
+<span class="text-[10px] text-on-surface-variant font-bold">PACE 98.8</span>
+<span class="text-[10px] text-error font-black">U 231.5</span>
+</div>
+</div>
+<!-- Game 3 -->
+<div class="flex-shrink-0 w-72 bg-surface border border-outline/10 p-5 rounded-none opacity-40">
+<div class="flex justify-between items-center mb-4">
+<span class="text-[10px] font-black text-outline uppercase tracking-widest">7:30 PM ET</span>
+<span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant text-[9px] font-black rounded-none uppercase">Upcoming</span>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<span class="font-black text-lg italic text-outline">PHX</span>
+<span class="font-black text-2xl tracking-tighter text-outline">0</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-black text-lg italic text-outline">DEN</span>
+<span class="font-black text-2xl tracking-tighter text-outline">0</span>
+</div>
+</div>
+<div class="mt-5 pt-4 border-t border-outline/10 flex justify-center">
+<span class="text-[10px] text-outline font-black uppercase tracking-widest">PREVIEWING DATA</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Main Analysis Grid -->
+<section class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Analysis Card 1 (The LOCK) -->
+<div class="bg-surface border border-outline/30 p-8 rounded-none flex flex-col relative overflow-hidden group">
+<div class="absolute top-0 right-0 px-6 py-2 bg-secondary text-black font-black text-[10px] tracking-widest uppercase italic">
+                LOCK
+            </div>
+<div class="flex items-center gap-5 mb-10">
+<div class="flex -space-x-4">
+<div class="w-14 h-14 rounded-none border border-outline bg-surface-variant flex items-center justify-center font-black text-primary italic">PHX</div>
+<div class="w-14 h-14 rounded-none border border-outline bg-surface-variant flex items-center justify-center font-black text-primary italic">DEN</div>
+</div>
+<div>
+<h4 class="text-xl font-black uppercase italic tracking-tight">Suns <span class="text-on-surface-variant text-sm lowercase font-normal not-italic px-1">vs</span> Nuggets</h4>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Ball Arena • Kinetic Advantage</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-10 mb-10">
+<div class="space-y-1">
+<p class="text-[10px] font-black text-outline uppercase tracking-widest">Market Line</p>
+<p class="text-5xl font-black text-on-surface tracking-tighter">226.5</p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] font-black text-primary uppercase tracking-widest">Hardwood Proj</p>
+<p class="text-5xl font-black text-secondary tracking-tighter">234.8</p>
+</div>
+</div>
+<div class="flex items-center gap-6 mb-10 p-5 bg-background border border-outline/20">
+<div class="flex-1">
+<div class="flex justify-between items-center mb-3">
+<span class="text-[10px] font-black text-outline uppercase tracking-widest">Confidence</span>
+<span class="text-[10px] font-black text-secondary">92%</span>
+</div>
+<div class="h-1 bg-surface-variant overflow-hidden">
+<div class="h-full bg-secondary w-[92%] transition-all duration-1000"></div>
+</div>
+</div>
+<div class="text-center">
+<p class="text-[10px] font-black text-outline uppercase mb-1">Edge</p>
+<p class="text-2xl font-black text-secondary tracking-tighter">+3.6%</p>
+</div>
+</div>
+<div class="flex flex-col lg:flex-row gap-8 mb-8">
+<div class="lg:w-2/5 space-y-4">
+<h5 class="text-[10px] font-black text-outline uppercase tracking-widest border-b border-outline/30 pb-1">Key Factors</h5>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold uppercase tracking-tight">
+<span class="text-on-surface-variant">Proj Pace</span>
+<span class="text-on-surface">102.4 <span class="text-secondary">↑</span></span>
+</div>
+<div class="flex justify-between text-xs font-bold uppercase tracking-tight">
+<span class="text-on-surface-variant">Off Eff</span>
+<span class="text-on-surface">118.2 <span class="text-secondary">↑</span></span>
+</div>
+<div class="flex justify-between text-xs font-bold uppercase tracking-tight">
+<span class="text-on-surface-variant">Def Eff</span>
+<span class="text-on-surface">112.4</span>
+</div>
+</div>
+</div>
+<div class="lg:w-3/5 bg-primary/5 p-5 border border-primary/20">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-primary text-sm">auto_awesome</span>
+<span class="text-[10px] font-black text-primary uppercase tracking-widest">AI Performance Log</span>
+</div>
+<p class="text-xs text-on-surface/80 leading-relaxed font-medium">
+                        Phoenix shows 14% increase in transition frequency. Denver home splits yield +8.2 points over road. High-velocity hardwood contest projected.
+                    </p>
+</div>
+</div>
+<button class="w-full py-5 bg-secondary text-black font-black text-sm tracking-[0.3em] uppercase italic hover:brightness-110 transition-all">
+                RECOMMENDATION: OVER
+            </button>
+</div>
+<!-- Analysis Card 2 (Under Lean) -->
+<div class="bg-surface border border-outline/30 p-8 rounded-none flex flex-col relative overflow-hidden group">
+<div class="absolute top-0 right-0 px-6 py-2 bg-outline text-on-surface-variant font-black text-[10px] tracking-widest uppercase italic">
+                LEAN
+            </div>
+<div class="flex items-center gap-5 mb-10">
+<div class="flex -space-x-4">
+<div class="w-14 h-14 rounded-none border border-outline bg-surface-variant flex items-center justify-center font-black text-primary italic">MIA</div>
+<div class="w-14 h-14 rounded-none border border-outline bg-surface-variant flex items-center justify-center font-black text-primary italic">NYK</div>
+</div>
+<div>
+<h4 class="text-xl font-black uppercase italic tracking-tight">Heat <span class="text-on-surface-variant text-sm lowercase font-normal not-italic px-1">vs</span> Knicks</h4>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">MSG • Defensive Grind</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-10 mb-10">
+<div class="space-y-1">
+<p class="text-[10px] font-black text-outline uppercase tracking-widest">Market Line</p>
+<p class="text-5xl font-black text-on-surface tracking-tighter">214.5</p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] font-black text-primary uppercase tracking-widest">Hardwood Proj</p>
+<p class="text-5xl font-black text-error tracking-tighter">208.2</p>
+</div>
+</div>
+<div class="flex items-center gap-6 mb-10 p-5 bg-background border border-outline/20">
+<div class="flex-1">
+<div class="flex justify-between items-center mb-3">
+<span class="text-[10px] font-black text-outline uppercase tracking-widest">Confidence</span>
+<span class="text-[10px] font-black text-on-surface">68%</span>
+</div>
+<div class="h-1 bg-surface-variant overflow-hidden">
+<div class="h-full bg-primary w-[68%] transition-all duration-1000"></div>
+</div>
+</div>
+<div class="text-center">
+<p class="text-[10px] font-black text-outline uppercase mb-1">Edge</p>
+<p class="text-2xl font-black text-error tracking-tighter">+2.9%</p>
+</div>
+</div>
+<div class="flex flex-col lg:flex-row gap-8 mb-8">
+<div class="lg:w-2/5 space-y-4">
+<h5 class="text-[10px] font-black text-outline uppercase tracking-widest border-b border-outline/30 pb-1">Key Factors</h5>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold uppercase tracking-tight">
+<span class="text-on-surface-variant">Proj Pace</span>
+<span class="text-on-surface">94.5 <span class="text-error">↓</span></span>
+</div>
+<div class="flex justify-between text-xs font-bold uppercase tracking-tight">
+<span class="text-on-surface-variant">Def Eff</span>
+<span class="text-on-surface">108.2 <span class="text-secondary">↑</span></span>
+</div>
+<div class="flex justify-between text-xs font-bold uppercase tracking-tight">
+<span class="text-on-surface-variant">Injuries</span>
+<span class="text-on-surface">Butler (GTD)</span>
+</div>
+</div>
+</div>
+<div class="lg:w-3/5 bg-primary/5 p-5 border border-primary/20">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-primary text-sm">auto_awesome</span>
+<span class="text-[10px] font-black text-primary uppercase tracking-widest">AI Performance Log</span>
+</div>
+<p class="text-xs text-on-surface/80 leading-relaxed font-medium">
+                        NY defensive rating tightening. Miami pace drops 4% non-conf. Physical half-court game highly probable.
+                    </p>
+</div>
+</div>
+<button class="w-full py-5 bg-error text-black font-black text-sm tracking-[0.3em] uppercase italic hover:brightness-110 transition-all">
+                RECOMMENDATION: UNDER
+            </button>
+</div>
+<!-- Analysis Card 3 (No Bet) -->
+<div class="bg-surface border border-outline/30 p-8 rounded-none flex flex-col relative overflow-hidden">
+<div class="flex items-center gap-5 mb-10">
+<div class="flex -space-x-4">
+<div class="w-14 h-14 rounded-none border border-outline bg-surface-variant flex items-center justify-center font-black text-primary italic">GSW</div>
+<div class="w-14 h-14 rounded-none border border-outline bg-surface-variant flex items-center justify-center font-black text-primary italic">SAC</div>
+</div>
+<div>
+<h4 class="text-xl font-black uppercase italic tracking-tight">Warriors <span class="text-on-surface-variant text-sm lowercase font-normal not-italic px-1">vs</span> Kings</h4>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Chase Center • High Variance</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-10 mb-10">
+<div class="space-y-1">
+<p class="text-[10px] font-black text-outline uppercase tracking-widest">Market Line</p>
+<p class="text-5xl font-black text-on-surface tracking-tighter">238.5</p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] font-black text-outline uppercase tracking-widest">Hardwood Proj</p>
+<p class="text-5xl font-black text-on-surface-variant tracking-tighter opacity-50">237.9</p>
+</div>
+</div>
+<div class="flex items-center gap-6 mb-10 p-5 bg-background border border-outline/20">
+<div class="flex-1">
+<div class="flex justify-between items-center mb-3">
+<span class="text-[10px] font-black text-outline uppercase tracking-widest">Confidence</span>
+<span class="text-[10px] font-black text-on-surface-variant">12%</span>
+</div>
+<div class="h-1 bg-surface-variant">
+<div class="h-full bg-outline w-[12%]"></div>
+</div>
+</div>
+<div class="text-center">
+<p class="text-[10px] font-black text-outline uppercase mb-1">Edge</p>
+<p class="text-2xl font-black text-on-surface-variant tracking-tighter">±0.2%</p>
+</div>
+</div>
+<button class="mt-auto w-full py-5 bg-surface-variant text-outline font-black text-sm tracking-[0.3em] uppercase italic cursor-not-allowed">
+                NO VALUE: NO BET
+            </button>
+</div>
+<!-- CTA Card -->
+<div class="bg-primary/10 border-2 border-dashed border-primary/30 p-8 rounded-none flex flex-col items-center justify-center text-center gap-8 group cursor-pointer hover:bg-primary/20 transition-all">
+<div class="w-20 h-20 bg-primary text-black rounded-none flex items-center justify-center group-hover:rotate-90 transition-transform duration-500 shadow-[0_0_30px_rgba(255,107,0,0.3)]">
+<span class="material-symbols-outlined text-5xl" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+</div>
+<div>
+<h4 class="text-2xl font-black text-primary uppercase italic tracking-tighter">UNCOVER KINETIC EDGES</h4>
+<p class="text-xs text-on-surface/70 max-w-xs mt-3 font-medium uppercase tracking-widest">
+                    Unlock deep-dive metrics for props, 1st half totals, and team-specific performance ledgers.
+                </p>
+</div>
+<button class="px-12 py-4 bg-primary text-black font-black text-xs uppercase tracking-[0.2em] italic hover:scale-105 transition-transform">
+                EXPAND SLATE
+            </button>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Consistent with COMPONENTS_7) -->
+<footer class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 bg-[#131313]/90 backdrop-blur-md pb-safe px-4 border-t border-[#353534]/30 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-[#e5e2e1]/60 px-4 py-2 active:bg-[#353534] transition-all" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+<span class="text-[10px] font-bold uppercase mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#e5e2e1]/60 px-4 py-2 active:bg-[#353534] transition-all" href="#">
+<span class="material-symbols-outlined">Receipt_long</span>
+<span class="text-[10px] font-bold uppercase mt-1">Parlay</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#FF6B00] bg-[#FF6B00]/10 rounded-xl px-4 py-2 scale-110 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined">sensors</span>
+<span class="text-[10px] font-bold uppercase mt-1">Live</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#e5e2e1]/60 px-4 py-2 active:bg-[#353534] transition-all" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-bold uppercase mt-1">Profile</span>
+</a>
+</footer>
+</body></html>

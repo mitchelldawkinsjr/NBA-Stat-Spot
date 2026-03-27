@@ -22,6 +22,7 @@ from .routers import espn_v1
 from .routers import games_enhanced_v1
 from .routers import accuracy_v1
 from .routers import insights_v1
+from .routers import live_props_v1
 
 
 app = FastAPI(
@@ -108,6 +109,10 @@ app = FastAPI(
             "description": "Over/under game analysis. Analyze game totals with AI-powered predictions and live game tracking.",
         },
         {
+            "name": "live_props_v1",
+            "description": "Live prop dashboard aggregation: games slate, per-player trends (L5/L10/L20), and live box context.",
+        },
+        {
             "name": "bets_v1",
             "description": "Bet tracking and management. Record bets, track results, and analyze system accuracy.",
         },
@@ -147,6 +152,12 @@ def _startup_warm_ranks():
         ContextCollector._calculate_position_defensive_ranks(season)
     except Exception:
         pass  # never crash startup
+    finally:
+        try:
+            from .services.context_collector import set_ranks_ready
+            set_ranks_ready()
+        except Exception:
+            pass
 
 _threading.Thread(target=_startup_warm_ranks, daemon=True).start()
 
@@ -202,7 +213,12 @@ def healthz():
     Returns:
         dict: Status object with "ok" if the API is healthy
     """
-    return {"status": "ok"}
+    try:
+        from .services.context_collector import is_ranks_ready
+        ranks_ready = is_ranks_ready()
+    except Exception:
+        ranks_ready = False
+    return {"status": "ok", "ranks_ready": ranks_ready}
 
 # Modern v1 routes
 app.include_router(props_v1_router)
@@ -217,3 +233,4 @@ app.include_router(espn_v1.router)
 app.include_router(games_enhanced_v1.router)
 app.include_router(accuracy_v1.router)
 app.include_router(insights_v1.router)
+app.include_router(live_props_v1.router)

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error-container": "#93000a",
+              "surface-tint": "#ffb693",
+              "on-error-container": "#ffdad6",
+              "tertiary-fixed-dim": "#9ccaff",
+              "surface-container-low": "#1c1b1b",
+              "surface-container-highest": "#353534",
+              "outline": "#a98a7d",
+              "surface-dim": "#131313",
+              "inverse-surface": "#e5e2e1",
+              "surface-container-lowest": "#0e0e0e",
+              "secondary": "#adc7ff",
+              "on-tertiary-fixed-variant": "#00497b",
+              "secondary-fixed": "#d8e2ff",
+              "secondary-fixed-dim": "#adc7ff",
+              "primary-fixed": "#ffdbcc",
+              "on-tertiary": "#003257",
+              "on-surface-variant": "#e2bfb0",
+              "surface-container-high": "#2a2a2a",
+              "surface-bright": "#393939",
+              "surface-container": "#201f1f",
+              "on-secondary-fixed": "#001a41",
+              "tertiary-fixed": "#d0e4ff",
+              "on-primary-fixed": "#351000",
+              "inverse-on-surface": "#313030",
+              "on-secondary-container": "#00285b",
+              "tertiary": "#9ccaff",
+              "on-tertiary-container": "#003357",
+              "error": "#ffb4ab",
+              "on-primary-container": "#572000",
+              "on-surface": "#e5e2e1",
+              "on-primary": "#561f00",
+              "outline-variant": "#5a4136",
+              "on-error": "#690005",
+              "on-secondary-fixed-variant": "#004493",
+              "secondary-container": "#4a8eff",
+              "surface": "#131313",
+              "tertiary-container": "#059eff",
+              "background": "#131313",
+              "inverse-primary": "#a04100",
+              "surface-variant": "#353534",
+              "on-tertiary-fixed": "#001d35",
+              "on-primary-fixed-variant": "#7a3000",
+              "primary-fixed-dim": "#ffb693",
+              "primary-container": "#ff6b00",
+              "on-background": "#e5e2e1",
+              "on-secondary": "#002e68",
+              "primary": "#ffb693"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body {
+        background-color: #131313;
+        color: #e5e2e1;
+        font-family: 'Inter', sans-serif;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #0e0e0e;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #353534;
+        border-radius: 10px;
+      }
+    </style>
+</head>
+<body class="antialiased overflow-x-hidden">
+<!-- TopNavBar -->
+<nav class="bg-[#131313] dark:bg-[#131313] font-inter antialiased tracking-tight text-[#e5e2e1] docked full-width top-0 z-50 flex justify-between items-center w-full px-6 py-3 sticky">
+<div class="text-2xl font-black uppercase italic tracking-tighter text-[#FF6B00]">KINETIC</div>
+<div class="hidden md:flex gap-8 items-center">
+<a class="text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">LIVE</a>
+<a class="text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">PROPS</a>
+<a class="text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">MATCHUPS</a>
+<a class="text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">INJURIES</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-[#353534] transition-colors duration-200 rounded-lg scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 hover:bg-[#353534] transition-colors duration-200 rounded-lg scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</nav>
+<!-- SideNavBar (Desktop Only) -->
+<aside class="bg-[#0e0e0e] dark:bg-[#0e0e0e] font-inter text-sm font-medium uppercase tracking-widest fixed left-0 top-0 h-full z-40 flex flex-col pt-20 pb-8 w-64 hidden lg:flex">
+<div class="px-6 mb-8">
+<h3 class="text-[#e5e2e1] text-xs font-bold mb-1 opacity-40">Performance Ledger</h3>
+<p class="text-[#FF6B00] text-[10px] tracking-[0.2em]">Pro Tier Access</p>
+</div>
+<div class="flex-1 space-y-1">
+<a class="bg-[#1c1b1b] text-[#FF6B00] rounded-r-lg border-l-4 border-[#FF6B00] flex items-center gap-3 px-4 py-3 active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">sports_basketball</span> NBA
+            </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">school</span> NCAAB
+            </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">woman</span> WNBA
+            </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">public</span> EURO
+            </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">layers</span> G-LEAGUE
+            </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">history</span> LEGENDS
+            </a>
+</div>
+<div class="px-4 mt-auto space-y-4">
+<button class="w-full py-3 bg-primary-container text-on-primary font-bold rounded-lg tracking-normal text-sm hover:brightness-110 transition-all">
+                DEPOSIT FUNDS
+            </button>
+<div class="border-t border-[#353534]/30 pt-4">
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-2 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined">settings</span> Settings
+                </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-2 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined">help_outline</span> Support
+                </a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="lg:ml-64 p-4 md:p-8 min-h-screen">
+<!-- Header Section: Live Scoreboard Hero -->
+<section class="mb-8">
+<div class="bg-surface-container-low rounded-xl p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+<!-- Decorative Team Gradient -->
+<div class="absolute inset-0 bg-gradient-to-r from-green-900/20 to-blue-900/20 pointer-events-none"></div>
+<div class="flex items-center gap-6 relative z-10">
+<div class="text-center">
+<div class="w-20 h-20 bg-surface-container-highest rounded-full flex items-center justify-center mb-2 shadow-xl border border-outline-variant/10">
+<img alt="Boston Celtics" class="w-14 h-14 object-contain" data-alt="Official Boston Celtics logo with lucky leprechaun in classic green and white brand colors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPs8_2azhrzqm-4Gub9DWL8Kmky4ElYARl75lSFcW9eaovb4jw_ac9t7G-bl5jd5f8dh7vzpKnEzeGB5eHdXUQ1bxuzNPULRkVCrhrLnCLuIbIqxy5K50lOSvrayS7Lh70pHUoxVyzEX-9_xmvVjhbeIIqjy8iHnYLF_AnOEPt7abhdLslKCzjONVD95Qm_yumV1UHKlNvKX9LzosQphwqGdRIJitVDwAqbId-ylshs7vxckaqtb-2Cmoh8pmjnZf8kSSmdWBbKQ"/>
+</div>
+<h2 class="text-xl font-black italic tracking-tighter">BOS</h2>
+<p class="text-[10px] opacity-40 uppercase tracking-widest">Celtics</p>
+</div>
+<div class="text-5xl font-black italic tracking-tighter text-on-surface">104</div>
+</div>
+<div class="flex flex-col items-center gap-2 relative z-10">
+<div class="bg-error-container text-error px-3 py-1 rounded-full text-[10px] font-black tracking-widest animate-pulse flex items-center gap-1">
+<span class="w-1.5 h-1.5 bg-error rounded-full"></span> LIVE
+                    </div>
+<div class="text-3xl font-bold tracking-tighter">Q4 0:48</div>
+<div class="text-[10px] opacity-40 uppercase tracking-widest">Ball Arena • Denver</div>
+</div>
+<div class="flex items-center gap-6 relative z-10">
+<div class="text-5xl font-black italic tracking-tighter text-on-surface">102</div>
+<div class="text-center">
+<div class="w-20 h-20 bg-surface-container-highest rounded-full flex items-center justify-center mb-2 shadow-xl border border-outline-variant/10">
+<img alt="Denver Nuggets" class="w-14 h-14 object-contain" data-alt="Official Denver Nuggets logo featuring golden peaks and pickaxes against a navy circular background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCcAII3lte8Bpzv8XoxnmPW3x8XFaJwcrzpq5u1DzFA-4TLfk5niFqM4GuX9ZT0F6EQXnPjWd0t-VjDHo2p8qCLUi9LFGQcjsvLeMnTYiFKdWSJHwa9t87fhSNJRKZkYbsQa7bToRI_Yl53UsMfT2jzFjeFjYRffi_LUAPZRV3bVCsxk_POKluViP4_-aN_2mSGmgub7dqZqQ-96uM8A9awfYRzLXXUeJvq3qEpiSxzeM8BjqserwVKbkTsb0aJd3psMRRK4W4eGQ"/>
+</div>
+<h2 class="text-xl font-black italic tracking-tighter">DEN</h2>
+<p class="text-[10px] opacity-40 uppercase tracking-widest">Nuggets</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+<!-- Left Column: Prop Progress & Player Stats (Col 7) -->
+<div class="md:col-span-7 space-y-6">
+<!-- Prop Progress Section -->
+<div class="bg-surface-container rounded-xl p-5">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container">receipt_long</span>
+                            My Active Props
+                        </h3>
+<span class="text-[10px] font-bold text-tertiary px-2 py-0.5 bg-tertiary-container/10 rounded uppercase">3 Pending</span>
+</div>
+<div class="space-y-4">
+<!-- Prop Card 1 -->
+<div class="bg-surface-container-low p-4 rounded-lg group relative overflow-hidden">
+<div class="flex justify-between items-end relative z-10">
+<div class="flex gap-4">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg overflow-hidden border border-outline-variant/20">
+<img alt="Jayson Tatum" class="w-full h-full object-cover" data-alt="Professional studio portrait of Jayson Tatum in Celtics jersey, high-intensity lighting, dark background, sharp focus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3bGhlo4FpdzFJGHVc1Cx3hdeaeAyKPplQXYb_Vb0y0weBjn2rvmJ3HzV9dSNd4iSiaSDwzNlG1KcIbgYotF_G9Nbvu57pm2bfpgrWH8yAwYVL6GSHLn3i2UxCGAlzmVjLyPF6Lz7o2_3U9tPcz_kN826eZl5KCkBPsfTmx0ILDDhZQUiIqeT4W-puDtVJBsOu_ySLsJG1WxmrhGso0_gKFN_IU09gpc27hRPXZGnnlOB-eYmUopm4H-_n3-njL-LhyIXjEirNCw"/>
+</div>
+<div>
+<p class="text-xs font-bold text-on-surface">Jayson Tatum</p>
+<p class="text-[10px] opacity-40 uppercase">Over 26.5 Points</p>
+</div>
+</div>
+<div class="text-right">
+<div class="text-lg font-black italic tracking-tighter text-primary-container">18 / 26.5</div>
+<p class="text-[10px] opacity-40 uppercase">Progress: 68%</p>
+</div>
+</div>
+<div class="mt-4 h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary-container" style="width: 68%;"></div>
+</div>
+</div>
+<!-- Prop Card 2 -->
+<div class="bg-surface-container-low p-4 rounded-lg group relative overflow-hidden">
+<div class="flex justify-between items-end relative z-10">
+<div class="flex gap-4">
+<div class="w-12 h-12 bg-surface-container-highest rounded-lg overflow-hidden border border-outline-variant/20">
+<img alt="Nikola Jokic" class="w-full h-full object-cover" data-alt="Action portrait of Nikola Jokic in Denver Nuggets blue jersey, cinematic lighting, gritty professional sports photography style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5llnPY2BFiTRPSuGdGhhxOqMTqnIRlfHykeHreGOI-Oz3tIfxeg--Vhps1Xhqh4C5cuC-DkaY58XiErhfkNEBJLpF60oPfYVTFQ4aHX42sWrLYpVSEcTjKlxE182-g4DDlSBzgTqgU8cVHCpWRQy4c_INDdAQ7gwUUFGkZuxdFlEs90NC5RTHfJ5JsXILGvQjkFEzZLghKdCnZ_PmA281pCjDkRCWR97yGin5I-lbCRzQuIXYUaXweyG7T8-kApiVHCl3DrJuCA"/>
+</div>
+<div>
+<p class="text-xs font-bold text-on-surface">Nikola Jokic</p>
+<p class="text-[10px] opacity-40 uppercase">Over 11.5 Assists</p>
+</div>
+</div>
+<div class="text-right">
+<div class="text-lg font-black italic tracking-tighter text-tertiary">10 / 11.5</div>
+<p class="text-[10px] opacity-40 uppercase">Progress: 87%</p>
+</div>
+</div>
+<div class="mt-4 h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-tertiary" style="width: 87%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Live Player Leaderboard -->
+<div class="bg-surface-container rounded-xl overflow-hidden">
+<div class="p-5 flex justify-between items-center border-b border-outline-variant/10">
+<h3 class="text-sm font-black uppercase tracking-widest">Box Score Highlights</h3>
+<div class="flex gap-2">
+<button class="text-[10px] font-bold px-3 py-1 bg-surface-container-highest rounded text-primary-container">BOS</button>
+<button class="text-[10px] font-bold px-3 py-1 text-on-surface/40 hover:text-on-surface transition-colors">DEN</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-5 py-3 text-[10px] font-bold uppercase opacity-40">Player</th>
+<th class="px-3 py-3 text-[10px] font-bold uppercase opacity-40 text-center">PTS</th>
+<th class="px-3 py-3 text-[10px] font-bold uppercase opacity-40 text-center">REB</th>
+<th class="px-3 py-3 text-[10px] font-bold uppercase opacity-40 text-center">AST</th>
+<th class="px-3 py-3 text-[10px] font-bold uppercase opacity-40 text-center">+/-</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<tr class="hover:bg-surface-container-highest transition-colors">
+<td class="px-5 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden">
+<img alt="JT" data-alt="Close up face of NBA player Jayson Tatum, sharp features, intense expression, studio light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4R3Wjt8nubqohR1h4AGxkLX5IHTYtW5w6k1uD7NDzvksHY3s9g0nvtAkgYqDFs6R2CweFi2ckW_A4rWNTwaz_GXxtA6bck8plgVVsWs_jJoPfJDhtcn9DtPVb3mWeiPRnWMYdo_RJ6Sm9Fke9amGRKT3IZw2SEF6C87RWJTG6ZYkL78SQsCrGJf4qr3ZJQhLvQ0Yg-SqQt8FLDvAPsXOnFdHSZthXQtNlJr6OCn0QHEZwSR1McwpXky4BZEFoqehIFJWfe2fMoQ"/>
+</div>
+<span class="text-xs font-bold">J. Tatum</span>
+</div>
+</td>
+<td class="px-3 py-4 text-center text-xs font-bold italic">28</td>
+<td class="px-3 py-4 text-center text-xs font-medium opacity-60">8</td>
+<td class="px-3 py-4 text-center text-xs font-medium opacity-60">4</td>
+<td class="px-3 py-4 text-center text-xs font-bold text-green-500">+12</td>
+</tr>
+<tr class="hover:bg-surface-container-highest transition-colors">
+<td class="px-5 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden">
+<img alt="JB" data-alt="NBA player Jaylen Brown, side profile headshot, professional sports media style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxsUl1gMvtX1fNj8OQyXYITal9h_-A_lzJJOCKQ7U5yCjWzjXGKzjW6fR2QIhFZ74kjwxCSiEzQOVSMW8PBMt3588JkHY397KM2e8YnrxlvmoLyk0lABceWWDY7tQ4HzNL_fV66_lBCDvG0Xlsip8OCX-9jRRFznzLtYyqM5KmgjfnqRr0U8gL-1b_5w4D5ySFNbyhmJ1En_v7KF3VWqMTHHTXFnwnbSIzp5g1wLpr8U8GhjdpZMW4jDKZ140kmWRDcSv6_msOyw"/>
+</div>
+<span class="text-xs font-bold">J. Brown</span>
+</div>
+</td>
+<td class="px-3 py-4 text-center text-xs font-bold italic">24</td>
+<td class="px-3 py-4 text-center text-xs font-medium opacity-60">5</td>
+<td class="px-3 py-4 text-center text-xs font-medium opacity-60">2</td>
+<td class="px-3 py-4 text-center text-xs font-bold text-green-500">+8</td>
+</tr>
+<tr class="hover:bg-surface-container-highest transition-colors">
+<td class="px-5 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden">
+<img alt="KP" data-alt="NBA player Kristaps Porzingis headshot, professional photography, stadium background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB0MfSlGL1l5QBWvytYn-NWJDzUpCZtlQ705wUu0SRc49dzurlPffUYi3pJZ0MCXfPsRRibFgifFrxYCzf6qQp4ZPzJsas5ycKwwd_p0reV91dUEBUccPlHz4dJFm_u8eLB1OSjy-fb2Sma6EC_U76GmXRA__JqLj0hNQnZpStIaDkV5qjWQ40xOv5zxOymQFT-a70VKUInRjlLfF4_GzlfXi8HDjzj01azOCbZOwcT2_4j3-Uqy6AeQGq_yny3o6MvLmqoa1r9Dg"/>
+</div>
+<span class="text-xs font-bold">K. Porzingis</span>
+</div>
+</td>
+<td class="px-3 py-4 text-center text-xs font-bold italic">19</td>
+<td class="px-3 py-4 text-center text-xs font-medium opacity-60">10</td>
+<td class="px-3 py-4 text-center text-xs font-medium opacity-60">1</td>
+<td class="px-3 py-4 text-center text-xs font-bold text-red-500">-2</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Right Column: Play-by-Play & Live Odds (Col 5) -->
+<div class="md:col-span-5 space-y-6">
+<!-- Live Play-by-Play Feed -->
+<div class="bg-surface-container rounded-xl p-5 flex flex-col h-[500px]">
+<div class="flex justify-between items-center mb-4">
+<h3 class="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary">sensors</span>
+                            Live Feed
+                        </h3>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 bg-tertiary rounded-full animate-ping"></span>
+<span class="text-[10px] font-bold opacity-40 uppercase">Streaming Now</span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
+<!-- Play Item -->
+<div class="flex gap-4 items-start border-l-2 border-primary-container pl-4 py-1">
+<div class="text-[10px] font-black italic text-primary-container shrink-0 mt-0.5">0:48 Q4</div>
+<div>
+<p class="text-xs leading-relaxed"><span class="font-bold">Nikola Jokic</span> misses a 26-foot three-point jumper.</p>
+<p class="text-[9px] opacity-40 uppercase mt-1">Defensive Rebound: Jayson Tatum</p>
+</div>
+</div>
+<!-- Play Item -->
+<div class="flex gap-4 items-start border-l-2 border-on-surface/10 pl-4 py-1">
+<div class="text-[10px] font-black italic opacity-40 shrink-0 mt-0.5">0:59 Q4</div>
+<div>
+<p class="text-xs leading-relaxed"><span class="font-bold">Jaylen Brown</span> makes free throw 2 of 2.</p>
+<p class="text-[9px] font-bold text-primary-container uppercase mt-1">Score: BOS 104 - DEN 102</p>
+</div>
+</div>
+<!-- Play Item -->
+<div class="flex gap-4 items-start border-l-2 border-on-surface/10 pl-4 py-1">
+<div class="text-[10px] font-black italic opacity-40 shrink-0 mt-0.5">1:04 Q4</div>
+<div>
+<p class="text-xs leading-relaxed"><span class="font-bold">Aaron Gordon</span> personal foul (Shooting foul).</p>
+</div>
+</div>
+<!-- Play Item -->
+<div class="flex gap-4 items-start border-l-2 border-on-surface/10 pl-4 py-1">
+<div class="text-[10px] font-black italic opacity-40 shrink-0 mt-0.5">1:22 Q4</div>
+<div>
+<p class="text-xs leading-relaxed"><span class="font-bold">Michael Porter Jr.</span> makes 25-foot three point jumper.</p>
+<p class="text-[9px] opacity-40 uppercase mt-1">Assist: Nikola Jokic</p>
+</div>
+</div>
+<!-- Play Item -->
+<div class="flex gap-4 items-start border-l-2 border-on-surface/10 pl-4 py-1">
+<div class="text-[10px] font-black italic opacity-40 shrink-0 mt-0.5">1:45 Q4</div>
+<div>
+<p class="text-xs leading-relaxed"><span class="font-bold">Timeout</span>: Denver Nuggets.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Live Odds Widget -->
+<div class="bg-surface-container-high rounded-xl p-5 border border-primary-container/20">
+<h3 class="text-sm font-black uppercase tracking-widest mb-4">In-Game Odds</h3>
+<div class="grid grid-cols-2 gap-3">
+<button class="bg-surface-container-lowest p-4 rounded-lg flex flex-col items-center justify-center hover:bg-surface-container-highest transition-all group border border-transparent active:border-primary-container">
+<span class="text-[10px] opacity-40 uppercase mb-1">Celtics ML</span>
+<span class="text-lg font-black italic text-primary-container group-hover:scale-110 transition-transform">-120</span>
+</button>
+<button class="bg-surface-container-lowest p-4 rounded-lg flex flex-col items-center justify-center hover:bg-surface-container-highest transition-all group border border-transparent active:border-primary-container">
+<span class="text-[10px] opacity-40 uppercase mb-1">Nuggets ML</span>
+<span class="text-lg font-black italic text-on-surface group-hover:scale-110 transition-transform">+105</span>
+</button>
+</div>
+<div class="mt-4 p-3 bg-primary-container/10 rounded-lg flex justify-between items-center">
+<span class="text-[10px] font-bold">LIVE LINE: O/U 218.5</span>
+<div class="flex gap-2">
+<span class="text-[10px] font-black italic px-2 py-0.5 bg-primary-container text-on-primary rounded">-110</span>
+<span class="text-[10px] font-black italic px-2 py-0.5 bg-primary-container text-on-primary rounded">-110</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="bg-[#131313]/90 backdrop-blur-md text-[10px] font-bold uppercase font-inter lg:hidden fixed bottom-0 w-full flex justify-around items-center px-4 py-3 z-50 border-t border-[#353534]/30 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-[#e5e2e1]/60 px-4 py-2 active:bg-[#353534]" href="#">
+<span class="material-symbols-outlined mb-1">grid_view</span>
+            Home
+        </a>
+<a class="flex flex-col items-center justify-center text-[#e5e2e1]/60 px-4 py-2 active:bg-[#353534]" href="#">
+<span class="material-symbols-outlined mb-1">receipt_long</span>
+            Parlay
+        </a>
+<a class="flex flex-col items-center justify-center text-[#FF6B00] bg-[#FF6B00]/10 rounded-xl px-4 py-2 scale-110 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined mb-1">sensors</span>
+            Live
+        </a>
+<a class="flex flex-col items-center justify-center text-[#e5e2e1]/60 px-4 py-2 active:bg-[#353534]" href="#">
+<span class="material-symbols-outlined mb-1">person</span>
+            Profile
+        </a>
+</nav>
+</body></html>

@@ -957,11 +957,44 @@ def clear_game_predictions_cache():
     try:
         n = _cache.clear_pattern("game_predictions%", db=db)
         m = _cache.clear_pattern("game_prediction_detail%", db=db)
+        k = _cache.clear_pattern("team_key_players:*", db=db)
         return {
             "status": "success",
             "message": "Game predictions cache cleared; next request will rebuild with current data.",
             "game_predictions_cleared": n,
-            "game_prediction_detail_cleared": m
+            "game_prediction_detail_cleared": m,
+            "team_key_players_cleared": k,
+        }
+    finally:
+        db.close()
+
+
+@router.post("/cache/clear/game-predictions-deep")
+def clear_game_predictions_deep_cache():
+    """Clear predictions, detail, rank caches, team abbr map, and key-player caches for a full rebuild."""
+    db = next(get_db())
+    try:
+        n = _cache.clear_pattern("game_predictions%", db=db)
+        m = _cache.clear_pattern("game_prediction_detail%", db=db)
+        k = _cache.clear_pattern("team_key_players:*", db=db)
+        d1 = _cache.clear_pattern("defensive_ranks:*", db=db)
+        d2 = _cache.clear_pattern("offensive_ranks:*", db=db)
+        d3 = _cache.clear_pattern("pace_ranks:*", db=db)
+        d4 = _cache.clear_pattern("position_def_ranks:*", db=db)
+        fb = _cache.clear_pattern("team_ranks_from_players_fallback:*", db=db)
+        teams = _cache.clear_pattern("nba:teams_by_abbr:*", db=db)
+        return {
+            "status": "success",
+            "message": "Game predictions and rank caches cleared; next requests will recompute ranks and rebuild detail.",
+            "game_predictions_cleared": n,
+            "game_prediction_detail_cleared": m,
+            "team_key_players_cleared": k,
+            "defensive_ranks_cleared": d1,
+            "offensive_ranks_cleared": d2,
+            "pace_ranks_cleared": d3,
+            "position_def_ranks_cleared": d4,
+            "team_ranks_fallback_cleared": fb,
+            "teams_by_abbr_cleared": teams,
         }
     finally:
         db.close()

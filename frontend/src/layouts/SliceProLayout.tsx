@@ -4,6 +4,7 @@ import { useSeason } from '../context/SeasonContext'
 
 const NAV_ITEMS = [
   { to: '/dashboard',   label: 'Dashboard',      icon: 'grid_view' },
+  { to: '/live-props',  label: 'Live props',     icon: 'bolt' },
   { to: '/explore',     label: 'Player Search',  icon: 'query_stats' },
   { to: '/over-under',  label: 'Over/Under',     icon: 'sensors' },
   { to: '/parlay',      label: 'Parlay Builder', icon: 'receipt_long' },

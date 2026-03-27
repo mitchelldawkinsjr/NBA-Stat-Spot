@@ -1,5 +1,5 @@
-import { useEffect, useState, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useEffect, useState, useMemo, useRef } from 'react'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import {
   BarChart,
   Bar,
@@ -30,6 +30,17 @@ function rankLabel(rank: number | null | undefined): string {
 function teamLogoUrl(abbr: string): string {
   const a = (abbr || '').trim().toUpperCase()
   return a ? `https://a.espncdn.com/i/teamlogos/nba/500/${a}.png` : ''
+}
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function dateFromGameTimeUtc(iso: string | undefined): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString().slice(0, 10)
 }
 
 type RankBlock = { pts?: number | null; reb?: number | null; ast?: number | null; '3pm'?: number | null }
@@ -96,13 +107,25 @@ type PredictionDetail = {
   h2h_games?: H2HGame[]
   h2h_wins_home?: number
   h2h_wins_away?: number
+  game_time_utc?: string
+  _incomplete?: boolean
 }
 
 export default function GamePredictionPage() {
   const { gameId } = useParams()
+  const [searchParams] = useSearchParams()
+  const dateFromUrl = searchParams.get('date') || ''
+  const [dateQuery, setDateQuery] = useState<string>(() => dateFromUrl || todayISO())
+  const [refreshNonce, setRefreshNonce] = useState(0)
+  const dateCorrectedRef = useRef(false)
   const [data, setData] = useState<PredictionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    dateCorrectedRef.current = false
+    setDateQuery(dateFromUrl || todayISO())
+  }, [gameId, dateFromUrl])
 
   useEffect(() => {
     if (!gameId) return
@@ -111,19 +134,26 @@ export default function GamePredictionPage() {
       setLoading(true)
       setError(null)
       try {
-        const res = await apiFetch(`api/v1/games/predictions/${gameId}`)
+        const q = new URLSearchParams({ date: dateQuery })
+        if (refreshNonce > 0) q.set('_refresh', String(refreshNonce))
+        const res = await apiFetch(`api/v1/games/predictions/${gameId}?${q.toString()}`)
         if (cancelled) return
         if (!res.ok) {
           const body = await res.json().catch(() => ({}))
           setError((body as { error?: string }).error || 'Failed to load game prediction')
           return
         }
-        const json = await res.json()
+        const json = (await res.json()) as PredictionDetail & { error?: string }
         if (json.error) {
           setError(json.error)
           return
         }
         setData(json)
+        const gameDate = dateFromGameTimeUtc(json.game_time_utc)
+        if (gameDate && gameDate !== dateQuery && !dateCorrectedRef.current) {
+          dateCorrectedRef.current = true
+          setDateQuery(gameDate)
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Error loading prediction')
       } finally {
@@ -132,7 +162,7 @@ export default function GamePredictionPage() {
     }
     run()
     return () => { cancelled = true }
-  }, [gameId])
+  }, [gameId, dateQuery, refreshNonce])
 
   // Team comparison bar chart data (full ranks)
   const comparisonBarData = useMemo(() => {
@@ -143,7 +173,7 @@ export default function GamePredictionPage() {
     const ad = data.away_def_full || {}
     const ho = data.home_off_full || {}
     const ao = data.away_off_full || {}
-    return [
+    const rows = [
       { metric: 'Off. PTS strength', home: rankToStrength(ho.pts), away: rankToStrength(ao.pts), homeLabel: home, awayLabel: away },
       { metric: 'Off. REB strength', home: rankToStrength(ho.reb), away: rankToStrength(ao.reb), homeLabel: home, awayLabel: away },
       { metric: 'Off. AST strength', home: rankToStrength(ho.ast), away: rankToStrength(ao.ast), homeLabel: home, awayLabel: away },
@@ -152,12 +182,14 @@ export default function GamePredictionPage() {
       { metric: 'Def. AST strength', home: rankToStrength(hd.ast), away: rankToStrength(ad.ast), homeLabel: home, awayLabel: away },
       { metric: 'Pace (possessions)', home: data.home_pace_data?.possessions ?? (data.home_pace ?? 0), away: data.away_pace_data?.possessions ?? (data.away_pace ?? 0), homeLabel: home, awayLabel: away },
       { metric: 'PPG', home: data.home_ppg ?? 0, away: data.away_ppg ?? 0, homeLabel: home, awayLabel: away },
-    ].filter((d) => d.home > 0 || d.away > 0)
+    ]
+    // Always keep Off. PTS and Def. PTS rows so charts do not disappear when ranks are still loading
+    return rows.filter((row, i) => i === 0 || i === 3 || row.home > 0 || row.away > 0)
   }, [data])
 
   // Radar data from the same source
   const radarData = useMemo(() => {
-    if (!data || !comparisonBarData.length) return []
+    if (!data || comparisonBarData.length === 0) return []
     const home = data.home_full_name || data.home
     const away = data.away_full_name || data.away
     // Use the first 6 metrics for radar (skip Pace/PPG since different scale)
@@ -181,7 +213,7 @@ export default function GamePredictionPage() {
       { stat: 'REB allowed', home: hd.reb ?? null, away: ad.reb ?? null, homeLabel: home, awayLabel: away },
       { stat: 'AST allowed', home: hd.ast ?? null, away: ad.ast ?? null, homeLabel: home, awayLabel: away },
       { stat: '3PM allowed', home: hd['3pm'] ?? null, away: ad['3pm'] ?? null, homeLabel: home, awayLabel: away },
-    ].filter((d) => d.home != null || d.away != null)
+    ].filter((d, i) => i === 0 || d.home != null || d.away != null)
   }, [data])
 
   // Position defense bar chart: how each team defends each position
@@ -202,7 +234,7 @@ export default function GamePredictionPage() {
         homeLabel: home,
         awayLabel: away,
       }
-    }).filter((d) => d.homeStrength > 0 || d.awayStrength > 0)
+    }).filter((d, i) => i === 0 || d.homeStrength > 0 || d.awayStrength > 0)
   }, [data])
 
   if (loading) {
@@ -238,6 +270,21 @@ export default function GamePredictionPage() {
         <span className="mx-1">/</span>
         <span className="text-on-surface-variant font-medium">Game prediction</span>
       </nav>
+
+      {data._incomplete && (
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-on-surface">
+          <p className="m-0">
+            Some data is still loading. Refresh in a few seconds for complete stats.
+          </p>
+          <button
+            type="button"
+            onClick={() => setRefreshNonce((n) => n + 1)}
+            className="shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600"
+          >
+            Refresh now
+          </button>
+        </div>
+      )}
 
       {/* Header: matchup + predicted winner */}
       <div className="mt-4 rounded bg-surface-container border border-outline/20 shadow-sm overflow-hidden">
@@ -285,6 +332,11 @@ export default function GamePredictionPage() {
         <h2 className="text-lg font-semibold text-on-surface mb-1">Team comparison</h2>
         <p className="text-xs text-on-surface-variant mb-4">
           Strength = 31 − league rank (higher is better). Pace = estimated possessions per game.
+          {data._incomplete && (
+            <span className="block mt-1 text-amber-800 dark:text-amber-200/90">
+              Full defensive data may still be loading — charts show partial ranks where available.
+            </span>
+          )}
         </p>
         {comparisonBarData.length > 0 ? (
           <>
@@ -335,8 +387,8 @@ export default function GamePredictionPage() {
         )}
       </section>
 
-      {/* Radar (when we have 3+ metrics) */}
-      {radarData.length >= 3 && (
+      {/* Radar (1+ strength metrics) */}
+      {radarData.length >= 1 && (
         <section className="mt-6 rounded bg-surface-container border border-outline/20 shadow-sm p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-on-surface mb-4">Strength radar</h2>
           <div className="h-72 sm:h-80">

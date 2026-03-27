@@ -4,7 +4,7 @@ Uses team-level metrics (def/off ranks, pace, PPG), matchup advantages, and LLM 
 
 Cache (24h TTL):
   - game_predictions:{date}  → list of predictions for that date (from ESPN scoreboard + def/off ranks + team stats)
-  - game_prediction_detail:v2:{game_id}  → full detail for one game
+  - game_prediction_detail:v3:{game_id}  → full detail for one game (short TTL when incomplete)
 Warm: /admin/warm-dashboard calls get_todays_predictions(). Clear: POST /admin/cache/clear/game-predictions.
 
 Data sources: ESPN scoreboard (games), ContextCollector def/off ranks, TeamStatsService (ppg/pace from NBA API or
@@ -13,14 +13,14 @@ use computed possessions when available.
 """
 
 from __future__ import annotations
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import date, datetime
 import re as _re
 import threading
 import time
 import structlog
 from ..utils.season import get_current_season
-from .context_collector import ContextCollector
+from .context_collector import ContextCollector, wait_until_ranks_ready
 from .team_stats_service import TeamStatsService
 from .cache_service import get_cache_service
 from .nba_api_service import NBADataService
@@ -80,6 +80,36 @@ def _resolve_team(teams_by_abbr: Dict[str, Dict[str, Any]], espn_abbr: str) -> O
             if info.get("id") == tid:
                 return info
     return None
+
+
+def _wait_for_ranks(season: str, max_wait_ms: int = 8000) -> Tuple[Dict, Dict, Dict, Dict]:
+    """Poll rank caches until all four are non-empty or timeout; returns best-effort dicts."""
+    start = time.perf_counter()
+    def_ranks: Dict = {}
+    off_ranks: Dict = {}
+    pace_ranks: Dict = {}
+    pos_ranks: Dict = {}
+    triggered = False
+    while (time.perf_counter() - start) * 1000 < max_wait_ms:
+        def_ranks = ContextCollector.get_cached_defensive_ranks(season)
+        off_ranks = ContextCollector.get_cached_offensive_ranks(season)
+        pace_ranks = ContextCollector.get_cached_pace_ranks(season)
+        pos_ranks = ContextCollector.get_cached_position_ranks(season)
+        if def_ranks and off_ranks and pace_ranks and pos_ranks:
+            return def_ranks, off_ranks, pace_ranks, pos_ranks
+        if not triggered:
+            ContextCollector._trigger_background_rank_refresh(season)
+            triggered = True
+        time.sleep(0.2)
+    logger.warning(
+        "Rank cache poll timeout; returning partial rank dicts",
+        season=season,
+        has_def=bool(def_ranks),
+        has_off=bool(off_ranks),
+        has_pace=bool(pace_ranks),
+        has_pos=bool(pos_ranks),
+    )
+    return def_ranks or {}, off_ranks or {}, pace_ranks or {}, pos_ranks or {}
 
 
 def _win_probability_from_ranks(
@@ -465,8 +495,7 @@ class GamePredictionService:
     def get_game_prediction_detail(self, game_id: str, target_date: Optional[date] = None) -> Optional[Dict[str, Any]]:
         """Get full prediction and detail for one game (for game detail page)."""
         target_date = target_date or date.today()
-        # v2: resolve ESPN abbreviations (e.g. SA→SAS) so away_team_id and def ranks populate
-        cache_key = f"game_prediction_detail:v2:{game_id}"
+        cache_key = f"game_prediction_detail:v3:{game_id}"
         cached = self.cache.get(cache_key)
         if cached is not None:
             return cached
@@ -481,16 +510,31 @@ class GamePredictionService:
         season = get_current_season()
         home_id = one.get("home_team_id")
         away_id = one.get("away_team_id")
-        home_abbr = one["home"]
-        away_abbr = one["away"]
+        home_abbr = (one.get("home") or "").strip().upper()
+        away_abbr = (one.get("away") or "").strip().upper()
 
-        # --- Read ranks from cache only — never block the request on live computation ---
+        if home_id is None or away_id is None:
+            teams_by_abbr = _get_teams_by_abbr()
+            if home_id is None:
+                ht = _resolve_team(teams_by_abbr, home_abbr)
+                home_id = int(ht["id"]) if ht and ht.get("id") is not None else None
+            if away_id is None:
+                at = _resolve_team(teams_by_abbr, away_abbr)
+                away_id = int(at["id"]) if at and at.get("id") is not None else None
+            one["home_team_id"] = home_id
+            one["away_team_id"] = away_id
+
+        wait_until_ranks_ready(10.0)
+
         def_ranks = ContextCollector.get_cached_defensive_ranks(season)
         off_ranks = ContextCollector.get_cached_offensive_ranks(season)
         pace_ranks = ContextCollector.get_cached_pace_ranks(season)
         pos_ranks = ContextCollector.get_cached_position_ranks(season)
 
-        # If primary tables are still empty, try the fallback (also cache-backed, instant when warm)
+        if not def_ranks or not off_ranks or not pace_ranks or not pos_ranks:
+            def_ranks, off_ranks, pace_ranks, pos_ranks = _wait_for_ranks(season, 8000)
+
+        # If primary tables are still empty for these teams, try the fallback (also cache-backed, instant when warm)
         _hid_check = int(home_id) if home_id is not None else None
         _aid_check = int(away_id) if away_id is not None else None
         need_def = not def_ranks or (_hid_check and def_ranks.get(_hid_check) is None) or (_aid_check and def_ranks.get(_aid_check) is None)
@@ -509,10 +553,6 @@ class GamePredictionService:
                     tid_int = int(tid) if tid is not None else None
                     if tid_int is not None and (tid_int not in off_ranks or not off_ranks.get(tid_int)):
                         off_ranks[tid_int] = r
-
-        # Kick off a background recompute if any ranks are cold (non-blocking)
-        if not def_ranks or not off_ranks or not pace_ranks or not pos_ranks:
-            ContextCollector._trigger_background_rank_refresh(season)
 
         _hid = int(home_id) if home_id is not None else None
         _aid = int(away_id) if away_id is not None else None
@@ -575,6 +615,18 @@ class GamePredictionService:
             key_players_text=key_players_text,
         )
 
+        ranks_incomplete = not (def_ranks and off_ranks and pace_ranks and pos_ranks)
+        incomplete = (
+            home_id is None
+            or away_id is None
+            or not home_def_full
+            or not away_def_full
+            or not home_off_full
+            or not away_off_full
+            or ranks_incomplete
+        )
+        ttl = 300 if incomplete else 86400
+
         one = {
             **one,
             "outlook_extended": extended_outlook,
@@ -595,8 +647,9 @@ class GamePredictionService:
             "h2h_games": h2h_games,
             "h2h_wins_home": h2h_wins_home,
             "h2h_wins_away": h2h_wins_away,
+            "_incomplete": incomplete,
         }
-        self.cache.set(cache_key, one, ttl=86400)
+        self.cache.set(cache_key, one, ttl=ttl)
         return one
 
     def _generate_prediction_summary(

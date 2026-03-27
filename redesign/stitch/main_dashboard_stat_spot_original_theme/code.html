@@ -1,0 +1,594 @@
+<html class="dark" lang="en"><head></head><body class="bg-background text-on-background selection:bg-primary/30 font-inter">```html
+
+
+
+    <meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NBA Stat Spot | Hardwood Analytics</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#FF6B00",
+              "on-primary": "#FFFFFF",
+              "background": "#0b0b0b",
+              "surface": "#131313",
+              "surface-container": "#1c1b1b",
+              "surface-container-low": "#0e0e0e",
+              "surface-container-high": "#282827",
+              "outline-variant": "#353534",
+              "on-background": "#e5e2e1",
+              "on-surface": "#e5e2e1",
+              "on-surface-variant": "#a6a2a0",
+              "secondary": "#4edea3", // Betting Green
+              "error": "#ff5252", // Betting Red
+              "tertiary": "#FF6B00",
+            },
+            fontFamily: {
+              "headline": ["Inter", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "label": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .font-inter { font-family: 'Inter', sans-serif; }
+    </style>
+<!-- TopNavBar (KINETIC) -->
+<nav class="fixed top-0 w-full z-50 bg-[#131313] border-b border-[#353534]/30 backdrop-blur-xl flex justify-between items-center px-6 h-14 w-full max-w-none">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black uppercase italic tracking-tighter text-[#FF6B00]">NBA Stat Spot</span>
+<div class="hidden md:flex gap-6 items-center h-full">
+<a class="text-sm font-bold tracking-tight text-[#FF6B00] border-b-2 border-[#FF6B00] pb-1 h-full flex items-center" href="#">LIVE</a>
+<a class="text-sm font-medium tracking-tight text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">PROPS</a>
+<a class="text-sm font-medium tracking-tight text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">MATCHUPS</a>
+<a class="text-sm font-medium tracking-tight text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">INJURIES</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden lg:flex items-center bg-[#1c1b1b] px-3 py-1.5 rounded border border-[#353534]/50">
+<span class="material-symbols-outlined text-sm text-[#e5e2e1]/50 mr-2">search</span>
+<input class="bg-transparent border-none text-xs focus:ring-0 placeholder:text-[#e5e2e1]/30 w-48 p-0" placeholder="Search Players, Teams..." type="text"/>
+</div>
+<div class="flex gap-1 text-[#e5e2e1]/70">
+<span class="material-symbols-outlined p-2 hover:bg-[#353534] rounded transition-colors cursor-pointer active:scale-90 transition-transform">notifications</span>
+<span class="material-symbols-outlined p-2 hover:bg-[#353534] rounded transition-colors cursor-pointer active:scale-90 transition-transform">account_circle</span>
+<span class="material-symbols-outlined p-2 hover:bg-[#353534] rounded transition-colors cursor-pointer active:scale-90 transition-transform">settings</span>
+</div>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="hidden lg:flex flex-col fixed left-0 top-0 h-full w-64 bg-[#0e0e0e] z-40 pt-20 pb-8 shadow-2xl shadow-black/50">
+<div class="px-4 mb-6">
+<div class="flex items-center gap-3 p-3 bg-[#1c1b1b] rounded">
+<div class="w-10 h-10 rounded overflow-hidden bg-primary/20 flex items-center justify-center">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTf8hk_OLmcROK89dg93idoTgDvzYrifh1WpZVgPn5WhGCDNJ15OLpZCD6jJ0q8vUPt-KOHwf9bwvR8RCzU04aI6bOCb5u8isEgp7zqGMOBTB8hEGkd8PAOjt94gz1X_t5yS1OPsMHKg6DcJlYRGHEE1EOYlwDAkS-KojNRY5chsOkjz7Z8D9MCkosoebAm3B2ReBRjASujM-5e6nazg23rJnjwuGUwMZJgSjJ-bEovp_3yYTU4MEDuWgoRTKjK5iJ1YNhOEgmeA"/>
+</div>
+<div>
+<p class="text-xs font-bold text-[#e5e2e1] uppercase">Performance Ledger</p>
+<p class="text-[10px] text-[#FF6B00] font-black uppercase tracking-widest">Pro Tier Access</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-0.5">
+<a class="bg-[#1c1b1b] text-[#FF6B00] rounded-r-lg border-l-4 border-[#FF6B00] flex items-center gap-3 px-4 py-3 font-inter text-sm font-medium uppercase tracking-widest active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="sports_basketball">sports_basketball</span> NBA
+        </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 font-inter text-sm font-medium uppercase tracking-widest hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="school">school</span> NCAAB
+        </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 font-inter text-sm font-medium uppercase tracking-widest hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="woman">woman</span> WNBA
+        </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 font-inter text-sm font-medium uppercase tracking-widest hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="public">public</span> EURO
+        </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 font-inter text-sm font-medium uppercase tracking-widest hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="layers">layers</span> G-LEAGUE
+        </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 font-inter text-sm font-medium uppercase tracking-widest hover:bg-[#1c1b1b] hover:opacity-100 transition-all active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span> LEGENDS
+        </a>
+</nav>
+<div class="px-4 mt-auto">
+<button class="w-full bg-[#FF6B00] text-black font-black text-xs py-4 rounded tracking-widest uppercase mb-4 hover:brightness-110 active:scale-95 transition-all">DEPOSIT FUNDS</button>
+<div class="space-y-1">
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-2 font-inter text-xs font-medium uppercase tracking-widest hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined text-sm">settings</span> Settings
+            </a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-2 font-inter text-xs font-medium uppercase tracking-widest hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined text-sm">help_outline</span> Support
+            </a>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="lg:ml-64 pt-14 pb-24 lg:pb-8 min-h-screen bg-background">
+<!-- Ticker -->
+<div class="bg-surface-container-low border-b border-outline-variant/30 py-2.5 overflow-hidden whitespace-nowrap">
+<div class="inline-flex gap-12 animate-marquee items-center">
+<span class="text-[10px] font-black text-secondary uppercase tracking-widest flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span> ESPN: LUKA DONCIC QUESTIONABLE VS SUNS</span>
+<span class="text-[10px] font-black text-on-surface-variant uppercase tracking-widest flex items-center gap-2">LEBRON JAMES PASSES 40K POINTS MARK</span>
+<span class="text-[10px] font-black text-error uppercase tracking-widest flex items-center gap-2">EMBIID TO UNDERGO KNEE EVALUATION</span>
+<span class="text-[10px] font-black text-on-surface-variant uppercase tracking-widest flex items-center gap-2">CELTICS CLINCH #1 SEED IN EASTERN CONFERENCE</span>
+<span class="text-[10px] font-black text-secondary uppercase tracking-widest flex items-center gap-2">TYRESE HALIBURTON SIGNS HISTORIC EXTENSION</span>
+</div>
+</div>
+<!-- Today's Games -->
+<section class="p-6">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-xs font-black tracking-[0.2em] text-[#FF6B00] uppercase">Live Odds Board</h2>
+<span class="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1.5">
+<span class="w-1 h-1 rounded-full bg-secondary"></span> Live Updates Enabled
+            </span>
+</div>
+<div class="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
+<!-- Game Card 1 -->
+<div class="min-w-[280px] bg-surface-container p-4 rounded border-l-2 border-primary">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">7:30 PM ET</span>
+<div class="bg-secondary/10 text-secondary text-[10px] font-black px-2 py-0.5 rounded flex items-center gap-1">
+                        LAL -4.5 <span class="opacity-50">|</span> 68%
+                    </div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<img alt="Lakers" class="w-5 h-5 grayscale opacity-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0k2niMkziQ5NdAiiDQcTOozWWaOxM99Zm9dTuvR9zmxTZlsZVl4r5ydnLw0f6_j5j_spQHcg83n89lziMknZ_EHh2MnpNnWjfhHFE55GjOcW3bapeDgY7erxkujl7vl5_9gcaAlRF9Hxwyu0XPObSxL3CmNxXN1xfSsFfZ5ncuMVhRVWyb0KhNhm3PcjXubniYX9CMfFLWm38Ra_oCUf-mPsFLIuUm2a9qrc412CWEMl9J3wb6_WDn-sQHgNYrCUJ71G42DsLug"/>
+<span class="text-xs font-black uppercase tracking-widest">Lakers</span>
+</div>
+<span class="text-xs font-black opacity-30">0</span>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<img alt="Celtics" class="w-5 h-5 grayscale opacity-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0zHfuoGKZgmlb8AErkgR8px9CbMmpZGbZxKK2BKbO83b_2dAwghRqLrFRKOpsRY4KLBa1oILiO5UIUoAdWTZNmgiZSHUH9LRDqLCWUvrALZuaavOnFS_1HNNiUpzqvbBfZ_XY9IqLuMrrdSU7ngd0ShXH5FU2aFNI3sMRf5veGvqW4kxcy0C68gwZXvo0vnjeVV1CcMafGk-JvCIxzMPlRsv2ND5haAoyL8KC5w472rgB67CA-N8NLsdGaPQOUWAtwYNRHvyZ7w"/>
+<span class="text-xs font-black uppercase tracking-widest">Celtics</span>
+</div>
+<span class="text-xs font-black opacity-30">0</span>
+</div>
+</div>
+</div>
+<!-- Game Card 2 (LIVE) -->
+<div class="min-w-[280px] bg-surface-container p-4 rounded border-l-2 border-secondary ring-1 ring-secondary/20">
+<div class="flex justify-between items-start mb-4">
+<span class="text-secondary text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+<span class="w-1 h-1 rounded-full bg-secondary animate-pulse"></span> LIVE Q3
+                    </span>
+<div class="bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5 rounded flex items-center gap-1">
+                        PHX +2.5 <span class="opacity-50">|</span> 52%
+                    </div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<img alt="Suns" class="w-5 h-5 grayscale opacity-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnyJUTeLZO5axUZSfZ8uzxGV8yIAyLwqxXC1B2qnXihDN-VgIWvw-ym8_DyQWVfd6xazNjFAmaLVAEjRr-161RckODlXAbyY8wbJne98_rpyqVhS55biYyxbcZ2v6xLJHWTsOQqQ80CPEGRNabfnSK6XwY2QbSfdwJfKF7luS_vitTPqnKaa273DyoOLPVPG04s1TOKe5n8wM_WtSuXSNmLpI2KMel5lO-lVwri90bs24101d4nwi13XWBle3Hz0BYSE8hnPgwBA"/>
+<span class="text-xs font-black uppercase tracking-widest">Suns</span>
+</div>
+<span class="text-xs font-black text-secondary">88</span>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<img alt="Bucks" class="w-5 h-5 grayscale opacity-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnUXkyYojevKXtPdOS1WMTRCK9HGGuY8z-VS4zuZx6QQjRdpwMBKL7rjx5QdYNYjiZnLdm_xNrwpGgmMfYLtmrH6gKooRrZVgxrpsMoPwqk_zGviChm7GvyQtmilOFUeFCzMzU6BYRgvf3WBTRX5JzP5kIyNad7ckcK71EziyFrre2yMwv6ot3Dnja-1symEw3WsbKttFnUbqjNBu1jQORnk1VjhP5AhTKO7YMIERu3uX57I8Z98gmTr4_G6oEIQta7vp-AAYq-A"/>
+<span class="text-xs font-black uppercase tracking-widest">Bucks</span>
+</div>
+<span class="text-xs font-black">84</span>
+</div>
+</div>
+</div>
+<!-- Game Card 3 -->
+<div class="min-w-[280px] bg-surface-container p-4 rounded border-l-2 border-[#353534] opacity-60">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">10:00 PM ET</span>
+<div class="bg-error/10 text-error text-[10px] font-black px-2 py-0.5 rounded flex items-center gap-1">
+                        GSW -2.5 <span class="opacity-50">|</span> 44%
+                    </div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<img alt="Warriors" class="w-5 h-5 grayscale opacity-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAO42-rnwtMGha1z2Tlhmbum9ZA19O5jOP7Uh4IwHn0vpui6zc698AoUKG4C7aJFmufLGjKTUr7Y-SNzhHZeHkaVV5yjf5dL__tE-FpBuJEbQPveFn4rEXfqpUP4fl50g9fTWAZXLW6WijK8cKbmHiUs71kD711MuXfozL-LrH75_cv63pDYlYPZFY3AljWXCVna-PfvGWa4-sJ-Nsy6dOtAnBetH1aQTXYpL6MdWO5Td4TbcAAtOmQ5ZDAEFv1GuAMOC3xMyNK9Q"/>
+<span class="text-xs font-black uppercase tracking-widest">Warriors</span>
+</div>
+<span class="text-xs font-black opacity-30">0</span>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<img alt="Nuggets" class="w-5 h-5 grayscale opacity-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAr_oxXFS92NC-ZYJtvLigvAyM65nqEIr7r1-4TWdOU9wZnnCZKfPGd7FMLNgZukzFGtzOJuXNbfzpPslDT0nk9Z85BrCvCv3XC6Iyx5XexnQLUvt7NyfAy9S1B_L6qvJ2hnwdiJgje7cn_O0ytsWAxqg_Jrg7ha_9Rzy3-NGhm3O6BWLmR_6Z5QmbPPaF4J2kb0lAE9ImijL7CLrNBw8z2UOpgrDD1KC3JBxnhoGVHKR3p6yon7PTY-oNOuWc7S-qdvG3yIz8-TA"/>
+<span class="text-xs font-black uppercase tracking-widest">Nuggets</span>
+</div>
+<span class="text-xs font-black opacity-30">0</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Dynamic Grid Content -->
+<div class="px-6 grid grid-cols-1 xl:grid-cols-12 gap-6">
+<!-- Hero: AI Pick of the Day -->
+<section class="xl:col-span-8">
+<div class="relative overflow-hidden bg-surface-container rounded min-h-[420px] flex flex-col md:flex-row group border border-outline-variant/30">
+<div class="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent z-10"></div>
+<img alt="Hero Player" class="absolute right-0 top-0 h-full w-full md:w-2/3 object-cover object-center group-hover:scale-105 transition-transform duration-1000 opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBajV4iPsuonEzz5602GHt_sNLLYoSVrB1h9yiVrvixJ09ZhdN6_SSUDWef5nnNV7RsowAwfbXWtDGEsuqWdIb7YsKGMDAeUu5pHRK5vOqPeuXHIRivMW1x5OgpzIDCfl2AoE9JI97B3XCOO13rCpMj2KNOTPQ9L8HJMhepmtIQ2VHRohomoRDAgwayEhxHMLYY6cVNHYmEFdxkSIq6N48JNdjpVZz3G7ZYfaGGm5V-aEWrActqfdtXbxBYjEplBeOGmhJQGBgxgw"/>
+<div class="relative z-20 p-8 flex flex-col justify-end h-full w-full md:w-3/5">
+<div class="flex items-center gap-2 mb-4">
+<span class="bg-[#FF6B00] text-black text-[10px] font-black px-3 py-1 rounded uppercase tracking-[0.2em] flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px]">psychology</span> AI MASTER PICK
+                        </span>
+<span class="bg-secondary/10 text-secondary border border-secondary/30 text-[10px] font-black px-3 py-1 rounded uppercase tracking-[0.2em]">92.4% HIT RATE</span>
+</div>
+<h1 class="text-5xl font-black text-on-surface leading-tight mb-2 uppercase italic tracking-tighter">JAYSON TATUM</h1>
+<p class="text-xl font-black text-primary mb-6 uppercase tracking-widest">POINTS <span class="text-secondary">OVER 28.5</span> <span class="text-on-surface-variant font-medium">(-115)</span></p>
+<div class="bg-background/40 backdrop-blur-md p-5 rounded border border-outline-variant/30 mb-8">
+<p class="text-on-surface-variant text-xs leading-relaxed italic font-medium">
+                            "Kinetic Model: Tatum has exceeded this line in 8 of the last 10 games against Top 5 defenses. High volume is projected tonight due to Brown being questionable. Model predicts 32.4 points with high variance favor."
+                        </p>
+</div>
+<div class="flex gap-4">
+<button class="flex-1 bg-primary text-black font-black py-4 rounded text-xs tracking-[0.2em] uppercase hover:brightness-110 active:scale-95 transition-all">ADD TO PERFORMANCE LEDGER</button>
+<button class="px-5 border border-outline-variant rounded hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">share</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Sidebar -->
+<section class="xl:col-span-4 space-y-6">
+<div class="bg-surface-container p-6 rounded border border-outline-variant/30">
+<h3 class="text-[10px] font-black text-[#FF6B00] tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
+<span class="w-1.5 h-1.5 bg-[#FF6B00] rounded-full"></span> MATCHUP PREDICTOR
+                </h3>
+<div class="flex justify-between items-center mb-6">
+<div class="text-center">
+<img alt="PHI" class="w-10 h-10 mb-2 mx-auto grayscale opacity-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCp_bAbj9iuuQekffWm_h7n_nG_hvm1bd7S3ZhGTvV63yR3JIpRtjV_WPNed4JcKk4jB-OTz2OtmM1yMeJmhsDsixC1ytwVlVUrVS8OWXMGJhBrhfqDtb4xn4lP4JifGuWtJqPOCWOt0E5dfpz84gfIV-QACW5CrXqGnfwRAp0cueZ0xrPfhd18zmOAmCbNe7S952fICpQeE4NlolsJbqko8ipQoiuMbH9ZpfrRhKn8h23aJVUKeYGAgDTTTyOBCtmYyWbJ4uAAJw"/>
+<p class="text-[10px] font-black uppercase tracking-widest">PHI</p>
+</div>
+<div class="text-center flex-1 px-4">
+<div class="h-1 w-full bg-[#353534] rounded-full mb-3 overflow-hidden flex">
+<div class="bg-secondary h-full" style="width: 72%"></div>
+<div class="bg-error h-full" style="width: 28%"></div>
+</div>
+<p class="text-[9px] font-black tracking-[0.2em] text-secondary uppercase">72% WIN PROB</p>
+</div>
+<div class="text-center">
+<img alt="SAC" class="w-10 h-10 mb-2 mx-auto grayscale opacity-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYkQtW2IPD8356Cp49o7qh83HXxTYM1Ctx1CyvXZM3Hh60Xh_36a9So_LJPLkUbJTxPUqRrsw8AC548xvByKbOctkZfG0a4_vWz1bnQoWD_BO3GeWe6XLseryYp_4xGImH_OCQa5TCuwmggmOQk15iliy9utIJG8Tb9jRds_IXsm4ZFQlXyS1rK1TBrUdzoaaC4ffuFzkTmyEeSDpyWEONVqQ_wSqqkPsoDOwLUbjWfAul2ygrNGmNdqJNoX9njndl67M4wa7Kaw"/>
+<p class="text-[10px] font-black uppercase tracking-widest">SAC</p>
+</div>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center text-[10px] font-bold py-2 border-b border-outline-variant/10">
+<span class="text-on-surface-variant uppercase tracking-widest">Projected Pace</span>
+<span class="text-secondary font-black">104.5 (High)</span>
+</div>
+<div class="flex justify-between items-center text-[10px] font-bold py-2 border-b border-outline-variant/10">
+<span class="text-on-surface-variant uppercase tracking-widest">Defensive Rating</span>
+<span class="text-primary font-black">112.4 (Elite)</span>
+</div>
+<div class="flex justify-between items-center text-[10px] font-bold py-2">
+<span class="text-on-surface-variant uppercase tracking-widest">Key Factor</span>
+<span class="text-[#FF6B00] uppercase font-black">EMBIID RETURN</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container p-6 rounded border border-outline-variant/30">
+<h3 class="text-[10px] font-black text-on-surface-variant tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
+                    QUICK PROP LAB
+                </h3>
+<div class="space-y-4">
+<div class="bg-background p-3 rounded border border-outline-variant/30">
+<label class="text-[8px] font-black text-on-surface-variant uppercase block mb-1.5 tracking-widest">Player</label>
+<select class="bg-transparent border-none w-full text-xs font-black uppercase focus:ring-0 p-0 text-on-surface">
+<option>Anthony Davis</option>
+<option>Tyrese Haliburton</option>
+<option>Shai Gilgeous-Alexander</option>
+</select>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-background p-3 rounded border border-outline-variant/30">
+<label class="text-[8px] font-black text-on-surface-variant uppercase block mb-1.5 tracking-widest">Line</label>
+<input class="bg-transparent border-none w-full text-xs font-black focus:ring-0 p-0 text-on-surface" type="number" value="12.5"/>
+</div>
+<div class="bg-background p-3 rounded border border-outline-variant/30">
+<label class="text-[8px] font-black text-on-surface-variant uppercase block mb-1.5 tracking-widest">Category</label>
+<select class="bg-transparent border-none w-full text-xs font-black uppercase focus:ring-0 p-0 text-on-surface">
+<option>Rebounds</option>
+<option>Points</option>
+<option>Assists</option>
+</select>
+</div>
+</div>
+<button class="w-full bg-[#1c1b1b] border border-[#FF6B00]/50 text-[#FF6B00] font-black py-3.5 rounded text-[10px] tracking-[0.2em] uppercase hover:bg-primary/10 transition-colors">CALCULATE VALUE</button>
+</div>
+</div>
+</section>
+<!-- High Conviction Props -->
+<section class="xl:col-span-12">
+<div class="flex items-center justify-between mb-8">
+<h2 class="text-xs font-black tracking-[0.2em] text-[#FF6B00] uppercase">High Conviction Props</h2>
+<div class="flex gap-1.5">
+<span class="bg-[#1c1b1b] px-4 py-2 text-[9px] font-black rounded uppercase tracking-widest cursor-pointer hover:bg-primary/20 hover:text-primary transition-all">ALL</span>
+<span class="bg-transparent border border-[#353534] px-4 py-2 text-[9px] font-black rounded uppercase tracking-widest cursor-pointer hover:bg-primary/20 hover:text-primary transition-all">PTS</span>
+<span class="bg-transparent border border-[#353534] px-4 py-2 text-[9px] font-black rounded uppercase tracking-widest cursor-pointer hover:bg-primary/20 hover:text-primary transition-all">REB</span>
+<span class="bg-transparent border border-[#353534] px-4 py-2 text-[9px] font-black rounded uppercase tracking-widest cursor-pointer hover:bg-primary/20 hover:text-primary transition-all">AST</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Prop Card 1 -->
+<div class="bg-surface-container rounded overflow-hidden flex flex-col border border-outline-variant/30 hover:border-primary/50 transition-all duration-300">
+<div class="p-5 flex gap-4">
+<div class="w-16 h-16 rounded bg-background overflow-hidden shrink-0 border border-outline-variant/30">
+<img alt="AD" class="w-full h-full object-cover grayscale brightness-75" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhVWPY5zNJ7y3KwpdsyjWzqfbv-4vGKzsqLNlDcUU5LfWRoWUnvvJttXHq_vRS7jNp8xz10lYb5c5QuhiYMBvdYmSjmoaEvVjWy6oDrjAdUiTeeog7sM5eG0tNx8EO3rWQBQ5-yn6lhq7VC3a-h9jA7g55kUqgQNe5BY0bu6-KPCHs_P3nAvqiYbj_1ME6JYGEctQqiEWHa3h8FOllNuagL8Pn5Do9eKx5hWl6tZ5SfY2DxvxwiaBfFjCZBTx3WuSsk4X3nxGcTg"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h4 class="text-[10px] font-black uppercase tracking-widest text-on-surface">Anthony Davis</h4>
+<span class="text-[8px] bg-secondary text-black font-black px-1.5 py-0.5 rounded">LOCK</span>
+</div>
+<p class="text-[10px] text-secondary font-black uppercase tracking-widest mb-3">REB Over 12.5</p>
+<div class="h-1 w-full bg-background rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 82%"></div>
+</div>
+<div class="flex justify-between mt-2 text-[8px] font-black text-on-surface-variant uppercase tracking-[0.1em]">
+<span>Conf: 82%</span>
+<span class="text-secondary">+14% VAL</span>
+</div>
+</div>
+</div>
+<div class="px-5 py-3 bg-background/50 border-t border-outline-variant/30">
+<p class="text-[9px] text-on-surface-variant italic leading-relaxed">AI Rationale: LAL pace projected high; matchup allows +2.4 rebounds above average.</p>
+</div>
+<button class="w-full bg-[#1c1b1b] text-primary text-[9px] font-black py-3.5 uppercase tracking-[0.2em] hover:bg-primary hover:text-black transition-all">TRACK PERFORMANCE</button>
+</div>
+<!-- Prop Card 2 -->
+<div class="bg-surface-container rounded overflow-hidden flex flex-col border border-outline-variant/30 hover:border-primary/50 transition-all duration-300">
+<div class="p-5 flex gap-4">
+<div class="w-16 h-16 rounded bg-background overflow-hidden shrink-0 border border-outline-variant/30">
+<img alt="TH" class="w-full h-full object-cover grayscale brightness-75" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANAfzk6owDSRF-03rgTWpVLgX-ngQX2UPnxNrNl-AJRstdjMx6_Cx23xuEX7CXm8iCaXK8RhQDd7EJApvX8cQ4S0Eg4LKTyuDqweM5TDmCk7z_KNsrp0N_iT2bitXgU7sz7hZ9YfFC-iNG-7NbjRljUDyp5gAImoNHy2FDaL9aTnKDJ5EUu1iL2_I5u2Dxog5cudgFWhNHpv7n_6pEusigM2F9BF-9esJQ6yIr5nqqWoJ3xdjJygaajYcmcQT96GhEIpFehjfK9w"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h4 class="text-[10px] font-black uppercase tracking-widest text-on-surface">T. Haliburton</h4>
+<span class="text-[8px] bg-[#FF6B00] text-black font-black px-1.5 py-0.5 rounded">STRONG</span>
+</div>
+<p class="text-[10px] text-secondary font-black uppercase tracking-widest mb-3">AST Over 11.5</p>
+<div class="h-1 w-full bg-background rounded-full overflow-hidden">
+<div class="bg-primary h-full" style="width: 74%"></div>
+</div>
+<div class="flex justify-between mt-2 text-[8px] font-black text-on-surface-variant uppercase tracking-[0.1em]">
+<span>Conf: 74%</span>
+<span class="text-secondary">+8% VAL</span>
+</div>
+</div>
+</div>
+<div class="px-5 py-3 bg-background/50 border-t border-outline-variant/30">
+<p class="text-[9px] text-on-surface-variant italic leading-relaxed">AI Rationale: IND efficiency spikes vs Bottom-10 transition defenses.</p>
+</div>
+<button class="w-full bg-[#1c1b1b] text-primary text-[9px] font-black py-3.5 uppercase tracking-[0.2em] hover:bg-primary hover:text-black transition-all">TRACK PERFORMANCE</button>
+</div>
+<!-- Prop Card 3 -->
+<div class="bg-surface-container rounded overflow-hidden flex flex-col border border-outline-variant/30 hover:border-primary/50 transition-all duration-300">
+<div class="p-5 flex gap-4">
+<div class="w-16 h-16 rounded bg-background overflow-hidden shrink-0 border border-outline-variant/30">
+<img alt="SGA" class="w-full h-full object-cover grayscale brightness-75" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFJWaApnrPlKwvhW77BuWWq4rUpaoJahQB5CElBbcxpR2Y9eu5rjKMONhs1cPC_gzbh4cVH5Klnt7m9ldWjL6qlnA7Zz_a2HNagPDn5iPbV-HW98Kd3mPkR46i9rKbhGvdvJiLgj5czGy8LVG-HJHleW2E0VwEyXV904fB1RKHeK4ml-Yu6pNdFR1EAbISHz-puDgk-wTiXQL8qCjxBLjlpjIj0z6n64dpJ-cZOrzi3LrDZdeLLva3qLBZ_J0jrJf3FGxAkCz3Dw"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h4 class="text-[10px] font-black uppercase tracking-widest text-on-surface">S. Gilgeous-Alex.</h4>
+<span class="text-[8px] bg-[#FF6B00] text-black font-black px-1.5 py-0.5 rounded">STRONG</span>
+</div>
+<p class="text-[10px] text-secondary font-black uppercase tracking-widest mb-3">PTS Over 30.5</p>
+<div class="h-1 w-full bg-background rounded-full overflow-hidden">
+<div class="bg-primary h-full" style="width: 71%"></div>
+</div>
+<div class="flex justify-between mt-2 text-[8px] font-black text-on-surface-variant uppercase tracking-[0.1em]">
+<span>Conf: 71%</span>
+<span class="text-secondary">+5% VAL</span>
+</div>
+</div>
+</div>
+<div class="px-5 py-3 bg-background/50 border-t border-outline-variant/30">
+<p class="text-[9px] text-on-surface-variant italic leading-relaxed">AI Rationale: Usage rate increased to 34.2% in last 3 road games.</p>
+</div>
+<button class="w-full bg-[#1c1b1b] text-primary text-[9px] font-black py-3.5 uppercase tracking-[0.2em] hover:bg-primary hover:text-black transition-all">TRACK PERFORMANCE</button>
+</div>
+<!-- Prop Card 4 -->
+<div class="bg-surface-container rounded overflow-hidden flex flex-col border border-outline-variant/30 hover:border-primary/50 transition-all duration-300">
+<div class="p-5 flex gap-4">
+<div class="w-16 h-16 rounded bg-background overflow-hidden shrink-0 border border-outline-variant/30">
+<img alt="KD" class="w-full h-full object-cover grayscale brightness-75" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDxGOy8jDC7xuc8jNBSYx9A8L_d219-vI6yu7U_aQjX-rLZPQBSCx4CuJTC_Ci0QXX4RNGoGyfHVu7o2USZJ05UxtR8XvgJZlc9z36Isevq5N15KZT2uw1V0EkHttZPbZBTr98rKv9cmBLFU7wHLrUVt3uXci9UsBnHkbgxL5T4h-1KtEmdKs0_Q26qO07ToAr-BToVg-z7vjkVlW-riMMmDVoYxfd05ssSWXDf4pFLvivS_3XR_IZZywdk7UxCFc-gpXuFMd6O_A"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h4 class="text-[10px] font-black uppercase tracking-widest text-on-surface">Kevin Durant</h4>
+<span class="text-[8px] bg-outline-variant text-on-surface font-black px-1.5 py-0.5 rounded">LEAN</span>
+</div>
+<p class="text-[10px] text-error font-black uppercase tracking-widest mb-3">3PM Under 2.5</p>
+<div class="h-1 w-full bg-background rounded-full overflow-hidden">
+<div class="bg-error h-full" style="width: 58%"></div>
+</div>
+<div class="flex justify-between mt-2 text-[8px] font-black text-on-surface-variant uppercase tracking-[0.1em]">
+<span>Conf: 58%</span>
+<span class="text-error">-2% VAL</span>
+</div>
+</div>
+</div>
+<div class="px-5 py-3 bg-background/50 border-t border-outline-variant/30">
+<p class="text-[9px] text-on-surface-variant italic leading-relaxed">AI Rationale: Historical matchup trend slightly bearish on volume tonight.</p>
+</div>
+<button class="w-full bg-[#1c1b1b] text-primary text-[9px] font-black py-3.5 uppercase tracking-[0.2em] hover:bg-primary hover:text-black transition-all">TRACK PERFORMANCE</button>
+</div>
+</div>
+</section>
+<!-- Form & Leaders -->
+<section class="xl:col-span-6">
+<div class="bg-surface-container p-6 rounded border border-outline-variant/30 h-full">
+<h3 class="text-[10px] font-black text-[#FF6B00] tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
+<span class="w-1.5 h-1.5 bg-[#FF6B00] rounded-full"></span> HOT FORM LEDGER
+                </h3>
+<div class="space-y-3">
+<div class="flex items-center gap-4 bg-background p-4 rounded border border-outline-variant/20 hover:border-secondary/30 transition-colors">
+<span class="text-xl font-black text-secondary italic">#01</span>
+<div class="flex-1">
+<p class="text-xs font-black uppercase tracking-widest">STEPHEN CURRY</p>
+<p class="text-[10px] text-on-surface-variant font-medium">32.4 PPG / 6.2 3PM (Last 5)</p>
+</div>
+<span class="text-xs font-black text-secondary tracking-tighter">+12.4%</span>
+</div>
+<div class="flex items-center gap-4 bg-background p-4 rounded border border-outline-variant/20 hover:border-secondary/30 transition-colors">
+<span class="text-xl font-black text-secondary italic">#02</span>
+<div class="flex-1">
+<p class="text-xs font-black uppercase tracking-widest">DOMANTAS SABONIS</p>
+<p class="text-[10px] text-on-surface-variant font-medium">14.8 RPG / 9.1 APG (Last 7)</p>
+</div>
+<span class="text-xs font-black text-secondary tracking-tighter">+8.9%</span>
+</div>
+<div class="flex items-center gap-4 bg-background p-4 rounded border border-outline-variant/20 hover:border-error/30 transition-colors">
+<span class="text-xl font-black text-error italic">#03</span>
+<div class="flex-1">
+<p class="text-xs font-black uppercase tracking-widest">KAWHI LEONARD</p>
+<p class="text-[10px] text-on-surface-variant font-medium">Minutes Restriction Active</p>
+</div>
+<span class="text-xs font-black text-error tracking-tighter">-15.2%</span>
+</div>
+</div>
+</div>
+</section>
+<section class="xl:col-span-6">
+<div class="bg-surface-container p-6 rounded border border-outline-variant/30 h-full">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-[10px] font-black text-on-surface-variant tracking-[0.2em] uppercase">STAT LEADERS</h3>
+<div class="flex gap-1.5">
+<span class="text-[8px] font-black px-2 py-1 rounded bg-[#FF6B00] text-black uppercase cursor-pointer">SEASON</span>
+<span class="text-[8px] font-black px-2 py-1 rounded bg-[#1c1b1b] text-on-surface-variant border border-outline-variant/50 uppercase cursor-pointer">L10</span>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em] border-b border-outline-variant/30">
+<th class="pb-3 px-2">PLAYER</th>
+<th class="pb-3 text-right px-2">STAT</th>
+<th class="pb-3 text-right px-2">DELTA</th>
+</tr>
+</thead>
+<tbody class="text-[10px] font-black uppercase tracking-widest">
+<tr class="border-b border-outline-variant/10 hover:bg-background/50 transition-colors">
+<td class="py-4 px-2 font-black text-on-surface">L. Doncic (DAL)</td>
+<td class="py-4 px-2 text-right">34.6 PPG</td>
+<td class="py-4 px-2 text-right text-secondary">▲ 1.2</td>
+</tr>
+<tr class="border-b border-outline-variant/10 hover:bg-background/50 transition-colors">
+<td class="py-4 px-2 font-black text-on-surface">G. Antetokounmpo (MIL)</td>
+<td class="py-4 px-2 text-right">30.8 PPG</td>
+<td class="py-4 px-2 text-right text-error">▼ 0.4</td>
+</tr>
+<tr class="border-b border-outline-variant/10 hover:bg-background/50 transition-colors">
+<td class="py-4 px-2 font-black text-on-surface">N. Jokic (DEN)</td>
+<td class="py-4 px-2 text-right">12.3 RPG</td>
+<td class="py-4 px-2 text-right text-secondary">▲ 0.8</td>
+</tr>
+<tr class="hover:bg-background/50 transition-colors">
+<td class="py-4 px-2 font-black text-on-surface">C. Paul (GSW)</td>
+<td class="py-4 px-2 text-right">8.9 APG</td>
+<td class="py-4 px-2 text-right text-on-surface-variant">—</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<!-- Daily Props Explorer -->
+<section class="xl:col-span-12 mb-12">
+<div class="bg-surface-container rounded border border-outline-variant/30 overflow-hidden">
+<div class="p-6 border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center justify-between gap-6">
+<h2 class="text-xs font-black tracking-[0.2em] text-[#FF6B00] uppercase">Prop Explorer Terminal</h2>
+<div class="flex flex-wrap gap-2">
+<button class="px-4 py-2 bg-background border border-outline-variant/30 rounded text-[9px] font-black uppercase tracking-widest hover:border-primary transition-all">70%+ CONFIDENCE</button>
+<button class="px-4 py-2 bg-background border border-outline-variant/30 rounded text-[9px] font-black uppercase tracking-widest hover:border-primary transition-all">VALUE DESCENDING</button>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-on-surface-variant">search</span>
+<input class="pl-9 pr-4 py-2 bg-background border border-outline-variant/30 rounded text-[9px] font-black uppercase tracking-widest focus:ring-primary focus:border-primary w-full md:w-56" placeholder="FILTER BY PLAYER..." type="text"/>
+</div>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left min-w-[900px]">
+<thead class="bg-background">
+<tr class="text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em]">
+<th class="px-6 py-4">PLAYER IDENTITY</th>
+<th class="px-6 py-4">PROP CATEGORY</th>
+<th class="px-6 py-4">LINE</th>
+<th class="px-6 py-4">MARKET ODDS</th>
+<th class="px-6 py-4">AI CONFIDENCE</th>
+<th class="px-6 py-4 text-center">ACTION</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10 text-[10px] font-black uppercase tracking-widest">
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="px-6 py-5 flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-background overflow-hidden border border-outline-variant/30">
+<img alt="LBJ" class="w-full h-full object-cover grayscale opacity-70" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjfWSGPYGStjuEyCJn-pRX7J2Du6fpMa7vrIpdnk5BnYg0FauOounzgBRe94IEmp70a7UChif_LPNoS8W09hBaEJE-mmc10WpkiUjOIPofvnpfbMIn-G_lv05WyBcpZFHCX8_n2aJTjO8ZyGVLfw98TrZZTpCiuKSNRxi5UE3jOfSC4zTM9y4nUkNn7A3j7wCdzNPuKc0nW9wBvRMKtsJpRUBy4O7xxBalFtqLMyCTGT2YkpJDluiT9vMTj-qXHQbpMIobR5t09w"/>
+</div>
+<div>
+<p class="text-on-surface">LEBRON JAMES</p>
+<p class="text-[8px] text-on-surface-variant opacity-60">LAL @ BOS</p>
+</div>
+</td>
+<td class="px-6 py-5">POINTS</td>
+<td class="px-6 py-5 text-[#FF6B00]">24.5</td>
+<td class="px-6 py-5 text-secondary">-110</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-24 h-1 bg-background rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 78%"></div>
+</div>
+<span class="text-[9px] text-secondary">78%</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="material-symbols-outlined text-primary hover:scale-110 transition-transform active:scale-90">add_circle</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="px-6 py-5 flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-background overflow-hidden border border-outline-variant/30">
+<img alt="JB" class="w-full h-full object-cover grayscale opacity-70" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAs2C7gh_BCIvk70Q85sDH91LVAbRn4Ss2igDLkKcMaGIkLUbSGzpKZH1s6aWza8HaFtgFzrxWnNYBC_8aCM9XsR_56HPwSyo373-NfwFMM971-OWCVxftwrr2E07KzdH46VWOs8sclla8jOZczL_JNtQdxtEzqzg_wWLUlXrsAjzWTsUxmqzonQ-WK5kad65WFpiDgX0eYICgIHjoArZNVzROvzQcGw5lJxlx0KvVeWLMOI0I7ppIFfEZ3S7cI9iX9Usr4QHdkag"/>
+</div>
+<div>
+<p class="text-on-surface">JIMMY BUTLER</p>
+<p class="text-[8px] text-on-surface-variant opacity-60">MIA @ NYK</p>
+</div>
+</td>
+<td class="px-6 py-5">STEALS</td>
+<td class="px-6 py-5 text-[#FF6B00]">1.5</td>
+<td class="px-6 py-5 text-secondary">+125</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-24 h-1 bg-background rounded-full overflow-hidden">
+<div class="bg-secondary h-full" style="width: 65%"></div>
+</div>
+<span class="text-[9px] text-secondary">65%</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="material-symbols-outlined text-primary hover:scale-110 transition-transform active:scale-90">add_circle</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="px-6 py-5 flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-background overflow-hidden border border-outline-variant/30">
+</div></td></tr></tbody></table></div></div></section></div></main></body></html>

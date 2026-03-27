@@ -76,6 +76,13 @@ body {
   background-color: rgba(53, 53, 52, 0.6);
 }
 
+/* Live prop dashboard / Stitch spec */
+.glass-panel {
+  background: rgba(53, 53, 52, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
 .brand-gradient {
   background: linear-gradient(135deg, #ff6b00 0%, #ffb693 100%);
 }

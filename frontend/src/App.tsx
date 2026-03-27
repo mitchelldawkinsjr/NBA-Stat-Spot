@@ -10,6 +10,7 @@ import { AdminGate } from './components/AdminGate'
 import OverUnderPage from './pages/OverUnderPage'
 import GamePredictionPage from './pages/GamePredictionPage'
 import AccuracyPage from './pages/AccuracyPage'
+import LivePropDashboard from './pages/LivePropDashboard'
 import SliceProLayout from './layouts/SliceProLayout'
 import { SnackbarProvider } from './context/SnackbarContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -32,6 +33,7 @@ function App() {
               <Route path="/over-under" element={<OverUnderPage />} />
               <Route path="/game/:gameId" element={<GamePredictionPage />} />
               <Route path="/accuracy" element={<AccuracyPage />} />
+              <Route path="/live-props" element={<LivePropDashboard />} />
               {/* Back-compat alias */}
               <Route path="/suggest" element={<ExplorePage />} />
             </Routes>

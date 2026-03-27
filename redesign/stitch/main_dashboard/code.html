@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>KINETIC | NBA Stat Spot Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error-container": "#93000a",
+              "surface-tint": "#ffb693",
+              "on-error-container": "#ffdad6",
+              "tertiary-fixed-dim": "#9ccaff",
+              "surface-container-low": "#1c1b1b",
+              "surface-container-highest": "#353534",
+              "outline": "#a98a7d",
+              "surface-dim": "#131313",
+              "inverse-surface": "#e5e2e1",
+              "surface-container-lowest": "#0e0e0e",
+              "secondary": "#adc7ff",
+              "on-tertiary-fixed-variant": "#00497b",
+              "secondary-fixed": "#d8e2ff",
+              "secondary-fixed-dim": "#adc7ff",
+              "primary-fixed": "#ffdbcc",
+              "on-tertiary": "#003257",
+              "on-surface-variant": "#e2bfb0",
+              "surface-container-high": "#2a2a2a",
+              "surface-bright": "#393939",
+              "surface-container": "#201f1f",
+              "on-secondary-fixed": "#001a41",
+              "tertiary-fixed": "#d0e4ff",
+              "on-primary-fixed": "#351000",
+              "inverse-on-surface": "#313030",
+              "on-secondary-container": "#00285b",
+              "tertiary": "#9ccaff",
+              "on-tertiary-container": "#003357",
+              "error": "#ffb4ab",
+              "on-primary-container": "#572000",
+              "on-surface": "#e5e2e1",
+              "on-primary": "#561f00",
+              "outline-variant": "#5a4136",
+              "on-error": "#690005",
+              "on-secondary-fixed-variant": "#004493",
+              "secondary-container": "#4a8eff",
+              "surface": "#131313",
+              "tertiary-container": "#059eff",
+              "background": "#131313",
+              "inverse-primary": "#a04100",
+              "surface-variant": "#353534",
+              "on-tertiary-fixed": "#001d35",
+              "on-primary-fixed-variant": "#7a3000",
+              "primary-fixed-dim": "#ffb693",
+              "primary-container": "#ff6b00",
+              "on-background": "#e5e2e1",
+              "on-secondary": "#002e68",
+              "primary": "#ffb693"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- Top Navigation Shell -->
+<header class="bg-[#131313] font-inter antialiased tracking-tight text-[#e5e2e1] docked full-width top-0 z-50 flex justify-between items-center w-full px-6 py-3">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black uppercase italic tracking-tighter text-[#FF6B00]">KINETIC</span>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">LIVE</a>
+<a class="text-[#FF6B00] font-bold border-b-2 border-[#FF6B00] pb-1" href="#">PROPS</a>
+<a class="text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">MATCHUPS</a>
+<a class="text-[#e5e2e1] opacity-70 hover:opacity-100 transition-opacity" href="#">INJURIES</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-[#353534] transition-colors duration-200 rounded-lg">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 hover:bg-[#353534] transition-colors duration-200 rounded-lg">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Side Navigation Shell -->
+<aside class="bg-[#0e0e0e] font-inter text-sm font-medium uppercase tracking-widest fixed left-0 top-0 h-full z-40 flex flex-col pt-20 pb-8 hidden lg:flex w-64 shadow-2xl shadow-black/50">
+<div class="px-6 mb-8">
+<h3 class="text-[#FF6B00] text-xs font-black tracking-widest mb-1">Performance Ledger</h3>
+<p class="text-[#e5e2e1] opacity-40 text-[10px]">Pro Tier Access</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="bg-[#1c1b1b] text-[#FF6B00] rounded-r-lg border-l-4 border-[#FF6B00] flex items-center gap-3 px-4 py-3 active:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">sports_basketball</span>
+<span>NBA</span>
+</a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 hover:bg-[#1c1b1b] hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined">school</span>
+<span>NCAAB</span>
+</a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 hover:bg-[#1c1b1b] hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined">woman</span>
+<span>WNBA</span>
+</a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 hover:bg-[#1c1b1b] hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined">public</span>
+<span>EURO</span>
+</a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 hover:bg-[#1c1b1b] hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined">layers</span>
+<span>G-LEAGUE</span>
+</a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-3 hover:bg-[#1c1b1b] hover:opacity-100 transition-all" href="#">
+<span class="material-symbols-outlined">history</span>
+<span>LEGENDS</span>
+</a>
+</nav>
+<div class="px-4 mt-auto space-y-4">
+<button class="w-full bg-primary-container text-on-primary font-black py-3 rounded-lg text-xs tracking-widest hover:brightness-110 transition-all">
+                DEPOSIT FUNDS
+            </button>
+<div class="pt-4 border-t border-[#353534]/30">
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-2 hover:opacity-100 text-[10px]" href="#">
+<span class="material-symbols-outlined text-sm">settings</span>
+<span>Settings</span>
+</a>
+<a class="text-[#e5e2e1] opacity-50 flex items-center gap-3 px-4 py-2 hover:opacity-100 text-[10px]" href="#">
+<span class="material-symbols-outlined text-sm">help_outline</span>
+<span>Support</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="lg:ml-64 pt-20 pb-24 px-4 md:px-8">
+<!-- Hero Section: Tonight's Main Slate -->
+<section class="mb-10">
+<div class="flex items-end justify-between mb-6">
+<div>
+<h1 class="text-4xl font-black uppercase italic tracking-tighter text-on-surface">Tonight's Slate</h1>
+<p class="text-on-surface-variant font-medium">8 Games | Wednesday, Nov 22</p>
+</div>
+<div class="flex gap-2">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Live Updates</span>
+<span class="bg-surface-container-highest px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Expert Consensus</span>
+</div>
+</div>
+<!-- Bento Grid Highlights -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Main Game Focus -->
+<div class="md:col-span-2 bg-surface-container-low rounded-xl overflow-hidden relative group">
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-transparent to-transparent z-10"></div>
+<img class="w-full h-80 object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" data-alt="Intense close-up of a basketball player focused on the rim during a night game in a dark stadium with cinematic orange side lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2wv0Rl9eSDQzf2ehnLppK4tt-qmW3W-GUKnQR3yexIIJUeEczpb4lHSgWWIcVJnUnWNxKF3k_SgP1upnCycAHv1rCr0pRzdYXjS8jL0Z4y_WWCju3GHFyPLcKgbBLOU6ZgOiU23n5rvwmiIM--8UB5rQ2FZXgMl3a-OtdDbEFkIZoclENiT_bv4qWgOeFEhh5LJgu5QkxLOfidAlSIqN_XkE9UEoAaCOyNX2dNGgeOGUoZmZN4c4H4yE2YQX-2UMDR0rHNv73lw"/>
+<div class="absolute bottom-0 left-0 p-8 z-20 w-full">
+<div class="flex items-center gap-2 mb-2">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="text-tertiary text-xs font-bold uppercase tracking-widest">Game of the Night</span>
+</div>
+<h2 class="text-3xl font-black uppercase italic text-[#FF6B00] mb-2">LAL @ BOS</h2>
+<div class="flex items-center gap-6 text-on-surface">
+<div class="flex flex-col">
+<span class="text-xs opacity-60 uppercase tracking-tighter">Spread</span>
+<span class="text-xl font-bold">BOS -5.5</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs opacity-60 uppercase tracking-tighter">O/U</span>
+<span class="text-xl font-bold">234.5</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs opacity-60 uppercase tracking-tighter">Win Prob</span>
+<span class="text-xl font-bold text-tertiary">68% BOS</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Secondary Widget: Injury Report -->
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-2xl">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-xs font-black uppercase tracking-widest text-[#FF6B00]">Critical Injuries</h3>
+<span class="material-symbols-outlined text-on-surface-variant">emergency</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex-shrink-0 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close up portrait of a professional male basketball player with serious expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBCNeRMTfrcH_rspLIrMql8V1m1KqKTc70j9wP3DF8ikjyeISAGFZXMrrqH8senAVG04IbZexVRi5ty8w3fMXdKt5N0Eqy1z8R5_zP4zzaILXp-X-shx203GRTVqUTMfBKioFljcY2L5P_IiuzILRG1NI5NCQARKWcdMUOBP54B3X-WWXZ3mive2e718ueRHe2UWIDyF7Y4KlFlrE9h19Gd8ZFUY5S4AEe-5BCRn4LI_crVHIKqO_kDrHQKjOE6SIWDjQtzBkSBrw"/>
+</div>
+<div>
+<p class="text-sm font-bold">Luka Dončić</p>
+<p class="text-[10px] text-error uppercase font-black">OUT (Ankle)</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex-shrink-0 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Headshot of professional basketball player in team jersey" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDY8BArC9oHEpbifA51Q9wp77X8usg2wF-vwEo2TF8TQlOlBMjabssVAjVXQItpbEy7rWNcAukR3amY_kTqTBMy-4AMGiFOFSkNdmRF4FvaLBCEhhRapJfJk6sUAO230EWMYzxDM0IDBznIm6KWl8VouG0d-lplGaQDbU2VC5-Uxop6ca0ODpUP0XKjm5cEFdfUc4BURxR9uiWiwmZMAUo5RkrzTjgelBSOF22l1iPNl8eZ4L9ab_Lf3cgUyh8MDUNEKkSLgSyt7Q"/>
+</div>
+<div>
+<p class="text-sm font-bold">Joel Embiid</p>
+<p class="text-[10px] text-primary font-black">QUESTIONABLE (Knee)</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex-shrink-0 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Professional athlete looking focused" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQ3jD94a2WD1n89K0blQ_UFRetTPLqCgGvBrVJmaJaj-RhMCdjyjcKJ4C0opdnJ-UjLLCz06PqMu_FarVJSxqvmT_lBJ1ie6QwlP8ogSLohsTX7L4TOBbX7ULy6WGCCLC2QSpYNf0kF7HwHg_ERpJFRo9QnoRxFDOCm6H9k1s2x1fOaNRKsRHuMLEsAn54qPXSi-f3VRbRbdttwBXeD_Mxczx8PBmZDR30kKeW2GQXEHWLHttWt0PkSZi1yFTtaqvRJdivIsfHsA"/>
+</div>
+<div>
+<p class="text-sm font-bold">Ja Morant</p>
+<p class="text-[10px] text-error uppercase font-black">OUT (Shoulder)</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-6 py-2 border border-outline-variant rounded text-[10px] font-bold uppercase hover:bg-surface-container-highest transition-colors">View All Reports</button>
+</div>
+</div>
+</section>
+<!-- Featured Props Section -->
+<section class="mb-12">
+<div class="flex items-center justify-between mb-8">
+<h2 class="text-2xl font-black uppercase italic tracking-tighter">High Probability Props (PRA)</h2>
+<div class="flex items-center gap-4">
+<button class="p-2 bg-surface-container rounded-lg hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">filter_list</span>
+</button>
+<button class="text-xs font-bold text-primary-container">View Market</button>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Prop Card 1 -->
+<div class="bg-surface-container-low rounded-xl p-5 border-l-4 border-primary-container relative overflow-hidden group">
+<div class="flex justify-between items-start relative z-10">
+<div>
+<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Denver Nuggets</p>
+<h3 class="text-xl font-black uppercase italic">Nikola Jokić</h3>
+</div>
+<span class="bg-tertiary/10 text-tertiary px-2 py-1 rounded text-[10px] font-bold">82% CONFIDENCE</span>
+</div>
+<div class="mt-6 space-y-4 relative z-10">
+<div class="flex justify-between items-end">
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">PRA Line</p>
+<p class="text-4xl font-black text-on-surface">52.5</p>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold text-primary-container uppercase mb-1">The Edge</p>
+<p class="text-xl font-black italic">OVER (-115)</p>
+</div>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full w-[82%]"></div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-high py-3 rounded-lg font-black text-xs hover:bg-primary-container hover:text-on-primary transition-all">BET OVER</button>
+<button class="flex-1 bg-surface-container-high py-3 rounded-lg font-black text-xs hover:bg-primary-container hover:text-on-primary transition-all">BET UNDER</button>
+</div>
+</div>
+<!-- Aesthetic Player Background Shadow -->
+<span class="absolute -bottom-4 -right-4 text-8xl font-black italic opacity-[0.03] select-none pointer-events-none group-hover:scale-110 transition-transform duration-500">15</span>
+</div>
+<!-- Prop Card 2 -->
+<div class="bg-surface-container-low rounded-xl p-5 border-l-4 border-tertiary-container relative overflow-hidden group">
+<div class="flex justify-between items-start relative z-10">
+<div>
+<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Dallas Mavericks</p>
+<h3 class="text-xl font-black uppercase italic">Kyrie Irving</h3>
+</div>
+<span class="bg-tertiary/10 text-tertiary px-2 py-1 rounded text-[10px] font-bold">75% CONFIDENCE</span>
+</div>
+<div class="mt-6 space-y-4 relative z-10">
+<div class="flex justify-between items-end">
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">PRA Line</p>
+<p class="text-4xl font-black text-on-surface">38.5</p>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold text-tertiary uppercase mb-1">The Edge</p>
+<p class="text-xl font-black italic">UNDER (+110)</p>
+</div>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-tertiary-container h-full w-[75%]"></div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-high py-3 rounded-lg font-black text-xs hover:bg-tertiary-container hover:text-on-tertiary transition-all">BET OVER</button>
+<button class="flex-1 bg-surface-container-high py-3 rounded-lg font-black text-xs hover:bg-tertiary-container hover:text-on-tertiary transition-all">BET UNDER</button>
+</div>
+</div>
+<span class="absolute -bottom-4 -right-4 text-8xl font-black italic opacity-[0.03] select-none pointer-events-none group-hover:scale-110 transition-transform duration-500">11</span>
+</div>
+<!-- Prop Card 3 -->
+<div class="bg-surface-container-low rounded-xl p-5 border-l-4 border-primary-container relative overflow-hidden group">
+<div class="flex justify-between items-start relative z-10">
+<div>
+<p class="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-1">Miami Heat</p>
+<h3 class="text-xl font-black uppercase italic">Bam Adebayo</h3>
+</div>
+<span class="bg-tertiary/10 text-tertiary px-2 py-1 rounded text-[10px] font-bold">69% CONFIDENCE</span>
+</div>
+<div class="mt-6 space-y-4 relative z-10">
+<div class="flex justify-between items-end">
+<div>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">PRA Line</p>
+<p class="text-4xl font-black text-on-surface">32.5</p>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold text-primary-container uppercase mb-1">The Edge</p>
+<p class="text-xl font-black italic">OVER (-105)</p>
+</div>
+</div>
+<div class="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full w-[69%]"></div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-high py-3 rounded-lg font-black text-xs hover:bg-primary-container hover:text-on-primary transition-all">BET OVER</button>
+<button class="flex-1 bg-surface-container-high py-3 rounded-lg font-black text-xs hover:bg-primary-container hover:text-on-primary transition-all">BET UNDER</button>
+</div>
+</div>
+<span class="absolute -bottom-4 -right-4 text-8xl font-black italic opacity-[0.03] select-none pointer-events-none group-hover:scale-110 transition-transform duration-500">13</span>
+</div>
+</div>
+</section>
+<!-- Standings Widget & Live Stream Carousel -->
+<section class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+<!-- Standings Widget -->
+<div class="bg-surface-container rounded-xl overflow-hidden">
+<div class="p-6 border-b border-[#353534]/30 flex justify-between items-center">
+<h2 class="text-lg font-black uppercase italic tracking-tighter">Quick Standings</h2>
+<select class="bg-surface-container-lowest border-none text-[10px] font-bold uppercase py-1 pl-2 pr-8 rounded text-on-surface-variant">
+<option>Western Conference</option>
+<option>Eastern Conference</option>
+</select>
+</div>
+<div class="p-0">
+<table class="w-full text-left">
+<thead class="bg-surface-container-low text-[10px] uppercase font-black text-on-surface-variant">
+<tr>
+<th class="px-6 py-3">Team</th>
+<th class="px-4 py-3 text-center">W</th>
+<th class="px-4 py-3 text-center">L</th>
+<th class="px-4 py-3 text-center">STRK</th>
+<th class="px-6 py-3 text-right">L10</th>
+</tr>
+</thead>
+<tbody class="text-xs">
+<tr class="hover:bg-surface-container-highest/50 border-b border-[#353534]/10">
+<td class="px-6 py-4 font-bold flex items-center gap-3">
+<span class="w-2 h-2 rounded bg-primary-container"></span>
+                                    DEN Nuggets
+                                </td>
+<td class="px-4 py-4 text-center">12</td>
+<td class="px-4 py-4 text-center">4</td>
+<td class="px-4 py-4 text-center text-primary">W3</td>
+<td class="px-6 py-4 text-right">8-2</td>
+</tr>
+<tr class="hover:bg-surface-container-highest/50 border-b border-[#353534]/10">
+<td class="px-6 py-4 font-bold flex items-center gap-3">
+<span class="w-2 h-2 rounded bg-secondary-container"></span>
+                                    MIN Timberwolves
+                                </td>
+<td class="px-4 py-4 text-center">11</td>
+<td class="px-4 py-4 text-center">5</td>
+<td class="px-4 py-4 text-center text-primary">W1</td>
+<td class="px-6 py-4 text-right">7-3</td>
+</tr>
+<tr class="hover:bg-surface-container-highest/50 border-b border-[#353534]/10">
+<td class="px-6 py-4 font-bold flex items-center gap-3">
+<span class="w-2 h-2 rounded bg-surface-container-highest"></span>
+                                    OKC Thunder
+                                </td>
+<td class="px-4 py-4 text-center">11</td>
+<td class="px-4 py-4 text-center">6</td>
+<td class="px-4 py-4 text-center text-error">L1</td>
+<td class="px-6 py-4 text-right">6-4</td>
+</tr>
+<tr class="hover:bg-surface-container-highest/50">
+<td class="px-6 py-4 font-bold flex items-center gap-3">
+<span class="w-2 h-2 rounded bg-surface-container-highest"></span>
+                                    DAL Mavericks
+                                </td>
+<td class="px-4 py-4 text-center">10</td>
+<td class="px-4 py-4 text-center">7</td>
+<td class="px-4 py-4 text-center text-primary">W2</td>
+<td class="px-6 py-4 text-right">5-5</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Performance Tracker / Betting Insights -->
+<div class="bg-gradient-to-br from-surface-container-low to-surface-container-lowest rounded-xl p-8 relative overflow-hidden">
+<div class="relative z-10">
+<h2 class="text-2xl font-black uppercase italic tracking-tighter mb-4">Your Edge Today</h2>
+<p class="text-on-surface-variant text-sm mb-8 leading-relaxed">Based on your tracking history, you perform best on <span class="text-primary font-bold">Western Conference Overs</span>. We've highlighted 4 matching opportunities for tonight's slate.</p>
+<div class="space-y-4">
+<div class="bg-surface-container-high/40 p-4 rounded-lg flex items-center justify-between border-l-2 border-primary-container">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary-container">trending_up</span>
+<div>
+<p class="font-bold">GSW @ PHX Over 231</p>
+<p class="text-[10px] uppercase opacity-60">High-volume mismatch</p>
+</div>
+</div>
+<span class="text-xl font-black italic">-110</span>
+</div>
+<div class="bg-surface-container-high/40 p-4 rounded-lg flex items-center justify-between border-l-2 border-primary-container">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary-container">insights</span>
+<div>
+<p class="font-bold">LAL @ BOS Over 228.5</p>
+<p class="text-[10px] uppercase opacity-60">Historical Trend: 78%</p>
+</div>
+</div>
+<span class="text-xl font-black italic">-105</span>
+</div>
+</div>
+</div>
+<div class="absolute top-0 right-0 p-10 opacity-10">
+<span class="material-symbols-outlined text-9xl">analytics</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Shell (Mobile) -->
+<nav class="fixed bottom-0 w-full flex justify-around items-center px-4 py-3 bg-[#131313]/90 backdrop-blur-md border-t border-[#353534]/30 lg:hidden z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-[#FF6B00] bg-[#FF6B00]/10 rounded-xl px-4 py-2 scale-110 transition-transform duration-300" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+<span class="text-[10px] font-bold uppercase font-inter mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#e5e2e1]/60 px-4 py-2 active:bg-[#353534] transition-all" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-[10px] font-bold uppercase font-inter mt-1">Parlay</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#e5e2e1]/60 px-4 py-2 active:bg-[#353534] transition-all" href="#">
+<span class="material-symbols-outlined">sensors</span>
+<span class="text-[10px] font-bold uppercase font-inter mt-1">Live</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#e5e2e1]/60 px-4 py-2 active:bg-[#353534] transition-all" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-bold uppercase font-inter mt-1">Profile</span>
+</a>
+</nav>
+</body></html>

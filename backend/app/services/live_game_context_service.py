@@ -7,8 +7,83 @@ import structlog
 from .espn_api_service import get_espn_service
 from .espn_mapping_service import get_espn_mapping_service
 from .cache_service import get_cache_service
+from .espn_game_log import ESPN_STAT_KEYS, _parse_minutes
 
 logger = structlog.get_logger()
+
+
+def _build_espn_box_index_from_summary(summary: Optional[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """
+    Parse ESPN game summary once into espn_athlete_id -> {pts, reb, ast, minutes}.
+    Supports nested boxscore (statistics[].athletes[]) and flat {athlete, statistics[]} rows.
+    """
+    out: Dict[str, Dict[str, Any]] = {}
+    if not summary:
+        return out
+    box = summary.get("boxscore") or {}
+    players_blocks = box.get("players") or []
+
+    for player_block in players_blocks:
+        for stat_block in player_block.get("statistics") or []:
+            keys = stat_block.get("keys") or list(ESPN_STAT_KEYS)
+            for ath in stat_block.get("athletes") or []:
+                a = ath.get("athlete") or {}
+                aid = str(a.get("id") or "")
+                if not aid:
+                    continue
+                raw_stats = ath.get("stats") or []
+                stat_map: Dict[str, Any] = {}
+                for i, k in enumerate(keys):
+                    if i < len(raw_stats):
+                        stat_map[k] = raw_stats[i]
+                pts, reb, ast = 0, 0, 0
+                try:
+                    if stat_map.get("points") not in (None, ""):
+                        pts = int(stat_map["points"])
+                except (ValueError, TypeError):
+                    pass
+                try:
+                    if stat_map.get("rebounds") not in (None, ""):
+                        reb = int(stat_map["rebounds"])
+                except (ValueError, TypeError):
+                    pass
+                try:
+                    if stat_map.get("assists") not in (None, ""):
+                        ast = int(stat_map["assists"])
+                except (ValueError, TypeError):
+                    pass
+                minutes = _parse_minutes(stat_map.get("minutes"))
+                out[aid] = {"pts": pts, "reb": reb, "ast": ast, "minutes": minutes}
+
+    if out:
+        return out
+
+    for row in players_blocks:
+        athlete = row.get("athlete") or {}
+        aid = str(athlete.get("id") or "")
+        if not aid:
+            continue
+        stat_dict: Dict[str, Any] = {}
+        for stat in row.get("statistics") or []:
+            name = (stat.get("name") or "").lower()
+            stat_dict[name] = stat.get("value", 0)
+        pts, reb, ast = 0, 0, 0
+        try:
+            pts = int(stat_dict.get("points", 0) or 0)
+        except (ValueError, TypeError):
+            pass
+        try:
+            reb = int(stat_dict.get("rebounds", 0) or 0)
+        except (ValueError, TypeError):
+            pass
+        try:
+            ast = int(stat_dict.get("assists", 0) or 0)
+        except (ValueError, TypeError):
+            pass
+        minutes = _parse_minutes(stat_dict.get("minutes"))
+        out[aid] = {"pts": pts, "reb": reb, "ast": ast, "minutes": minutes}
+
+    return out
 
 
 class LiveGameContextService:
@@ -218,6 +293,29 @@ class LiveGameContextService:
         except Exception:
             return {"pts": 0, "reb": 0, "ast": 0, "minutes": 0.0}
     
+    def get_batch_live_box_for_game(self, game_id: str) -> tuple[float, Dict[str, Dict[str, Any]]]:
+        """
+        Single ESPN summary fetch + parse all box rows. Cached ~25s to avoid repeat work
+        across dashboard refreshes and parallel workers.
+        """
+        try:
+            cache_key = f"live_props_box_batch:{game_id}:25s"
+            cached = self.cache.get(cache_key)
+            if cached is not None:
+                return float(cached.get("live_pace", 0.0)), dict(cached.get("by_espn", {}))
+
+            summary = self.espn_service.get_game_summary(game_id)
+            if not summary:
+                return 0.0, {}
+
+            by_espn = _build_espn_box_index_from_summary(summary)
+            pace = self._calculate_current_pace(summary, None)
+            self.cache.set(cache_key, {"live_pace": pace, "by_espn": by_espn}, ttl=25)
+            return pace, by_espn
+        except Exception as e:
+            logger.warning("batch live box failed", game_id=game_id, error=str(e))
+            return 0.0, {}
+
     def _count_player_fouls(
         self, 
         playbyplay: Optional[Dict[str, Any]], 
@@ -379,6 +477,28 @@ class LiveGameContextService:
             "free_throw_rate": 0.20,
             "foul_situation_impact": 0.0
         }
+
+    @staticmethod
+    def compute_stat_progression(
+        current_stat: float,
+        line: float,
+        minutes_played: float,
+        live_pace: float = 0.0,
+    ) -> Dict[str, Any]:
+        """
+        Live prop progression: completion vs line and a simple per-minute pace projection.
+        live_pace is optional context from the game (team points per 48); included for future tuning.
+        """
+        _ = live_pace  # reserved for richer pace-normalized projections
+        if line <= 0:
+            return {"current": current_stat, "pace": 0, "completion_pct": 0}
+        completion_pct = min(100, max(0, int((current_stat / line) * 100)))
+        if minutes_played and minutes_played > 0:
+            pace = int((current_stat / minutes_played) * 36.0)
+        else:
+            pace = int(line * 1.08)
+        pace = max(0, min(pace, 999))
+        return {"current": current_stat, "pace": pace, "completion_pct": completion_pct}
 
 
 # Global service instance

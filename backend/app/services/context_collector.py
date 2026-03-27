@@ -34,6 +34,23 @@ def _normalize_rank_keys(ranks: Dict[Any, Dict[str, int]]) -> Dict[int, Dict[str
 # Idempotent guard: only one background recompute runs at a time
 _ranks_recomputing: threading.Event = threading.Event()
 
+# Set after startup (or failed startup) rank warm so detail requests can wait briefly instead of racing cold cache.
+_ranks_ready_event: threading.Event = threading.Event()
+
+
+def set_ranks_ready() -> None:
+    """Signal that initial rank warm has finished (or been abandoned); unblocks wait_until_ranks_ready."""
+    _ranks_ready_event.set()
+
+
+def wait_until_ranks_ready(timeout_s: float = 10.0) -> bool:
+    """Block until startup rank warm completed, or timeout. Returns True if event was set."""
+    return _ranks_ready_event.wait(timeout=timeout_s)
+
+
+def is_ranks_ready() -> bool:
+    return _ranks_ready_event.is_set()
+
 # Minutes threshold: treat as "did not play" if minutes is 0 or missing (DNP)
 MIN_MINUTES_PLAYED_THRESHOLD = 0.5
 # If most recent game or last 2 games have no minutes, infer possible injury

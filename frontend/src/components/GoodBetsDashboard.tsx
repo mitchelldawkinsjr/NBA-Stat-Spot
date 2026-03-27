@@ -741,12 +741,13 @@ export function GoodBetsDashboard() {
       {/* ── Main Grid ── */}
       <div className="px-6 grid grid-cols-1 xl:grid-cols-12 gap-6 pb-8">
 
-        {/* ── Hero: AI Pick of the Day ── */}
-        <section className="xl:col-span-12">
+        {/* ── Bento row: AI Master Pick | Matchup Predictor + Quick Prop Lab ── */}
+        <div className="xl:col-span-12 flex flex-col md:flex-row md:items-stretch gap-6 min-h-0">
+        <section className="min-w-0 flex min-h-0 flex-col flex-[2]">
           {pickOfTheDayLoading ? (
-            <div className="bg-surface-container rounded min-h-[380px] animate-pulse" />
+            <div className="bg-surface-container rounded min-h-[380px] flex-1 animate-pulse" />
           ) : pickOfTheDay ? (
-            <div className="relative overflow-hidden bg-surface-container rounded min-h-[380px] flex flex-col md:flex-row group border border-outline-variant/20">
+            <div className="relative overflow-hidden bg-surface-container rounded min-h-[380px] h-full flex flex-1 flex-col md:flex-row group border border-outline-variant/20">
               <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent z-10" />
               <button
                 onClick={() => navigate(`/player/${pickOfTheDay.playerId}`)}
@@ -759,7 +760,7 @@ export function GoodBetsDashboard() {
                   className="w-full h-full object-cover object-center opacity-60 group-hover:opacity-90 group-hover:scale-105 group-hover:grayscale-0 group-hover:brightness-100 transition-all duration-700 grayscale brightness-75"
                 />
               </button>
-              <div className="relative z-20 p-8 flex flex-col justify-end h-full w-full md:w-3/5 min-h-[380px]">
+              <div className="relative z-20 p-8 flex flex-col justify-end flex-1 w-full md:w-3/5 min-h-[380px] md:min-h-0">
                 <div className="flex items-center gap-2 mb-4">
                   <span className="bg-primary-container text-on-primary text-[10px] font-black px-3 py-1 rounded uppercase tracking-[0.2em] flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[14px]">psychology</span> AI MASTER PICK
@@ -800,7 +801,7 @@ export function GoodBetsDashboard() {
               </div>
             </div>
           ) : bestMatchOfTheDay ? (
-            <div className="bg-surface-container rounded p-8 border border-outline-variant/20 flex flex-col gap-4">
+            <div className="bg-surface-container rounded p-8 border border-outline-variant/20 flex flex-1 flex-col gap-4 min-h-[380px] justify-center">
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-1.5 h-1.5 bg-tertiary-container rounded-full animate-pulse" />
                 <span className="text-[10px] font-black text-tertiary-container uppercase tracking-widest">Game of the Night</span>
@@ -819,7 +820,7 @@ export function GoodBetsDashboard() {
               </button>
             </div>
           ) : (
-            <div className="bg-surface-container rounded p-8 border border-outline-variant/20 flex items-center justify-center min-h-[200px]">
+            <div className="bg-surface-container rounded p-8 border border-outline-variant/20 flex flex-1 items-center justify-center min-h-[380px]">
               <div className="text-center">
                 <span className="material-symbols-outlined text-4xl text-on-surface/20 block mb-2">psychology</span>
                 <p className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">AI Pick of the Day loading…</p>
@@ -828,12 +829,10 @@ export function GoodBetsDashboard() {
           )}
         </section>
 
-        {/* ── Sidebar: Matchup Predictor ── */}
-        <section className="xl:col-span-4">
-          {/* Best Match Predictor */}
+        <aside className="min-w-0 flex min-h-0 flex-1 flex-col gap-6">
           {bestMatchOfTheDay && (
-            <div className="bg-surface-container p-6 rounded border border-outline-variant/20">
-              <h3 className="text-[10px] font-black text-primary-container tracking-[0.2em] uppercase mb-6 flex items-center gap-2">
+            <div className="bg-surface-container p-6 rounded border border-outline-variant/20 shrink-0 flex flex-col">
+              <h3 className="text-[10px] font-black text-primary-container tracking-[0.2em] uppercase mb-4 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary-container rounded-full" /> MATCHUP PREDICTOR
               </h3>
               {(() => {
@@ -878,16 +877,14 @@ export function GoodBetsDashboard() {
               })()}
             </div>
           )}
-
-        </section>
-
-        {/* ── Quick Prop Lab (under AI Master Pick on xl) ── */}
-        <section className="xl:col-span-8">
-          <div className="bg-surface-container p-6 rounded border border-outline-variant/20">
-            <h3 className="text-[10px] font-black text-on-surface-variant tracking-[0.2em] uppercase mb-6">QUICK PROP LAB</h3>
-            <QuickPropLab />
+          <div className="bg-surface-container p-6 rounded border border-outline-variant/20 flex min-h-0 flex-1 flex-col overflow-hidden max-md:min-h-[20rem]">
+            <h3 className="text-[10px] font-black text-on-surface-variant tracking-[0.2em] uppercase mb-4 shrink-0">QUICK PROP LAB</h3>
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden [-webkit-overflow-scrolling:touch]">
+              <QuickPropLab />
+            </div>
           </div>
-        </section>
+        </aside>
+        </div>
 
         {/* ── High Conviction Props ── */}
         <section className="xl:col-span-12">

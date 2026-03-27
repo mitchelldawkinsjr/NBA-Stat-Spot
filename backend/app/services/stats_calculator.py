@@ -21,6 +21,34 @@ class StatsCalculator:
         return hits / len(vals)
 
     @staticmethod
+    def trend_period(
+        player_stats: List[Dict],
+        line_value: float,
+        stat_type: str,
+        direction: str,
+        n_games: int,
+    ) -> Dict:
+        """
+        Hit/miss per game for the last n_games (or fewer if log is short).
+        Returns hit_rate_percentage, hits, total, results (oldest→newest in window).
+        """
+        if n_games <= 0:
+            return {"hit_rate_percentage": 0, "hits": 0, "total": 0, "results": []}
+        window = player_stats[-n_games:] if len(player_stats) >= n_games else player_stats
+        direction_l = (direction or "over").lower()
+        results: List[bool] = []
+        for g in window:
+            v = float(g.get(stat_type, 0) or 0)
+            if direction_l == "under":
+                results.append(v < line_value)
+            else:
+                results.append(v > line_value)
+        hits = sum(1 for r in results if r)
+        total = len(results)
+        pct = round(100 * hits / total) if total else 0
+        return {"hit_rate_percentage": pct, "hits": hits, "total": total, "results": results}
+
+    @staticmethod
     def calculate_recent_form(player_stats: List[Dict], stat_type: str, n_games: int = 5) -> Dict:
         vals = [float(g.get(stat_type, 0) or 0) for g in player_stats][-n_games:]
         if not vals:
