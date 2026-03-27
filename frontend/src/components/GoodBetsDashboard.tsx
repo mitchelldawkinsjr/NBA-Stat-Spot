@@ -584,26 +584,10 @@ export function GoodBetsDashboard() {
       const raw = leagueStatLeadersData?.items
       if (!raw || typeof raw !== 'object') return empty
       return {
-        PTS: (raw.PTS || []).map((l: any) => ({
-          playerId: l.playerId,
-          playerName: l.playerName || 'Unknown',
-          PTS: l.PTS,
-        })),
-        AST: (raw.AST || []).map((l: any) => ({
-          playerId: l.playerId,
-          playerName: l.playerName || 'Unknown',
-          AST: l.AST,
-        })),
-        REB: (raw.REB || []).map((l: any) => ({
-          playerId: l.playerId,
-          playerName: l.playerName || 'Unknown',
-          REB: l.REB,
-        })),
-        '3PM': (raw['3PM'] || []).map((l: any) => ({
-          playerId: l.playerId,
-          playerName: l.playerName || 'Unknown',
-          '3PM': l['3PM'],
-        })),
+        PTS: (raw.PTS || []),
+        AST: (raw.AST || []),
+        REB: (raw.REB || []),
+        '3PM': (raw['3PM'] || []),
       }
     }
     // "Today" = top props per category from today's daily props
@@ -1154,11 +1138,11 @@ export function GoodBetsDashboard() {
                   <tbody className="text-[10px] font-black uppercase tracking-widest">
                     {(['PTS','AST','REB'] as const).flatMap(cat =>
                       (statLeaders[cat] ?? []).slice(0, 2).map((s: any, j: number) => {
-                        // For SEASON: s has {playerId, playerName, PTS, AST, REB, 3PM}
+                        // For SEASON: s has {playerId, playerName, value}
                         // For TODAY: s has {playerId, playerName, fairLine, marketLine, type}
                         const statValue = statLeadersFilterToday 
                           ? (s.fairLine ?? s.marketLine ?? 0)
-                          : (s[cat] ?? 0)
+                          : (s.value ?? 0)
                         return (
                         <tr key={`${cat}-${j}`} className="border-b border-outline-variant/10 hover:bg-background/50 transition-colors">
                           <td className="py-4 px-3">
