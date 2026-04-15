@@ -542,12 +542,18 @@ class ContextCollector:
                     continue
                 
                 try:
-                    # Get team's recent games from ESPN schedule
+                    # Get team's recent games from ESPN schedule.
+                    # Some ESPN clients return a dict {"events":[...]}; others return list[events].
                     schedule = espn.get_team_schedule(espn_slug)
                     if not schedule:
                         continue
-                    
-                    events = schedule.get("events", [])
+
+                    if isinstance(schedule, dict):
+                        events = schedule.get("events", [])
+                    elif isinstance(schedule, list):
+                        events = schedule
+                    else:
+                        events = []
                     team_scores = []
                     
                     # Look through recent completed games
@@ -1519,4 +1525,3 @@ class ContextCollector:
                 return context
         
         return context
-
