@@ -37,6 +37,20 @@ logger = structlog.get_logger()
 HOME_COURT_ADVANTAGE = 0.04
 
 
+def _normalize_team_abbr(abbr: Optional[str]) -> str:
+    """Normalize ESPN/NBA abbreviation variants to canonical NBA-style abbreviations."""
+    if not abbr:
+        return ""
+    u = abbr.strip().upper()
+    alias_to_nba = {
+        "SA": "SAS",
+        "NO": "NOP",
+        "GS": "GSW",
+        "NY": "NYK",
+    }
+    return alias_to_nba.get(u, u)
+
+
 def _get_teams_by_abbr() -> Dict[str, Dict[str, Any]]:
     """Return map of uppercase abbreviation -> {id, full_name, abbreviation}."""
     cache = get_cache_service()
@@ -61,19 +75,10 @@ def _resolve_team(teams_by_abbr: Dict[str, Dict[str, Any]], espn_abbr: str) -> O
     """
     if not espn_abbr:
         return None
-    u = espn_abbr.strip().upper()
+    u = _normalize_team_abbr(espn_abbr)
     if u in teams_by_abbr:
         return teams_by_abbr[u]
     # Common short forms not present on nba_api team list
-    alias_to_nba = {
-        "SA": "SAS",
-        "NO": "NOP",
-        "GS": "GSW",
-        "NY": "NYK",
-    }
-    alt = alias_to_nba.get(u)
-    if alt and alt in teams_by_abbr:
-        return teams_by_abbr[alt]
     tid = NBADataService.ESPN_ABBR_TO_NBA_ID.get(u)
     if tid is not None:
         for info in teams_by_abbr.values():
@@ -862,11 +867,16 @@ def _get_team_key_players(
                 # Compute average minutes from logs
                 mins_vals = []
                 for g in logs[:20]:
-                    m_raw = g.get("min")
-                    if m_raw is None:
+                    m_raw = g.get("minutes", g.get("min"))
+                    if m_raw is None or m_raw == "":
                         continue
                     try:
-                        mins_vals.append(float(str(m_raw).split(":")[0]))
+                        m_str = str(m_raw)
+                        if ":" in m_str:
+                            mm, ss = m_str.split(":", 1)
+                            mins_vals.append(float(mm) + (float(ss) / 60.0))
+                        else:
+                            mins_vals.append(float(m_str))
                     except Exception:
                         pass
                 avg_mins = (_avg(mins_vals) or 0)
@@ -949,18 +959,19 @@ def _get_h2h_from_schedule(
             if not ev_home or not ev_away:
                 continue
             # Only include games between these two specific teams
-            pair = {ev_home["abbr"], ev_away["abbr"]}
-            if not ({home_abbr, away_abbr} == pair or {home_abbr.upper(), away_abbr.upper()} == pair):
+            pair = {_normalize_team_abbr(ev_home["abbr"]), _normalize_team_abbr(ev_away["abbr"])}
+            req_pair = {_normalize_team_abbr(home_abbr), _normalize_team_abbr(away_abbr)}
+            if req_pair != pair:
                 continue
             # Only include completed games (score > 0)
             if ev_home["score"] == 0 and ev_away["score"] == 0:
                 continue
             game_date = (event.get("date") or "")[:10]
-            winner = ev_home["abbr"] if ev_home["score"] > ev_away["score"] else ev_away["abbr"]
+            winner = _normalize_team_abbr(ev_home["abbr"]) if ev_home["score"] > ev_away["score"] else _normalize_team_abbr(ev_away["abbr"])
             meetings.append({
                 "date": game_date,
-                "home": ev_home["abbr"],
-                "away": ev_away["abbr"],
+                "home": _normalize_team_abbr(ev_home["abbr"]),
+                "away": _normalize_team_abbr(ev_away["abbr"]),
                 "home_score": ev_home["score"],
                 "away_score": ev_away["score"],
                 "winner": winner,

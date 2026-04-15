@@ -466,7 +466,7 @@ export default function GamePredictionPage() {
       </section>
 
       {/* Player impact */}
-      <section className="mt-6 rounded bg-surface-container border border-outline/20 shadow-sm p-4 sm:p-6">
+      <section id="player-impact" className="mt-6 rounded bg-surface-container border border-outline/20 shadow-sm p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-on-surface mb-1">Player impact</h2>
         <p className="text-xs text-on-surface-variant mb-4">Top players by scoring avg. Last 5 = average over last 5 games.</p>
         {(data.home_key_players?.length || data.away_key_players?.length) ? (
@@ -521,7 +521,7 @@ export default function GamePredictionPage() {
       </section>
 
       {/* Historical matchup */}
-      <section className="mt-6 rounded bg-surface-container border border-outline/20 shadow-sm p-4 sm:p-6">
+      <section id="historical-matchup" className="mt-6 rounded bg-surface-container border border-outline/20 shadow-sm p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-on-surface mb-1">Historical matchup</h2>
         {data.h2h_games && data.h2h_games.length > 0 ? (
           <>
