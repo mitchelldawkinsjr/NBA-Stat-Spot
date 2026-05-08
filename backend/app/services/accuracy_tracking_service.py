@@ -10,7 +10,7 @@ import structlog
 
 from ..database import get_db
 from ..models.prediction_accuracy import GamePredictionRecord, PickOfTheDayRecord, PropPredictionRecord
-from ..utils.season import get_current_season
+from ..utils.season import get_current_season, get_previous_season
 from .nba_api_service import NBADataService
 
 logger = structlog.get_logger()
@@ -62,6 +62,22 @@ def _confidence_to_band(confidence: Optional[float]) -> str:
         return "65-69"
     return "<65"
 
+
+
+
+def _season_candidates_for_settlement(target_date: date, season: Optional[str]) -> List[str]:
+    """Return one or two seasons to check when settling a dated record."""
+    if season:
+        return [season]
+    primary = f"{target_date.year if target_date.month >= 10 else target_date.year - 1}-{((target_date.year if target_date.month >= 10 else target_date.year - 1) + 1) % 100:02d}"
+    candidates = [primary]
+    prev = get_previous_season(primary)
+    if prev:
+        candidates.append(prev)
+    current = get_current_season()
+    if current not in candidates:
+        candidates.append(current)
+    return candidates
 
 def _new_prop_bucket() -> Dict[str, int]:
     return {"hits": 0, "misses": 0, "pushes": 0, "settled": 0, "pending": 0}
@@ -415,7 +431,7 @@ def settle_pick_of_the_day(target_date: date, season: Optional[str] = None) -> D
     For a given date, get the pick record, fetch that player's game log, find the game on that date,
     and set actual_value and hit. Returns { settled: bool, actual_value, hit, push, error }.
     """
-    season = season or get_current_season()
+    season_candidates = _season_candidates_for_settlement(target_date, season)
     db = _get_db()
     try:
         record = db.query(PickOfTheDayRecord).filter(
@@ -424,7 +440,11 @@ def settle_pick_of_the_day(target_date: date, season: Optional[str] = None) -> D
         ).first()
         if not record:
             return {"settled": False, "reason": "no_unsettled_record"}
-        logs = NBADataService.fetch_player_game_log(record.player_id, season)
+        logs = []
+        for season_try in season_candidates:
+            logs = NBADataService.fetch_player_game_log(record.player_id, season_try)
+            if logs:
+                break
         date_str = target_date.isoformat()
         game_log_key = STAT_TO_GAME_LOG_KEY.get(record.stat_type, "pts")
         actual_value = None
@@ -477,7 +497,7 @@ def settle_top_picks_for_date(target_date: date, season: Optional[str] = None) -
     Settle all Top Picks (prop_prediction_records) for a date using player game logs.
     Returns { settled, not_found, errors, not_found_sample }.
     """
-    season = season or get_current_season()
+    season_candidates = _season_candidates_for_settlement(target_date, season)
     db = _get_db()
     settled = 0
     not_found = 0
@@ -495,7 +515,11 @@ def settle_top_picks_for_date(target_date: date, season: Optional[str] = None) -
         date_str = target_date.isoformat()
         for record in records:
             try:
-                logs = NBADataService.fetch_player_game_log(record.player_id, season)
+                logs = []
+                for season_try in season_candidates:
+                    logs = NBADataService.fetch_player_game_log(record.player_id, season_try)
+                    if logs:
+                        break
             except Exception as e:
                 errors.append(f"player {record.player_id}: {e}")
                 continue

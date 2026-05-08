@@ -163,7 +163,7 @@ export default function AccuracyPage() {
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-surface-container-high text-gray-900 dark:text-on-surface text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-surface-container-high text-on-surface text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value={7}>7 days</option>
             <option value={14}>14 days</option>
@@ -260,7 +260,7 @@ export default function AccuracyPage() {
               ) : (
                 <>
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="text-3xl font-bold text-gray-900 dark:text-on-surface">
+                    <span className="text-3xl font-bold text-on-surface">
                       {data.game_predictions.total_settled ? (data.game_predictions.accuracy_pct ?? '—') : '—'}
                       {data.game_predictions.total_settled ? '%' : ''}
                     </span>
@@ -269,8 +269,8 @@ export default function AccuracyPage() {
                     </span>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-on-surface-variant">
-                    <span>Recorded: <strong className="text-gray-900 dark:text-on-surface">{data.game_predictions.total}</strong></span>
-                    <span>Settled: <strong className="text-gray-900 dark:text-on-surface">{data.game_predictions.total_settled ?? 0}</strong></span>
+                    <span>Recorded: <strong className="text-on-surface">{data.game_predictions.total}</strong></span>
+                    <span>Settled: <strong className="text-on-surface">{data.game_predictions.total_settled ?? 0}</strong></span>
                     <span>Correct: <strong className="text-emerald-600 dark:text-emerald-400">{data.game_predictions.correct}</strong></span>
                     <span>Wrong: <strong className="text-rose-600 dark:text-rose-400">{data.game_predictions.incorrect ?? 0}</strong></span>
                     <span className="col-span-2">Pending: <strong className="text-amber-600 dark:text-amber-400">{data.game_predictions.pending ?? 0}</strong></span>
@@ -287,24 +287,24 @@ export default function AccuracyPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs sm:text-sm text-left border-collapse">
                     <thead>
-                      <tr className="bg-gray-50 dark:bg-surface-container-high">
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Date</th>
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Matchup</th>
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Predicted</th>
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-right">Conf.</th>
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Actual</th>
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-right">Score</th>
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-center">Status</th>
+                      <tr className="bg-surface-container-high">
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant">Date</th>
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant">Matchup</th>
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant">Predicted</th>
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant text-right">Conf.</th>
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant">Actual</th>
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant text-right">Score</th>
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant text-center">Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.game_predictions.records.map((r, i) => (
                         <tr key={`${r.date}-${r.game_id}-${i}`} className="border-t border-gray-100 dark:border-outline-variant/30">
                           <td className="py-1.5 px-2 text-on-surface-variant">{r.date}</td>
-                          <td className="py-1.5 px-2 font-medium text-gray-900 dark:text-on-surface">{r.matchup}</td>
-                          <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{r.predicted_winner}</td>
+                          <td className="py-1.5 px-2 font-medium text-on-surface">{r.matchup}</td>
+                          <td className="py-1.5 px-2 text-on-surface">{r.predicted_winner}</td>
                           <td className="py-1.5 px-2 text-right text-on-surface-variant">{r.confidence_pct != null ? `${r.confidence_pct}%` : '—'}</td>
-                          <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{r.actual_winner ?? '—'}</td>
+                          <td className="py-1.5 px-2 text-on-surface">{r.actual_winner ?? '—'}</td>
                           <td className="py-1.5 px-2 text-right text-on-surface-variant">{r.home_score != null && r.away_score != null ? `${r.home_score}–${r.away_score}` : '—'}</td>
                           <td className="py-1.5 px-2 text-center">
                             {r.status === 'pending' ? (
@@ -340,7 +340,7 @@ export default function AccuracyPage() {
               ) : (
                 <>
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="text-3xl font-bold text-gray-900 dark:text-on-surface">
+                    <span className="text-3xl font-bold text-on-surface">
                       {(data.pick_of_the_day.settled ?? 0) > 0 && (data.pick_of_the_day.hits + data.pick_of_the_day.misses) > 0
                         ? (data.pick_of_the_day.hit_rate_pct ?? '—')
                         : '—'}
@@ -354,9 +354,9 @@ export default function AccuracyPage() {
                     </span>
                   </div>
                   <div className="mt-2 text-xs text-on-surface-variant">
-                    <span>Recorded: <strong className="text-gray-900 dark:text-on-surface">{data.pick_of_the_day.total}</strong></span>
+                    <span>Recorded: <strong className="text-on-surface">{data.pick_of_the_day.total}</strong></span>
                     <span className="mx-2">·</span>
-                    <span>Settled: <strong className="text-gray-900 dark:text-on-surface">{data.pick_of_the_day.settled ?? 0}</strong></span>
+                    <span>Settled: <strong className="text-on-surface">{data.pick_of_the_day.settled ?? 0}</strong></span>
                     <span className="mx-2">·</span>
                     <span>Pending: <strong className="text-amber-600 dark:text-amber-400">{data.pick_of_the_day.pending ?? 0}</strong></span>
                   </div>
@@ -410,21 +410,21 @@ export default function AccuracyPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs sm:text-sm text-left border-collapse">
                     <thead>
-                      <tr className="bg-gray-50 dark:bg-surface-container-high">
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Date</th>
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Player</th>
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Prop</th>
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Line</th>
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Actual</th>
-                        <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-center">Result</th>
+                      <tr className="bg-surface-container-high">
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant">Date</th>
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant">Player</th>
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant">Prop</th>
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant">Line</th>
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant">Actual</th>
+                        <th className="py-2 px-2 font-semibold text-on-surface-variant text-center">Result</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.pick_of_the_day.records.map((r, i) => (
                         <tr key={`${r.date}-${r.player_name}-${i}`} className="border-t border-gray-100 dark:border-outline-variant/30">
                           <td className="py-1.5 px-2 text-on-surface-variant">{r.date}</td>
-                          <td className="py-1.5 px-2 font-medium text-gray-900 dark:text-on-surface">{r.player_name}</td>
-                          <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{r.stat_type} {r.suggestion}</td>
+                          <td className="py-1.5 px-2 font-medium text-on-surface">{r.player_name}</td>
+                          <td className="py-1.5 px-2 text-on-surface">{r.stat_type} {r.suggestion}</td>
                           <td className="py-1.5 px-2 text-on-surface-variant">{r.line_value}</td>
                           <td className="py-1.5 px-2 text-on-surface-variant">{r.actual_value ?? '—'}</td>
                           <td className="py-1.5 px-2 text-center">
@@ -437,7 +437,7 @@ export default function AccuracyPage() {
                             ) : r.hit === false ? (
                               <span className="text-rose-600 dark:text-rose-400 font-semibold">Miss</span>
                             ) : (
-                              <span className="text-gray-400">—</span>
+                              <span className="text-on-surface-variant">—</span>
                             )}
                           </td>
                         </tr>
@@ -463,7 +463,7 @@ export default function AccuracyPage() {
               {data.top_picks && (data.top_picks.overall.total ?? data.top_picks.records.length) > 0 ? (
                 <>
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="text-3xl font-bold text-gray-900 dark:text-on-surface">
+                    <span className="text-3xl font-bold text-on-surface">
                       {(data.top_picks.overall.hits + data.top_picks.overall.misses) > 0
                         ? (data.top_picks.overall.hit_rate_pct ?? '—')
                         : '—'}
@@ -482,8 +482,8 @@ export default function AccuracyPage() {
                     </strong>
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-on-surface-variant">
-                    <span>Rows: <strong className="text-gray-900 dark:text-on-surface">{data.top_picks.overall.total ?? data.top_picks.records.length}</strong></span>
-                    <span>Settled: <strong className="text-gray-900 dark:text-on-surface">{data.top_picks.overall.settled}</strong></span>
+                    <span>Rows: <strong className="text-on-surface">{data.top_picks.overall.total ?? data.top_picks.records.length}</strong></span>
+                    <span>Settled: <strong className="text-on-surface">{data.top_picks.overall.settled}</strong></span>
                     <span>Hits / Miss: <strong className="text-emerald-600 dark:text-emerald-400">{data.top_picks.overall.hits}</strong>
                       {' / '}
                       <strong className="text-rose-600 dark:text-rose-400">{data.top_picks.overall.misses}</strong>
@@ -556,22 +556,22 @@ export default function AccuracyPage() {
                   </section>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <section className="rounded-xl bg-surface-container border border-gray-200 dark:border-outline-variant/30 shadow-sm p-4 sm:p-6">
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-on-surface mb-2">By stat type</h3>
+                      <h3 className="text-base font-semibold text-on-surface mb-2">By stat type</h3>
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs text-left border-collapse">
                           <thead>
-                            <tr className="bg-gray-50 dark:bg-surface-container-high">
-                              <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Stat</th>
-                              <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Hit %</th>
-                              <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Graded</th>
+                            <tr className="bg-surface-container-high">
+                              <th className="py-1.5 px-2 font-semibold text-on-surface-variant">Stat</th>
+                              <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Hit %</th>
+                              <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Graded</th>
                             </tr>
                           </thead>
                           <tbody>
                             {Object.entries(tp.by_stat).map(([k, b]) => (
                               <tr key={k} className="border-t border-gray-100 dark:border-outline-variant/30">
-                                <td className="py-1.5 px-2 text-gray-800 dark:text-on-surface">{k}</td>
+                                <td className="py-1.5 px-2 text-on-surface">{k}</td>
                                 <td className="py-1.5 px-2 text-right text-on-surface-variant">{b.hit_rate_pct != null ? `${b.hit_rate_pct}%` : '—'}</td>
-                                <td className="py-1.5 px-2 text-right text-gray-500 dark:text-gray-500">{b.hits + b.misses}</td>
+                                <td className="py-1.5 px-2 text-right text-on-surface-variant">{b.hits + b.misses}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -579,22 +579,22 @@ export default function AccuracyPage() {
                       </div>
                     </section>
                     <section className="rounded-xl bg-surface-container border border-gray-200 dark:border-outline-variant/30 shadow-sm p-4 sm:p-6">
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-on-surface mb-2">By direction</h3>
+                      <h3 className="text-base font-semibold text-on-surface mb-2">By direction</h3>
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs text-left border-collapse">
                           <thead>
-                            <tr className="bg-gray-50 dark:bg-surface-container-high">
-                              <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Side</th>
-                              <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Hit %</th>
-                              <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Graded</th>
+                            <tr className="bg-surface-container-high">
+                              <th className="py-1.5 px-2 font-semibold text-on-surface-variant">Side</th>
+                              <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Hit %</th>
+                              <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Graded</th>
                             </tr>
                           </thead>
                           <tbody>
                             {Object.entries(tp.by_direction).map(([k, b]) => (
                               <tr key={k} className="border-t border-gray-100 dark:border-outline-variant/30">
-                                <td className="py-1.5 px-2 text-gray-800 dark:text-on-surface uppercase">{k}</td>
+                                <td className="py-1.5 px-2 text-on-surface uppercase">{k}</td>
                                 <td className="py-1.5 px-2 text-right text-on-surface-variant">{b.hit_rate_pct != null ? `${b.hit_rate_pct}%` : '—'}</td>
-                                <td className="py-1.5 px-2 text-right text-gray-500 dark:text-gray-500">{b.hits + b.misses}</td>
+                                <td className="py-1.5 px-2 text-right text-on-surface-variant">{b.hits + b.misses}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -603,15 +603,15 @@ export default function AccuracyPage() {
                     </section>
                   </div>
                   <section className="rounded-xl bg-surface-container border border-gray-200 dark:border-outline-variant/30 shadow-sm p-4 sm:p-6">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-on-surface mb-2">Tier × stat</h3>
+                    <h3 className="text-base font-semibold text-on-surface mb-2">Tier × stat</h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs text-left border-collapse">
                         <thead>
-                          <tr className="bg-gray-50 dark:bg-surface-container-high">
-                            <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Tier</th>
-                            <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Stat</th>
-                            <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Hit %</th>
-                            <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Graded</th>
+                          <tr className="bg-surface-container-high">
+                            <th className="py-1.5 px-2 font-semibold text-on-surface-variant">Tier</th>
+                            <th className="py-1.5 px-2 font-semibold text-on-surface-variant">Stat</th>
+                            <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Hit %</th>
+                            <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Graded</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -620,10 +620,10 @@ export default function AccuracyPage() {
                             if (!inner) return []
                             return Object.entries(inner).map(([st, b]) => (
                               <tr key={`${tier}-${st}`} className="border-t border-gray-100 dark:border-outline-variant/30">
-                                <td className="py-1.5 px-2 text-gray-800 dark:text-on-surface capitalize">{tier}</td>
-                                <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300">{st}</td>
+                                <td className="py-1.5 px-2 text-on-surface capitalize">{tier}</td>
+                                <td className="py-1.5 px-2 text-on-surface">{st}</td>
                                 <td className="py-1.5 px-2 text-right text-on-surface-variant">{b.hit_rate_pct != null ? `${b.hit_rate_pct}%` : '—'}</td>
-                                <td className="py-1.5 px-2 text-right text-gray-500 dark:text-gray-500">{b.hits + b.misses}</td>
+                                <td className="py-1.5 px-2 text-right text-on-surface-variant">{b.hits + b.misses}</td>
                               </tr>
                             ))
                           })}
@@ -632,15 +632,15 @@ export default function AccuracyPage() {
                     </div>
                   </section>
                   <section className="rounded-xl bg-surface-container border border-gray-200 dark:border-outline-variant/30 shadow-sm p-4 sm:p-6">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-on-surface mb-2">Tier × direction</h3>
+                    <h3 className="text-base font-semibold text-on-surface mb-2">Tier × direction</h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs text-left border-collapse">
                         <thead>
-                          <tr className="bg-gray-50 dark:bg-surface-container-high">
-                            <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Tier</th>
-                            <th className="py-1.5 px-2 font-semibold text-gray-600 dark:text-gray-300">Direction</th>
-                            <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Hit %</th>
-                            <th className="py-1.5 px-2 text-right font-semibold text-gray-600 dark:text-gray-300">Graded</th>
+                          <tr className="bg-surface-container-high">
+                            <th className="py-1.5 px-2 font-semibold text-on-surface-variant">Tier</th>
+                            <th className="py-1.5 px-2 font-semibold text-on-surface-variant">Direction</th>
+                            <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Hit %</th>
+                            <th className="py-1.5 px-2 text-right font-semibold text-on-surface-variant">Graded</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -649,10 +649,10 @@ export default function AccuracyPage() {
                             if (!inner) return []
                             return Object.entries(inner).map(([d, b]) => (
                               <tr key={`${tier}-${d}`} className="border-t border-gray-100 dark:border-outline-variant/30">
-                                <td className="py-1.5 px-2 text-gray-800 dark:text-on-surface capitalize">{tier}</td>
-                                <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300 uppercase">{d}</td>
+                                <td className="py-1.5 px-2 text-on-surface capitalize">{tier}</td>
+                                <td className="py-1.5 px-2 text-on-surface uppercase">{d}</td>
                                 <td className="py-1.5 px-2 text-right text-on-surface-variant">{b.hit_rate_pct != null ? `${b.hit_rate_pct}%` : '—'}</td>
-                                <td className="py-1.5 px-2 text-right text-gray-500 dark:text-gray-500">{b.hits + b.misses}</td>
+                                <td className="py-1.5 px-2 text-right text-on-surface-variant">{b.hits + b.misses}</td>
                               </tr>
                             ))
                           })}
@@ -668,30 +668,30 @@ export default function AccuracyPage() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs sm:text-sm text-left border-collapse">
                         <thead>
-                          <tr className="bg-gray-50 dark:bg-surface-container-high">
-                            <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Date</th>
-                            <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Player</th>
-                            <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Prop</th>
-                            <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-right">Conf.</th>
-                            <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Tier</th>
-                            <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300">Band</th>
-                            <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-right">Line</th>
-                            <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-right">Actual</th>
-                            <th className="py-2 px-2 font-semibold text-gray-600 dark:text-gray-300 text-center">Result</th>
+                          <tr className="bg-surface-container-high">
+                            <th className="py-2 px-2 font-semibold text-on-surface-variant">Date</th>
+                            <th className="py-2 px-2 font-semibold text-on-surface-variant">Player</th>
+                            <th className="py-2 px-2 font-semibold text-on-surface-variant">Prop</th>
+                            <th className="py-2 px-2 font-semibold text-on-surface-variant text-right">Conf.</th>
+                            <th className="py-2 px-2 font-semibold text-on-surface-variant">Tier</th>
+                            <th className="py-2 px-2 font-semibold text-on-surface-variant">Band</th>
+                            <th className="py-2 px-2 font-semibold text-on-surface-variant text-right">Line</th>
+                            <th className="py-2 px-2 font-semibold text-on-surface-variant text-right">Actual</th>
+                            <th className="py-2 px-2 font-semibold text-on-surface-variant text-center">Result</th>
                           </tr>
                         </thead>
                         <tbody>
                           {tp.records.map((r) => (
                             <tr key={r.id} className="border-t border-gray-100 dark:border-outline-variant/30">
                               <td className="py-1.5 px-2 text-on-surface-variant whitespace-nowrap">{r.date}</td>
-                              <td className="py-1.5 px-2 font-medium text-gray-900 dark:text-on-surface">{r.player_name}</td>
-                              <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                              <td className="py-1.5 px-2 font-medium text-on-surface">{r.player_name}</td>
+                              <td className="py-1.5 px-2 text-on-surface whitespace-nowrap">
                                 {r.stat_type} {r.direction}
                               </td>
                               <td className="py-1.5 px-2 text-right text-on-surface-variant">
                                 {r.confidence != null ? `${Math.round(r.confidence * 10) / 10}%` : '—'}
                               </td>
-                              <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300 capitalize">{r.tier}</td>
+                              <td className="py-1.5 px-2 text-on-surface capitalize">{r.tier}</td>
                               <td className="py-1.5 px-2 text-on-surface-variant text-xs">{r.confidence_band}</td>
                               <td className="py-1.5 px-2 text-right text-on-surface-variant">{r.line_value}</td>
                               <td className="py-1.5 px-2 text-right text-on-surface-variant">{r.actual_value ?? '—'}</td>
@@ -705,7 +705,7 @@ export default function AccuracyPage() {
                                 ) : r.hit === false ? (
                                   <span className="text-rose-600 dark:text-rose-400 font-semibold">Miss</span>
                                 ) : (
-                                  <span className="text-gray-400">—</span>
+                                  <span className="text-on-surface-variant">—</span>
                                 )}
                               </td>
                             </tr>
