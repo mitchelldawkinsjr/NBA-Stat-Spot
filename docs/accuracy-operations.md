@@ -99,6 +99,8 @@ Confirm response includes:
 - `top_picks.tier_x_direction`
 - `top_picks.records`
 
+For pipeline ingest/build/settle, see [Data Pipeline](data-pipeline.md).
+
 ## Production container examples
 
 If running in Docker on VPS:

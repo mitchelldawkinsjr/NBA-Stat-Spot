@@ -10,6 +10,10 @@ from .database import Base, engine
 from .models import user_bets, user_parlays, player_context, market_context, ai_features, app_settings  # Import models so tables are created (prediction_accuracy via __init__)
 from .models import prop_bet_lines  # noqa: F401 — PropBetLine table for synced odds
 from .models.player_game_log_cache import PlayerGameLogCache  # ensures table is created on startup
+from .models.games import Game  # noqa: F401
+from .models.game_participants import GameParticipant  # noqa: F401
+from .models.dashboard_snapshots import DashboardSnapshot  # noqa: F401
+from .models.pipeline_runs import PipelineRun, IngestWatermark  # noqa: F401
 from .services.cache_service import CacheEntry  # Import cache model so table is created
 from .routers.props_v1 import router as props_v1_router
 from .routers.players_v1 import router as players_v1_router
@@ -25,6 +29,7 @@ from .routers import accuracy_v1
 from .routers import insights_v1
 from .routers import live_props_v1
 from .routers import odds_v1
+from .routers.dashboard_v1 import router as dashboard_v1_router
 
 
 app = FastAPI(
@@ -237,3 +242,4 @@ app.include_router(accuracy_v1.router)
 app.include_router(insights_v1.router)
 app.include_router(live_props_v1.router)
 app.include_router(odds_v1.router)
+app.include_router(dashboard_v1_router)

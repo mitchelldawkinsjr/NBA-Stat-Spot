@@ -16,8 +16,9 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Copy application code
 COPY backend /app
 
-# Copy crontab file for scheduled tasks
+# Copy crontab files (API + pipeline)
 COPY backend/crontab /app/crontab
+COPY backend/pipeline_crontab /app/pipeline_crontab
 
 # Expose port
 EXPOSE 8007

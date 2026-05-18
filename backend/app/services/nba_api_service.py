@@ -729,12 +729,63 @@ class NBADataService:
             if cached_data is not None:
                 return cached_data
 
-            # 2. DB fallback — no API call needed, re-warm Redis while we're here
+            # 1b. Pipeline canonical stats (player_game_stats) when enabled
+            try:
+                from ..pipeline.config import pipeline_read_stats
+                if pipeline_read_stats():
+                    from ..database import SessionLocal
+                    from ..pipeline.repositories import player_stats_repo as pgs_repo
+
+                    pdb = SessionLocal()
+                    try:
+                        pgs_logs = pgs_repo.get_player_logs_from_stats(
+                            pdb, player_id, season_to_use, limit=30
+                        )
+                        if pgs_logs and NBADataService._is_good_game_log(pgs_logs):
+                            log.debug(
+                                "Player game log from player_game_stats",
+                                player_id=player_id,
+                                count=len(pgs_logs),
+                            )
+                            cache.set(cache_key, pgs_logs, ttl=86400)
+                            return pgs_logs
+                    finally:
+                        pdb.close()
+            except Exception:
+                pass
+
+            # 2. DB fallback — player_game_log_cache; skip if stale vs player_game_stats
             db_data = NBADataService._get_game_log_from_db(player_id, season_to_use)
             if db_data:
-                log.debug("Player game log from DB cache", player_id=player_id, count=len(db_data))
-                cache.set(cache_key, db_data, ttl=86400)
-                return db_data
+                use_cache = True
+                try:
+                    from ..pipeline.config import pipeline_read_stats
+                    if pipeline_read_stats():
+                        from ..database import SessionLocal
+                        from ..pipeline.repositories import player_stats_repo as pgs_repo
+
+                        pdb = SessionLocal()
+                        try:
+                            max_pgs = pgs_repo.max_game_date_for_player(
+                                pdb, player_id, season_to_use
+                            )
+                            if max_pgs:
+                                cache_dates = []
+                                for r in db_data:
+                                    gd = r.get("game_date")
+                                    if gd:
+                                        cache_dates.append(str(gd)[:10])
+                                cache_dates = [d for d in cache_dates if d]
+                                if cache_dates and max(cache_dates) < max_pgs.isoformat():
+                                    use_cache = False
+                        finally:
+                            pdb.close()
+                except Exception:
+                    pass
+                if use_cache:
+                    log.debug("Player game log from DB cache", player_id=player_id, count=len(db_data))
+                    cache.set(cache_key, db_data, ttl=86400)
+                    return db_data
 
         def _store(result: List[Dict[str, Any]]) -> None:
             """Write to Redis + DB in one call."""

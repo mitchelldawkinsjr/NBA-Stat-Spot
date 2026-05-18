@@ -132,20 +132,22 @@ docker-compose -f docker-compose.prod.yml exec postgres psql -U nba_props_user -
 ### Test 3: Scheduled Tasks (Cron Jobs)
 
 ```bash
-# Check if supercronic is running
-docker-compose -f docker-compose.prod.yml exec backend ps aux | grep supercronic
+# API container (cache cleanup)
+docker compose -f docker-compose.prod.yml exec backend ps aux | grep supercronic
 
-# View cron logs
-docker-compose -f docker-compose.prod.yml logs backend | grep -i cron
+# Pipeline container (ingest/build/settle)
+docker compose -f docker-compose.prod.yml exec pipeline ps aux | grep supercronic
+docker compose -f docker-compose.prod.yml logs pipeline --tail 50
 
-# Manually trigger a cron job to test
-docker-compose -f docker-compose.prod.yml exec backend curl -f -X POST "http://localhost:8007/api/v1/admin/refresh/daily-props?min_confidence=50&limit=10"
+# Manual pipeline job
+docker compose -f docker-compose.prod.yml exec pipeline \
+  sh -lc 'cd /app && PYTHONPATH=/app python -m app.pipeline run data_quality --dry-run'
 ```
 
 **Expected Results:**
-- [ ] Supercronic process is running
-- [ ] Cron jobs appear in logs
-- [ ] Manual cron job execution works
+- [ ] Backend and pipeline supercronic processes are running
+- [ ] Pipeline logs show scheduled jobs
+- [ ] Manual pipeline job exits 0
 
 ### Test 4: GitHub Actions Workflow
 

@@ -156,12 +156,98 @@ async function fetchRateLimits() {
   return apiGet('/api/v1/admin/rate-limits')
 }
 
+async function fetchPipelineStatus() {
+  return apiGet('/api/v1/admin/pipeline/status')
+}
+
+async function publishPipelineSnapshots(publishDate?: string) {
+  const params = new URLSearchParams()
+  if (publishDate) params.set('date', publishDate)
+  const q = params.toString() ? `?${params.toString()}` : ''
+  return apiPost(`/api/v1/admin/pipeline/publish${q}`)
+}
+
+async function runPipelineJob(jobName: string, runDate?: string, season?: string) {
+  const params = new URLSearchParams()
+  if (runDate) params.set('date', runDate)
+  if (season) params.set('season', season)
+  const q = params.toString() ? `?${params.toString()}` : ''
+  return apiPost(`/api/v1/admin/pipeline/run/${jobName}${q}`)
+}
+
 interface ActivityLog {
   id: string
   timestamp: Date
   type: 'success' | 'error' | 'info' | 'warning'
   message: string
   details?: string
+}
+
+function PipelinePanel() {
+  const [pipelineDate, setPipelineDate] = useState('')
+  const { data, refetch, isFetching } = useQuery({
+    queryKey: ['pipeline-status'],
+    queryFn: fetchPipelineStatus,
+    refetchInterval: 60_000,
+  })
+  const publishMut = useMutation({
+    mutationFn: () => publishPipelineSnapshots(pipelineDate || undefined),
+    onSuccess: () => refetch(),
+  })
+  const buildMut = useMutation({
+    mutationFn: () => runPipelineJob('build_dashboard', pipelineDate || undefined),
+    onSuccess: () => refetch(),
+  })
+  const runs = (data as { runs?: Array<{ job_name: string; status: string; started_at?: string }> })?.runs ?? []
+  const snapshots = (data as { snapshots_today?: Array<{ artifact_type: string; version: number; is_published: boolean }> })?.snapshots_today ?? []
+
+  return (
+    <div className="mb-2 space-y-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="date"
+          value={pipelineDate}
+          onChange={(e) => setPipelineDate(e.target.value)}
+          className="px-2 py-1 text-xs rounded border border-outline/30 bg-surface-container-high text-on-surface"
+          placeholder="Date"
+        />
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="px-2 py-1 text-xs rounded border border-outline/30 bg-surface-container-high"
+        >
+          Refresh status
+        </button>
+        <button
+          type="button"
+          onClick={() => buildMut.mutate()}
+          disabled={buildMut.isPending}
+          className="px-2 py-1 text-xs rounded bg-violet-100 dark:bg-violet-900/30 border border-violet-300 dark:border-violet-700"
+        >
+          {buildMut.isPending ? 'Building…' : 'Build dashboard'}
+        </button>
+        <button
+          type="button"
+          onClick={() => publishMut.mutate()}
+          disabled={publishMut.isPending}
+          className="px-2 py-1 text-xs rounded bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700"
+        >
+          {publishMut.isPending ? 'Publishing…' : 'Publish snapshots'}
+        </button>
+      </motion.div>
+      {snapshots.length > 0 && (
+        <p className="text-[10px] text-on-surface-variant">
+          Today: {snapshots.map((s) => `${s.artifact_type} v${s.version}${s.is_published ? ' ✓' : ''}`).join(' · ')}
+        </p>
+      )}
+      {runs.length > 0 && (
+        <p className="text-[10px] text-on-surface-variant truncate" title={runs.map((r) => `${r.job_name}:${r.status}`).join(', ')}>
+          Last jobs: {runs.slice(0, 4).map((r) => `${r.job_name} (${r.status})`).join(' · ')}
+        </p>
+      )}
+    </div>
+  )
 }
 
 export default function AdminDashboard() {
@@ -632,17 +718,28 @@ export default function AdminDashboard() {
     },
     onSuccess: (data: { status?: string; result?: any }) => {
       const r = data?.result
-      const gp = r?.game_predictions
-      const pick = r?.pick_of_the_day
-      const tp = r?.top_picks
-      const tpDetail =
-        tp != null
-          ? `Top picks: ${tp?.settled ?? 0} settled, ${tp?.not_found ?? 0} not in log${(tp?.errors?.length ?? 0) > 0 ? `, ${tp.errors.length} errors` : ''}`
-          : ''
+      const results = Array.isArray(r?.results) ? r.results : r ? [r] : []
+      let gpSettled = 0
+      let gpNotFound = 0
+      let tpSettled = 0
+      let tpNotFound = 0
+      let pickSummary = '—'
+      for (const day of results) {
+        const gp = day?.game_predictions || {}
+        const pick = day?.pick_of_the_day || {}
+        const tp = day?.top_picks || {}
+        gpSettled += gp?.settled ?? 0
+        gpNotFound += gp?.not_found ?? 0
+        tpSettled += tp?.settled ?? 0
+        tpNotFound += tp?.not_found ?? 0
+        if (pick?.settled) pickSummary = 'settled'
+        else if (pick?.reason) pickSummary = String(pick.reason)
+      }
+      const datesN = r?.count_dates ?? results.length
       addActivityLog(
         'success',
         'Accuracy settled',
-        `Games: ${gp?.settled ?? 0} settled, ${gp?.not_found ?? 0} not found. Pick: ${pick?.settled ? 'settled' : pick?.reason ?? '—'}.${tpDetail ? ` ${tpDetail}.` : ''}`
+        `${datesN} date(s). Games: ${gpSettled} settled, ${gpNotFound} not found. Pick: ${pickSummary}. Top picks: ${tpSettled} settled, ${tpNotFound} not in log.`
       )
     },
     onError: (error: Error) => {
@@ -1417,6 +1514,11 @@ export default function AdminDashboard() {
               {refreshDailyPropsCustomMutation.isPending ? 'Refreshing...' : 'Refresh with params'}
             </button>
           </div>
+        </div>
+
+        <div className="mt-2 pt-2 border-t border-outline/20">
+          <div className="text-xs font-semibold text-on-surface-variant mb-1.5 transition-colors duration-200">Data pipeline</div>
+          <PipelinePanel />
         </div>
 
         <div className="mt-2 pt-2 border-t border-outline/20">

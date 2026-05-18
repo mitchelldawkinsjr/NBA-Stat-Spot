@@ -1042,6 +1042,115 @@ def ml_retrain(min_samples: int = Query(50, ge=10, le=500)):
         return {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
 
 
+@router.get("/pipeline/status")
+def pipeline_status():
+    """Last pipeline runs, watermarks, and snapshot versions for today."""
+    from ..database import SessionLocal
+    from ..pipeline.repositories import pipeline_meta_repo, snapshots_repo
+
+    db = SessionLocal()
+    try:
+        today = date.today()
+        runs = pipeline_meta_repo.get_last_runs(db, limit=30)
+        watermarks = pipeline_meta_repo.get_watermarks(db)
+        versions = snapshots_repo.list_versions(db, today)
+        return {
+            "status": "success",
+            "runs": [
+                {
+                    "id": r.id,
+                    "job_name": r.job_name,
+                    "status": r.status,
+                    "started_at": r.started_at.isoformat() if r.started_at else None,
+                    "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+                    "stats_json": r.stats_json,
+                    "error_message": r.error_message,
+                }
+                for r in runs
+            ],
+            "watermarks": [
+                {
+                    "job_name": w.job_name,
+                    "last_success_at": w.last_success_at.isoformat() if w.last_success_at else None,
+                    "last_game_date": w.last_game_date,
+                    "rows_written": w.rows_written,
+                }
+                for w in watermarks
+            ],
+            "snapshots_today": [
+                {
+                    "artifact_type": s.artifact_type,
+                    "version": s.version,
+                    "is_published": s.is_published,
+                    "built_at": s.built_at.isoformat() if s.built_at else None,
+                }
+                for s in versions
+            ],
+        }
+    finally:
+        db.close()
+
+
+@router.post("/pipeline/publish")
+def pipeline_publish(
+    publish_date: Optional[str] = Query(None, alias="date", description="YYYY-MM-DD"),
+    artifact: Optional[str] = Query(None, description="Artifact type or omit for all"),
+):
+    from ..database import SessionLocal
+    from ..pipeline.repositories import snapshots_repo
+
+    target = date.fromisoformat(publish_date) if publish_date else date.today()
+    db = SessionLocal()
+    try:
+        types = (
+            [artifact]
+            if artifact
+            else [
+                snapshots_repo.ARTIFACT_TOP_PICKS,
+                snapshots_repo.ARTIFACT_DAILY_PROPS,
+                snapshots_repo.ARTIFACT_PICK_OF_DAY,
+                snapshots_repo.ARTIFACT_TEAM_RANKS,
+            ]
+        )
+        published = []
+        for at in types:
+            row = snapshots_repo.publish_latest(db, target, at)
+            if row:
+                published.append({"artifact": at, "version": row.version})
+        db.commit()
+        return {"status": "success", "date": target.isoformat(), "published": published}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()
+
+
+@router.post("/pipeline/run/{job_name}")
+def pipeline_run_job(
+    job_name: str,
+    run_date: Optional[str] = Query(None, alias="date"),
+    season: Optional[str] = Query(None),
+):
+    """Manually trigger a pipeline job (same as python -m app.pipeline run)."""
+    from ..pipeline.cli import JOBS
+    from ..pipeline.context import PipelineContext
+    from ..pipeline.runner import run_job
+
+    if job_name not in JOBS:
+        return {"status": "error", "message": f"Unknown job: {job_name}"}
+    ctx = PipelineContext(
+        job_name=job_name,
+        target_date=date.fromisoformat(run_date) if run_date else None,
+        season=season,
+    )
+    try:
+        out = run_job(ctx, JOBS[job_name])
+        return {"status": "success", "result": out}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @router.post("/settle-accuracy")
 def settle_accuracy(
     settle_date: Optional[str] = Query(None, description="Date to settle YYYY-MM-DD (default: yesterday)"),

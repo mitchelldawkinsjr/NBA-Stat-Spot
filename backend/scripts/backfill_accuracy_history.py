@@ -143,6 +143,11 @@ def main() -> int:
         default=None,
         help="NBA season string (e.g. 2025-26). Defaults to get_current_season().",
     )
+    parser.add_argument(
+        "--use-pipeline",
+        action="store_true",
+        help="Use pipeline jobs (build_dashboard, settle_accuracy) instead of legacy settle path",
+    )
     parser.set_defaults(pick_of_the_day=True, settle=True)
     args = parser.parse_args()
 
@@ -244,7 +249,18 @@ def main() -> int:
 
         if args.settle:
             if args.dry_run:
-                print(f"  [settle] would settle_all_for_date({ds})")
+                if args.use_pipeline:
+                    print(f"  [settle] would pipeline run settle_accuracy --date {ds}")
+                else:
+                    print(f"  [settle] would settle_all_for_date({ds})")
+            elif args.use_pipeline:
+                from app.pipeline.context import PipelineContext
+                from app.pipeline.runner import run_job
+                from app.pipeline.jobs import settle_accuracy as settle_job
+
+                ctx = PipelineContext(job_name="settle_accuracy", target_date=d, season=season)
+                out = run_job(ctx, settle_job.run)
+                print(f"  [settle] pipeline -> {out}")
             else:
                 out = settle_all_for_date(d, season=season)  # type: ignore[misc]
                 gp = out.get("game_predictions") or {}
@@ -253,6 +269,15 @@ def main() -> int:
                 print(
                     f"  [settle] game_settled={gp.get('settled')} pick={pd} top_picks={tp}"
                 )
+
+        if args.use_pipeline and args.top_picks and not args.dry_run:
+            from app.pipeline.context import PipelineContext
+            from app.pipeline.runner import run_job
+            from app.pipeline.jobs import build_dashboard as build_job
+
+            ctx = PipelineContext(job_name="build_dashboard", target_date=d, season=season)
+            out = run_job(ctx, build_job.run)
+            print(f"  [pipeline] build_dashboard -> {out}")
 
     print("\nDone.")
     return 0

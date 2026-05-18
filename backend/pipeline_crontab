@@ -1,0 +1,19 @@
+# NBA Stat Spot Pipeline — runs in nba-stat-spot-pipeline container (UTC)
+# Uses python -m app.pipeline (no HTTP / ADMIN_SECRET)
+
+# Game hours: refresh schedule + box scores
+*/30 23-5 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run ingest_schedule || echo "Failed: ingest_schedule"
+*/30 23-5 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run ingest_boxscores || echo "Failed: ingest_boxscores"
+
+# Daily player log warm
+0 10 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run ingest_player_logs || echo "Failed: ingest_player_logs"
+
+# Build dashboard + ranks
+15 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run build_ranks || echo "Failed: build_ranks"
+20 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run build_dashboard || echo "Failed: build_dashboard"
+
+# Settle accuracy from DB stats
+35 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run settle_accuracy || echo "Failed: settle_accuracy"
+
+# Quality report
+40 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run data_quality || echo "Failed: data_quality"

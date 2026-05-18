@@ -1,49 +1,5 @@
-# NBA Stat Spot Scheduled Tasks — Dashboard caches filled by 6am run
-# All times in UTC. 6:00 AM EST ≈ 11:00 AM UTC.
-# Sections: Top Picks, AI Pick of the Day, Players to Watch, Hot form, Hot players all use these caches.
+# NBA Stat Spot API container — lightweight maintenance only.
+# Data ingest/build/settle runs in the pipeline container (see pipeline_crontab).
 
-# 6:00 AM EST — Refresh player game logs (so stat-leaders and props have fresh data)
-0 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/cache/refresh/player-logs" --max-time 120 || echo "Failed: player-logs"
-
-# 6:05 AM EST — Daily props (feeds Daily Props, Pick of the Day, and base for Hot form)
-5 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/daily-props?min_confidence=50&limit=100" --max-time 600 || echo "Failed: daily-props"
-
-# 6:07 AM EST — Warm Pick of the Day cache (uses daily props cache)
-7 11 * * * curl -sf "http://localhost:8007/api/v1/props/pick-of-the-day" --max-time 120 || echo "Failed: pick-of-the-day"
-
-# 6:08 AM EST — Warm Hot form · High confidence cache (hot_form_only=true)
-8 11 * * * curl -sf "http://localhost:8007/api/v1/props/daily?min_confidence=70&hot_form_only=true&limit=50" --max-time 300 || echo "Failed: hot-form"
-
-# 6:10 AM EST — High hit rate cache
-10 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/high-hit-rate?min_hit_rate=0.75&limit=10&last_n=10" --max-time 300 || echo "Failed: high-hit-rate"
-
-# 6:15 AM EST — Best bets scan
-15 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/scan/best-bets?min_confidence=65&limit=50" --max-time 300 || echo "Failed: best-bets"
-
-# 6:20 AM EST — Top Picks of the Day (strong/lock only, fewer picks)
-20 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/top-picks?limit=12&min_confidence=62" --max-time 600 || echo "Failed: top-picks"
-
-# 6:25 AM EST — Stat leaders (Players to Watch section when "All" selected)
-25 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/stat-leaders" --max-time 300 || echo "Failed: stat-leaders"
-
-# 6:26–6:30 AM EST — Team defense/offense/pace/position ranks (Team profile + player context)
-# No short timeout: let jobs run to completion so cache is full; UI updates when done.
-26 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/defensive-ranks?season=2025-26" --max-time 3600 || echo "Failed: defensive-ranks"
-27 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/offensive-ranks?season=2025-26" --max-time 1800 || echo "Failed: offensive-ranks"
-28 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/pace-ranks?season=2025-26" --max-time 120 || echo "Failed: pace-ranks"
-29 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/refresh/position-defense-ranks?season=2025-26" --max-time 3600 || echo "Failed: position-defense-ranks"
-
-# 6:30 AM EST — Warm dashboard caches so Top Picks, AI Pick, Players to Watch, Hot form all have data
-30 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/warm-dashboard" --max-time 300 || echo "Failed: warm-dashboard"
-
-# 6:35 AM EST — Settle yesterday's game predictions and pick-of-the-day (fill actual results for accuracy tracking)
-35 11 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/settle-accuracy" --max-time 120 || echo "Failed: settle-accuracy"
-
-# Cleanup expired cache entries daily at 3:00 AM UTC (10-11 PM EST previous day)
-# This removes old cache entries to keep the database clean
-0 3 * * * curl -f -X POST "http://localhost:8007/api/v1/admin/cache/cleanup" || echo "Failed to cleanup expired cache"
-
-# Optional: Refresh all caches weekly on Sunday at 2:00 AM UTC
-# This ensures a full refresh once per week
-# 0 2 * * 0 curl -f -X POST "http://localhost:8007/api/v1/admin/refresh/all" || echo "Failed to refresh all caches"
-
+# Cleanup expired cache entries daily at 3:00 AM UTC
+0 3 * * * curl -sf -X POST "http://localhost:8007/api/v1/admin/cache/cleanup" || echo "Failed: cache cleanup"

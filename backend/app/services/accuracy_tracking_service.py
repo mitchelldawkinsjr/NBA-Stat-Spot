@@ -455,11 +455,18 @@ def settle_game_predictions(target_date: date) -> Dict[str, Any]:
     return {"settled": settled, "not_found": not_found, "errors": errors}
 
 
-def settle_pick_of_the_day(target_date: date, season: Optional[str] = None) -> Dict[str, Any]:
+def settle_pick_of_the_day(
+    target_date: date,
+    season: Optional[str] = None,
+    stats_provider: Optional[Any] = None,
+) -> Dict[str, Any]:
     """
     For a given date, get the pick record, fetch that player's game log, find the game on that date,
     and set actual_value and hit. Returns { settled: bool, actual_value, hit, push, error }.
     """
+    from .stats_provider import get_settlement_stats_provider
+
+    provider = stats_provider or get_settlement_stats_provider()
     season_candidates = _season_candidates_for_settlement(target_date, season)
     db = _get_db()
     try:
@@ -471,7 +478,7 @@ def settle_pick_of_the_day(target_date: date, season: Optional[str] = None) -> D
             return {"settled": False, "reason": "no_unsettled_record"}
         logs = []
         for season_try in season_candidates:
-            logs = NBADataService.fetch_player_game_log(record.player_id, season_try)
+            logs = provider.fetch_player_game_log(record.player_id, season_try)
             if logs:
                 break
         logger.info("prediction_found", prediction_type="pick_of_the_day", player_id=record.player_id, date=target_date.isoformat())
@@ -521,11 +528,18 @@ def settle_pick_of_the_day(target_date: date, season: Optional[str] = None) -> D
         db.close()
 
 
-def settle_top_picks_for_date(target_date: date, season: Optional[str] = None) -> Dict[str, Any]:
+def settle_top_picks_for_date(
+    target_date: date,
+    season: Optional[str] = None,
+    stats_provider: Optional[Any] = None,
+) -> Dict[str, Any]:
     """
     Settle all Top Picks (prop_prediction_records) for a date using player game logs.
     Returns { settled, not_found, errors, not_found_sample }.
     """
+    from .stats_provider import get_settlement_stats_provider
+
+    provider = stats_provider or get_settlement_stats_provider()
     season_candidates = _season_candidates_for_settlement(target_date, season)
     db = _get_db()
     settled = 0
@@ -541,13 +555,12 @@ def settle_top_picks_for_date(target_date: date, season: Optional[str] = None) -
             )
             .all()
         )
-        date_str = target_date.isoformat()
         for record in records:
             logger.info("prediction_found", prediction_type="top_pick", player_id=record.player_id, date=target_date.isoformat())
             try:
                 logs = []
                 for season_try in season_candidates:
-                    logs = NBADataService.fetch_player_game_log(record.player_id, season_try)
+                    logs = provider.fetch_player_game_log(record.player_id, season_try)
                     if logs:
                         break
             except Exception as e:
@@ -594,11 +607,18 @@ def settle_top_picks_for_date(target_date: date, season: Optional[str] = None) -
     }
 
 
-def settle_all_for_date(target_date: date, season: Optional[str] = None) -> Dict[str, Any]:
+def settle_all_for_date(
+    target_date: date,
+    season: Optional[str] = None,
+    stats_provider: Optional[Any] = None,
+) -> Dict[str, Any]:
     """Run game predictions, pick-of-the-day, and Top Picks (prop) settlement for a date."""
+    from .stats_provider import get_settlement_stats_provider
+
+    provider = stats_provider or get_settlement_stats_provider()
     game_result = settle_game_predictions(target_date)
-    pick_result = settle_pick_of_the_day(target_date, season=season)
-    top_picks_result = settle_top_picks_for_date(target_date, season=season)
+    pick_result = settle_pick_of_the_day(target_date, season=season, stats_provider=provider)
+    top_picks_result = settle_top_picks_for_date(target_date, season=season, stats_provider=provider)
     return {
         "date": target_date.isoformat(),
         "game_predictions": game_result,
@@ -673,7 +693,11 @@ def record_prop_predictions(target_date: date, picks: List[Dict[str, Any]], mode
         db.close()
 
 
-def settle_open_predictions(target_date: date, season: Optional[str] = None) -> Dict[str, Any]:
+def settle_open_predictions(
+    target_date: date,
+    season: Optional[str] = None,
+    stats_provider: Optional[Any] = None,
+) -> Dict[str, Any]:
     """
     Settle all open (unsettled) prediction records up to a target date.
     Fetches finalized game stats, compares to stored lines, writes actual_value and hit.
@@ -701,7 +725,9 @@ def settle_open_predictions(target_date: date, season: Optional[str] = None) -> 
         db.close()
 
     ordered_dates = sorted(dates)
-    results = [settle_all_for_date(d, season=season) for d in ordered_dates]
+    results = [
+        settle_all_for_date(d, season=season, stats_provider=stats_provider) for d in ordered_dates
+    ]
     return {
         "target_date": target_date.isoformat(),
         "dates_processed": [d.isoformat() for d in ordered_dates],

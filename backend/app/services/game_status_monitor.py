@@ -43,21 +43,18 @@ class GameStatusMonitor:
     
     @staticmethod
     def get_players_in_game(game_id: str) -> List[int]:
-        """
-        Get player IDs for players in a specific game.
-        This is a simplified implementation - in a full system, you'd fetch lineup data.
-        
-        Args:
-            game_id: NBA game ID
-            
-        Returns:
-            List of player IDs (empty list if unable to determine)
-        """
-        # Note: This is a placeholder. In a full implementation, you would:
-        # 1. Fetch game boxscore/lineup data from NBA API
-        # 2. Extract player IDs from both teams
-        # For now, return empty list - this can be enhanced later
-        return []
+        """Player IDs from pipeline box score ingest (game_participants table)."""
+        try:
+            from ..database import SessionLocal
+            from ..pipeline.repositories import player_stats_repo
+
+            db = SessionLocal()
+            try:
+                return player_stats_repo.get_participants_for_game(db, str(game_id))
+            finally:
+                db.close()
+        except Exception:
+            return []
     
     @staticmethod
     def invalidate_player_logs_cache(player_ids: List[int]) -> int:

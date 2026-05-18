@@ -1,14 +1,21 @@
-from sqlalchemy import Column, Integer, String, Date, Boolean, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Boolean, Float, DateTime, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.sql import func
 from ..database import Base
 
 class PlayerGameStat(Base):
     __tablename__ = "player_game_stats"
+    __table_args__ = (
+        UniqueConstraint("player_id", "game_id", name="uq_player_game_stats_player_game"),
+        Index("idx_pgs_player_season", "player_id", "season"),
+    )
 
-    id = Column(String, primary_key=True)  # UUID string
+    id = Column(String, primary_key=True)
     player_id = Column(Integer, ForeignKey("players.id"), index=True, nullable=False)
     game_id = Column(String, index=True, nullable=False)
+    season = Column(String(10), nullable=True, index=True)
     game_date = Column(Date, index=True)
+    source = Column(String(16), nullable=True, default="espn")
+    fetched_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     opponent_team_id = Column(Integer, ForeignKey("teams.id"))
     is_home = Column(Boolean, default=False)
     minutes_played = Column(Float)

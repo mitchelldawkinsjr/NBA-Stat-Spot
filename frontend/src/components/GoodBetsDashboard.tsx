@@ -101,6 +101,15 @@ async function fetchHotFormProps(date?: string, minConfidence = 70) {
   return res.json()
 }
 
+async function fetchDashboardHome(date?: string) {
+  const params = date ? `?date=${encodeURIComponent(date)}` : ''
+  const res = await apiFetch(`api/v1/dashboard/home${params}`)
+  if (!res.ok) return null
+  const data = await res.json()
+  if (data?.source === 'snapshot' && data?.top_picks) return data
+  return null
+}
+
 async function fetchTopPicks(date?: string) {
   const targetDate = date || getTodayDate()
   const cacheKey = 'top-picks'
@@ -277,10 +286,18 @@ export function GoodBetsDashboard() {
     }
   }, [dailyLoading, gamesLoading])
 
+  const { data: dashboardHome } = useQuery({
+    queryKey: ['dashboard-home', today],
+    queryFn: () => fetchDashboardHome(today),
+    enabled: shouldLoadTopPicks,
+    staleTime: 30 * 60 * 1000,
+    retry: 0,
+  })
+
   const { data: topPicksData, isLoading: topPicksLoading, refetch: refetchTopPicks } = useQuery({
     queryKey: ['top-picks', today],
     queryFn: () => fetchTopPicks(today),
-    enabled: shouldLoadTopPicks,
+    enabled: shouldLoadTopPicks && !dashboardHome?.top_picks,
     staleTime: 30 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     refetchOnMount: false,
@@ -298,7 +315,13 @@ export function GoodBetsDashboard() {
     staleTime: 30 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
   })
-  const pickOfTheDay = pickOfTheDayData?.pick ?? null
+  const pickOfTheDay =
+    (dashboardHome?.pick_of_the_day && Object.keys(dashboardHome.pick_of_the_day).length > 0
+      ? dashboardHome.pick_of_the_day
+      : null) ??
+    pickOfTheDayData?.pick ??
+    null
+  const dataAsOf = dashboardHome?.data_as_of as string | undefined
 
   const { data: bestMatchData } = useQuery({
     queryKey: ['best-match-of-the-day', today],
@@ -454,14 +477,14 @@ export function GoodBetsDashboard() {
   // Unified Top Picks — uses the new /top-picks endpoint
   const topPicks = useMemo(() => {
     if (games.length === 0) return []
-    const items = (topPicksData?.items ?? []) as SuggestionItem[]
+    const items = ((dashboardHome?.top_picks?.items ?? topPicksData?.items) ?? []) as SuggestionItem[]
     return items
       .filter((item) => {
         const d = item.gameDate || item.game_date
         return d && (d === today || d.startsWith(today))
       })
       .slice(0, 12)
-  }, [topPicksData, today, games.length])
+  }, [dashboardHome, topPicksData, today, games.length])
 
   // Fallback: if top-picks hasn't loaded yet, use daily data as interim
   const bestBets = useMemo(() => {
@@ -660,6 +683,7 @@ export function GoodBetsDashboard() {
             <h1 className="text-4xl font-black uppercase italic tracking-tighter text-on-surface">Tonight's Slate</h1>
             <p className="text-on-surface-variant font-medium text-sm mt-0.5">
               {games.length > 0 ? `${games.length} Games · ${dateLabel}` : dateLabel}
+              {dataAsOf ? ` · Data as of ${new Date(dataAsOf).toLocaleString()}` : ''}
             </p>
           </div>
           <div className="flex gap-2 items-center">

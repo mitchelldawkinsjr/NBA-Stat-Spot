@@ -7,6 +7,10 @@ from .prop_bet_lines import PropBetLine
 from .user_bets import UserBet
 from .user_parlays import UserParlay, UserParlayLeg
 from .prediction_accuracy import GamePredictionRecord, PickOfTheDayRecord, PropPredictionRecord
+from .games import Game
+from .game_participants import GameParticipant
+from .dashboard_snapshots import DashboardSnapshot
+from .pipeline_runs import PipelineRun, IngestWatermark
 from .player_context import PlayerContext
 from .market_context import MarketContext
 from .ai_features import AIFeatureSet

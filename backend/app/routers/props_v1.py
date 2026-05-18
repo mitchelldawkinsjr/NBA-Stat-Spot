@@ -338,7 +338,34 @@ def daily_props(
         except Exception:
             pass
         return items
-    
+
+    try:
+        from ..pipeline.config import pipeline_read_dashboard
+        from ..services.snapshot_service import load_published_snapshot
+        from ..pipeline.repositories.snapshots_repo import ARTIFACT_DAILY_PROPS
+
+        if pipeline_read_dashboard():
+            snap = load_published_snapshot(
+                date_type.fromisoformat(target_date_str[:10]), ARTIFACT_DAILY_PROPS
+            )
+            if snap:
+                meta = snap.pop("_meta", {})
+                items = snap.get("items") or []
+                if min_confidence is not None:
+                    items = [i for i in items if (i.get("confidence") or 0) >= min_confidence]
+                if limit is not None:
+                    items = items[:limit]
+                _enrich_live_lines(items)
+                return {
+                    **{k: v for k, v in snap.items() if k != "items"},
+                    "items": items,
+                    "cached": True,
+                    "source": "snapshot",
+                    "data_as_of": meta.get("built_at"),
+                }
+    except Exception:
+        pass
+
     # Hot form: use daily cache so 6am cron can prefill; fallback to live fetch
     if hot_form_only:
         cache = get_cache_service()
@@ -520,6 +547,22 @@ def pick_of_the_day(
     from ..routers.admin_v1 import _get_daily_props_cache, _set_daily_props_cache
 
     target_date = date or datetime.now().strftime("%Y-%m-%d")
+    try:
+        from datetime import date as date_cls
+        from ..pipeline.config import pipeline_read_dashboard
+        from ..services.snapshot_service import load_published_snapshot
+        from ..pipeline.repositories.snapshots_repo import ARTIFACT_PICK_OF_DAY
+
+        if pipeline_read_dashboard():
+            snap = load_published_snapshot(
+                date_cls.fromisoformat(target_date[:10]), ARTIFACT_PICK_OF_DAY
+            )
+            if snap:
+                pick = {k: v for k, v in snap.items() if k != "_meta"}
+                return {"pick": pick, "cached": True, "date": target_date, "source": "snapshot"}
+    except Exception:
+        pass
+
     cache = get_cache_service()
     cache_key = f"pick_of_the_day:{target_date}"
 
@@ -956,6 +999,29 @@ def top_picks(
     from ..services.odds_service import enrich_prop_items_with_live_lines
 
     target = date or _dt.now().strftime("%Y-%m-%d")
+    if not refresh:
+        try:
+            from datetime import date as date_cls
+            from ..pipeline.config import pipeline_read_dashboard
+            from ..services.snapshot_service import load_published_snapshot
+            from ..pipeline.repositories.snapshots_repo import ARTIFACT_TOP_PICKS
+
+            if pipeline_read_dashboard():
+                snap = load_published_snapshot(
+                    date_cls.fromisoformat(target[:10]), ARTIFACT_TOP_PICKS
+                )
+                if snap:
+                    meta = snap.pop("_meta", {})
+                    out = {k: v for k, v in snap.items() if not k.startswith("_")}
+                    out["cached"] = True
+                    out["source"] = "snapshot"
+                    out["data_as_of"] = meta.get("built_at")
+                    if limit:
+                        out["items"] = (out.get("items") or [])[:limit]
+                    out["returned"] = len(out.get("items", []))
+                    return out
+        except Exception:
+            pass
     cache_key = f"top_picks:{target}"
     cached = None if refresh else _cache.get(cache_key)
     if cached:
