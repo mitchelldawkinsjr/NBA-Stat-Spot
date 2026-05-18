@@ -235,7 +235,7 @@ function PipelinePanel() {
         >
           {publishMut.isPending ? 'Publishing…' : 'Publish snapshots'}
         </button>
-      </motion.div>
+      </div>
       {snapshots.length > 0 && (
         <p className="text-[10px] text-on-surface-variant">
           Today: {snapshots.map((s) => `${s.artifact_type} v${s.version}${s.is_published ? ' ✓' : ''}`).join(' · ')}
