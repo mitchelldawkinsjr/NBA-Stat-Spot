@@ -122,3 +122,41 @@ def test_settle_all_updates_accuracy_history_components(monkeypatch):
     hist = ats.get_accuracy_history(from_date=date(2026, 1, 10), to_date=date(2026, 1, 10))
     assert hist["pick_of_the_day"]["settled"] == 1
     assert hist["top_picks"]["overall"]["settled"] == 1
+
+
+def test_settle_open_predictions_processes_backlog_dates(monkeypatch):
+    db = _session()
+    db.add(
+        PickOfTheDayRecord(
+            record_date=date(2026, 1, 9),
+            player_id=7,
+            player_name="Backlog Player",
+            stat_type="PTS",
+            line_value=21.5,
+            suggestion="over",
+            confidence=73.0,
+        )
+    )
+    db.add(
+        PickOfTheDayRecord(
+            record_date=date(2026, 1, 10),
+            player_id=8,
+            player_name="Backlog Player 2",
+            stat_type="PTS",
+            line_value=19.5,
+            suggestion="over",
+            confidence=76.0,
+        )
+    )
+    db.commit()
+
+    monkeypatch.setattr(ats, "_get_db", lambda: db)
+    monkeypatch.setattr(
+        ats,
+        "settle_all_for_date",
+        lambda d, season=None: {"date": d.isoformat(), "pick_of_the_day": {"settled": True}},
+    )
+
+    out = ats.settle_open_predictions(date(2026, 1, 10), season="2025-26")
+    assert out["count_dates"] == 2
+    assert out["dates_processed"] == ["2026-01-09", "2026-01-10"]

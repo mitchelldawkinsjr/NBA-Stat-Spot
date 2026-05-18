@@ -675,11 +675,39 @@ def record_prop_predictions(target_date: date, picks: List[Dict[str, Any]], mode
 
 def settle_open_predictions(target_date: date, season: Optional[str] = None) -> Dict[str, Any]:
     """
-    Settle all open (unsettled) prediction records for a date.
+    Settle all open (unsettled) prediction records up to a target date.
     Fetches finalized game stats, compares to stored lines, writes actual_value and hit.
     Intended to be called nightly after games complete (e.g. via cron).
     """
-    return settle_all_for_date(target_date, season=season)
+    db = _get_db()
+    try:
+        dates: set[date] = set()
+        dates.update(
+            d for (d,) in db.query(GamePredictionRecord.record_date)
+            .filter(GamePredictionRecord.record_date <= target_date, GamePredictionRecord.actual_winner_abbr.is_(None))
+            .all()
+        )
+        dates.update(
+            d for (d,) in db.query(PickOfTheDayRecord.record_date)
+            .filter(PickOfTheDayRecord.record_date <= target_date, PickOfTheDayRecord.actual_value.is_(None))
+            .all()
+        )
+        dates.update(
+            d for (d,) in db.query(PropPredictionRecord.record_date)
+            .filter(PropPredictionRecord.record_date <= target_date, PropPredictionRecord.actual_value.is_(None))
+            .all()
+        )
+    finally:
+        db.close()
+
+    ordered_dates = sorted(dates)
+    results = [settle_all_for_date(d, season=season) for d in ordered_dates]
+    return {
+        "target_date": target_date.isoformat(),
+        "dates_processed": [d.isoformat() for d in ordered_dates],
+        "count_dates": len(ordered_dates),
+        "results": results,
+    }
 
 
 def get_accuracy_history(

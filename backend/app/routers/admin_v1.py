@@ -1048,10 +1048,10 @@ def settle_accuracy(
     season: Optional[str] = Query(None, description="Season for player game logs when settling (defaults to current season)"),
 ):
     """Settle game predictions, AI pick-of-the-day, and Top Picks (prop) accuracy for a date (e.g. after games complete)."""
-    from ..services.accuracy_tracking_service import settle_all_for_date
+    from ..services.accuracy_tracking_service import settle_open_predictions
     target = date.fromisoformat(settle_date) if settle_date else (date.today() - timedelta(days=1))
     try:
-        result = settle_all_for_date(target, season=season or get_current_season())
+        result = settle_open_predictions(target, season=season or get_current_season())
         return {"status": "success", "result": result}
     except Exception as e:
         return {"status": "error", "message": str(e)}

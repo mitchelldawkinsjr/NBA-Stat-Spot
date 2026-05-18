@@ -526,6 +526,12 @@ def pick_of_the_day(
     # Try cache first
     cached = cache.get(cache_key)
     if cached is not None:
+        try:
+            from datetime import date as date_cls
+            from ..services.accuracy_tracking_service import record_pick_of_the_day
+            record_pick_of_the_day(date_cls.fromisoformat(target_date[:10]), cached)
+        except Exception:
+            pass
         return {"pick": cached, "cached": True, "date": target_date}
 
     # Build candidate list: use daily props cache or fetch
@@ -954,6 +960,13 @@ def top_picks(
     cached = None if refresh else _cache.get(cache_key)
     if cached:
         items = cached.get("items", [])
+        # Ensure accuracy rows are present even on cache hits.
+        try:
+            from datetime import date as date_cls
+            from ..services.accuracy_tracking_service import record_prop_predictions
+            record_prop_predictions(date_cls.fromisoformat(target[:10]), items)
+        except Exception:
+            pass
         # Self-heal: if cache has no items but there are games today, refetch (e.g. stale cache from before ESPN fallback)
         if not items:
             games = NBADataService.fetch_todays_games() or []
