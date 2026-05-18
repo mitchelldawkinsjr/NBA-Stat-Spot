@@ -252,6 +252,35 @@ def _normalize_game_log_date_iso(raw: Union[str, None]) -> str:
     return s[:10] if len(s) >= 10 else s
 
 
+def _find_game_log_row_for_record_date(logs: List[Dict[str, Any]], target_date: date) -> Tuple[Optional[Dict[str, Any]], str]:
+    """
+    Match a game log row for a record date.
+    Prefers exact date, then allows ±1 day to tolerate ET/UTC boundary drift.
+    Returns (row, reason).
+    """
+    if not logs:
+        return None, "missing_stats"
+
+    target_iso = target_date.isoformat()
+    normalized: List[Tuple[Dict[str, Any], str]] = []
+    for g in logs:
+        gd = _normalize_game_log_date_iso(g.get("game_date") or g.get("GAME_DATE"))
+        if gd:
+            normalized.append((g, gd))
+
+    for g, gd in normalized:
+        if gd == target_iso:
+            return g, "exact_date_match"
+
+    for day_offset in (-1, 1):
+        alt_iso = (target_date + timedelta(days=day_offset)).isoformat()
+        for g, gd in normalized:
+            if gd == alt_iso:
+                return g, f"date_offset_{day_offset:+d}"
+
+    return None, "game_not_finished_or_not_in_log"
+
+
 def _get_db() -> Session:
     return next(get_db())
 
@@ -445,22 +474,20 @@ def settle_pick_of_the_day(target_date: date, season: Optional[str] = None) -> D
             logs = NBADataService.fetch_player_game_log(record.player_id, season_try)
             if logs:
                 break
-        date_str = target_date.isoformat()
+        logger.info("prediction_found", prediction_type="pick_of_the_day", player_id=record.player_id, date=target_date.isoformat())
         game_log_key = STAT_TO_GAME_LOG_KEY.get(record.stat_type, "pts")
+        matched_row, match_reason = _find_game_log_row_for_record_date(logs or [], target_date)
         actual_value = None
-        for g in logs:
-            gd = _normalize_game_log_date_iso(g.get("game_date") or g.get("GAME_DATE"))
-            if gd == date_str:
-                raw = g.get(game_log_key) or g.get(game_log_key.upper())
-                if raw is not None:
-                    try:
-                        actual_value = float(raw)
-                    except (TypeError, ValueError):
-                        pass
-                break
+        if matched_row is not None:
+            raw = matched_row.get(game_log_key) or matched_row.get(game_log_key.upper())
+            if raw is not None:
+                try:
+                    actual_value = float(raw)
+                except (TypeError, ValueError):
+                    pass
         if actual_value is None:
-            db.close()
-            return {"settled": False, "reason": "game_not_in_log", "player_id": record.player_id}
+            logger.info("prediction_skipped", prediction_type="pick_of_the_day", player_id=record.player_id, date=target_date.isoformat(), reason=match_reason)
+            return {"settled": False, "reason": match_reason, "player_id": record.player_id}
         record.actual_value = actual_value
         record.settled_at = datetime.utcnow()
         line = record.line_value
@@ -474,6 +501,7 @@ def settle_pick_of_the_day(target_date: date, season: Optional[str] = None) -> D
             else:
                 record.hit = actual_value < line
         db.commit()
+        logger.info("settlement_completed", prediction_type="pick_of_the_day", player_id=record.player_id, date=target_date.isoformat(), match_reason=match_reason)
         return {
             "settled": True,
             "actual_value": actual_value,
@@ -486,6 +514,7 @@ def settle_pick_of_the_day(target_date: date, season: Optional[str] = None) -> D
         }
     except Exception as e:
         db.rollback()
+        logger.warning("settlement_failed", prediction_type="pick_of_the_day", date=target_date.isoformat(), error=str(e))
         logger.warning("settle_pick_of_the_day failed", date=target_date.isoformat(), error=str(e))
         return {"settled": False, "error": str(e)}
     finally:
@@ -514,6 +543,7 @@ def settle_top_picks_for_date(target_date: date, season: Optional[str] = None) -
         )
         date_str = target_date.isoformat()
         for record in records:
+            logger.info("prediction_found", prediction_type="top_pick", player_id=record.player_id, date=target_date.isoformat())
             try:
                 logs = []
                 for season_try in season_candidates:
@@ -523,21 +553,19 @@ def settle_top_picks_for_date(target_date: date, season: Optional[str] = None) -
             except Exception as e:
                 errors.append(f"player {record.player_id}: {e}")
                 continue
-            actual_value: Optional[float] = None
-            for g in logs or []:
-                gd = _normalize_game_log_date_iso(g.get("game_date") or g.get("GAME_DATE"))
-                if gd == date_str:
-                    actual_value = _actual_from_game_row(record.stat_type, g)
-                    break
+            matched_row, match_reason = _find_game_log_row_for_record_date(logs or [], target_date)
+            actual_value: Optional[float] = _actual_from_game_row(record.stat_type, matched_row) if matched_row else None
             if actual_value is None:
                 not_found += 1
+                reason = match_reason if record.stat_type in ALLOWED_PROP_STAT_TYPES else "unsupported_type"
+                logger.info("prediction_skipped", prediction_type="top_pick", player_id=record.player_id, date=target_date.isoformat(), reason=reason)
                 if len(not_found_sample) < 40:
                     not_found_sample.append(
                         {
                             "player_id": record.player_id,
                             "player_name": record.player_name,
                             "stat_type": record.stat_type,
-                            "reason": "game_not_in_log",
+                            "reason": reason,
                         }
                     )
                 continue
@@ -549,10 +577,12 @@ def settle_top_picks_for_date(target_date: date, season: Optional[str] = None) -
                 record.error = None
             record.settled_at = datetime.utcnow()
             settled += 1
+            logger.info("settlement_completed", prediction_type="top_pick", player_id=record.player_id, date=target_date.isoformat(), match_reason=match_reason)
         db.commit()
     except Exception as e:
         db.rollback()
         errors.append(str(e))
+        logger.warning("settlement_failed", prediction_type="top_picks", date=target_date.isoformat(), error=str(e))
         logger.warning("settle_top_picks_for_date failed", date=target_date.isoformat(), error=str(e))
     finally:
         db.close()
