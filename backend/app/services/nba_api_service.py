@@ -622,6 +622,7 @@ class NBADataService:
                 from ..utils.season import get_current_season
                 from ..database import SessionLocal
                 from ..models.player_game_log_cache import PlayerGameLogCache
+                from ..models.players import Player
 
                 season = get_current_season()
                 db = SessionLocal()
@@ -636,7 +637,15 @@ class NBADataService:
                         .first()
                     )
                     if row and row.matchup:
-                        return _team_from_matchup(row.matchup)
+                        abbr = _team_from_matchup(row.matchup)
+                        if abbr:
+                            return abbr
+                    player_row = db.query(Player).filter(Player.id == player_id).first()
+                    if player_row and player_row.team_id is not None:
+                        try:
+                            return team_map.get(int(player_row.team_id))
+                        except (TypeError, ValueError):
+                            pass
                 finally:
                     db.close()
             except Exception:

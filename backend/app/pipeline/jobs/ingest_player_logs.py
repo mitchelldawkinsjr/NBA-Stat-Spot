@@ -3,9 +3,11 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Tuple
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ...database import SessionLocal
+from ...models.player_game_log_cache import PlayerGameLogCache
 from ...services.nba_api_service import NBADataService
 from ...utils.season import get_current_season
 from ..context import PipelineContext
@@ -13,7 +15,15 @@ from ..repositories import player_stats_repo
 
 
 def _load_local(pid: int, season: str) -> List[Dict[str, Any]]:
-    """Read only local stores (PGS → DB cache). Never call ESPN/NBA."""
+    """Read only local stores (DB cache → PGS). Never call ESPN/NBA."""
+    # Prefer game-log cache first (keeps matchups for search/team).
+    try:
+        logs = NBADataService._get_game_log_from_db(pid, season)
+        if NBADataService._is_good_game_log(logs):
+            return logs or []
+    except Exception:
+        pass
+
     db = SessionLocal()
     try:
         logs = player_stats_repo.get_player_logs_from_stats(db, pid, season, limit=30)
@@ -23,13 +33,6 @@ def _load_local(pid: int, season: str) -> List[Dict[str, Any]]:
         pass
     finally:
         db.close()
-
-    try:
-        logs = NBADataService._get_game_log_from_db(pid, season)
-        if NBADataService._is_good_game_log(logs):
-            return logs or []
-    except Exception:
-        pass
     return []
 
 
@@ -95,27 +98,25 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
             errors += 1
             continue
         try:
-            # Don't clobber a richer local cache with a thinner PGS slice.
             existing_n = (
-                db.execute(
-                    __import__("sqlalchemy").text(
-                        "SELECT COUNT(*) FROM player_game_log_cache WHERE player_id=:p AND season=:s"
-                    ),
-                    {"p": pid, "s": season},
-                ).scalar()
+                db.query(func.count(PlayerGameLogCache.id))
+                .filter(
+                    PlayerGameLogCache.player_id == pid,
+                    PlayerGameLogCache.season == season,
+                )
+                .scalar()
                 or 0
             )
+            # Prefer richer local cache; thin PGS slices must not wipe matchups.
             if existing_n > len(logs or []):
-                player_stats_repo.sync_logs_to_player_game_stats(
-                    db, player_id=pid, season=season, logs=logs or [], source="nba_api"
-                )
-            else:
-                player_stats_repo.sync_player_game_log_cache(
-                    db, player_id=pid, season=season, logs=logs or []
-                )
-                player_stats_repo.sync_logs_to_player_game_stats(
-                    db, player_id=pid, season=season, logs=logs or [], source="nba_api"
-                )
+                warmed += 1
+                continue
+            player_stats_repo.sync_player_game_log_cache(
+                db, player_id=pid, season=season, logs=logs or []
+            )
+            player_stats_repo.sync_logs_to_player_game_stats(
+                db, player_id=pid, season=season, logs=logs or [], source="nba_api"
+            )
             db.commit()
             warmed += 1
         except Exception:
