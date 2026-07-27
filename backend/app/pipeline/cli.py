@@ -13,9 +13,11 @@ from .jobs import (
     ingest_player_logs,
     compute_analytics,
     build_prop_evaluations,
+    build_opponent_analysis,
     build_dashboard,
     build_ranks,
     settle_accuracy,
+    backfill_settlement_stats,
     data_quality,
 )
 
@@ -25,9 +27,11 @@ JOBS = {
     "ingest_player_logs": ingest_player_logs.run,
     "compute_analytics": compute_analytics.run,
     "build_prop_evaluations": build_prop_evaluations.run,
+    "build_opponent_analysis": build_opponent_analysis.run,
     "build_dashboard": build_dashboard.run,
     "build_ranks": build_ranks.run,
     "settle_accuracy": settle_accuracy.run,
+    "backfill_settlement_stats": backfill_settlement_stats.run,
     "data_quality": data_quality.run,
 }
 

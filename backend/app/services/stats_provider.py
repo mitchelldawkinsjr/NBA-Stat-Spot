@@ -28,15 +28,23 @@ class DbStatsProvider(StatsProvider):
 
         db = SessionLocal()
         try:
-            logs = player_stats_repo.get_player_logs_from_stats(db, player_id, season, limit=40)
+            logs = player_stats_repo.get_player_logs_from_stats(
+                db, player_id, season, limit=100
+            )
             if logs:
                 return logs
         finally:
             db.close()
+
+        cached = NBADataService._get_game_log_from_db(player_id, season)
+        if cached:
+            return cached
         return NBADataService.fetch_player_game_log(player_id, season)
 
 
 def get_settlement_stats_provider() -> StatsProvider:
-    if (os.getenv("PIPELINE_SETTLE_USE_DB") or "").strip().lower() in ("1", "true", "yes"):
-        return DbStatsProvider()
-    return GameLogStatsProvider()
+    # Prefer DB/cache for settlement; external APIs are a last resort.
+    flag = (os.getenv("PIPELINE_SETTLE_USE_DB") or "true").strip().lower()
+    if flag in ("0", "false", "no"):
+        return GameLogStatsProvider()
+    return DbStatsProvider()

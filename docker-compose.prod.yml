@@ -68,6 +68,7 @@ services:
       - PIPELINE_AUTO_PUBLISH=${PIPELINE_AUTO_PUBLISH:-false}
       - PIPELINE_READ_STATS=${PIPELINE_READ_STATS:-true}
       - PIPELINE_READ_DASHBOARD=${PIPELINE_READ_DASHBOARD:-true}
+      - PIPELINE_SETTLE_USE_DB=${PIPELINE_SETTLE_USE_DB:-true}
     depends_on:
       postgres:
         condition: service_healthy

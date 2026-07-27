@@ -38,6 +38,7 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
         .filter(
             PropPredictionRecord.record_date <= target - timedelta(days=1),
             PropPredictionRecord.actual_value.is_(None),
+            PropPredictionRecord.settled_at.is_(None),
         )
         .count()
     )

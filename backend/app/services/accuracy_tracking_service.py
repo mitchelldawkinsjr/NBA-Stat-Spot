@@ -168,6 +168,9 @@ def _aggregate_prop_records(prop_rows: List[PropPredictionRecord]) -> Dict[str, 
         if dir_key not in ("over", "under"):
             dir_key = "over"
 
+        # Voided rows (settled_at set, no actual) are excluded from accuracy.
+        if r.actual_value is None and getattr(r, "settled_at", None) is not None:
+            continue
         status, hit, push = _prop_outcome(r.actual_value, r.line_value, r.direction or "over")
         if status == "pending":
             overall["pending"] += 1
@@ -552,6 +555,7 @@ def settle_top_picks_for_date(
             .filter(
                 PropPredictionRecord.record_date == target_date,
                 PropPredictionRecord.actual_value.is_(None),
+                PropPredictionRecord.settled_at.is_(None),
             )
             .all()
         )
@@ -718,7 +722,11 @@ def settle_open_predictions(
         )
         dates.update(
             d for (d,) in db.query(PropPredictionRecord.record_date)
-            .filter(PropPredictionRecord.record_date <= target_date, PropPredictionRecord.actual_value.is_(None))
+            .filter(
+                PropPredictionRecord.record_date <= target_date,
+                PropPredictionRecord.actual_value.is_(None),
+                PropPredictionRecord.settled_at.is_(None),
+            )
             .all()
         )
     finally:
