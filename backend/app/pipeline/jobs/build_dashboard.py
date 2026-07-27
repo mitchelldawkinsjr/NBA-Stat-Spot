@@ -23,6 +23,7 @@ from ..repositories.snapshots_repo import (
     ARTIFACT_TOP_PICKS,
     save_snapshot,
 )
+from ..utils.slate_date import resolve_slate_date
 from . import build_prop_evaluations as prop_eval_job
 from . import data_quality as dq_job
 
@@ -55,7 +56,7 @@ def _derive_pick_of_day(items: List[Dict[str, Any]], today_str: str) -> Dict[str
 
 def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
     season = ctx.season or get_current_season()
-    snapshot_date = ctx.target_date or date.today()
+    snapshot_date = resolve_slate_date(db, target_date=ctx.target_date, season=season)
     ds = snapshot_date.isoformat()
     publish = pipeline_auto_publish() and not pipeline_shadow_build()
 

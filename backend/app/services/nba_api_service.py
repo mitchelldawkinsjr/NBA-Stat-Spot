@@ -446,12 +446,13 @@ class NBADataService:
         # Default to current season if not provided
         season_to_use = season or get_current_season()
         
-        max_retries = 1
+        max_retries = 2
         base_delay = 1.0
         
         for attempt in range(max_retries):
             try:
-                gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use, timeout=5)
+                # stats.nba.com is often slow from cloud hosts; 5s caused mass timeouts
+                gl = playergamelog.PlayerGameLog(player_id=player_id, season=season_to_use, timeout=30)
                 df = gl.get_data_frames()[0]
                 
                 # Log available columns for debugging
@@ -769,10 +770,15 @@ class NBADataService:
         cache = get_cache_service()
 
         if not force_refresh:
-            # 1. Redis (fastest)
+            # 1. Redis (fastest) — ignore empty lists (poisoned by failed cascades)
             cached_data = cache.get(cache_key)
-            if cached_data is not None:
+            if cached_data is not None and NBADataService._is_good_game_log(cached_data):
                 return cached_data
+            if isinstance(cached_data, list) and not cached_data:
+                try:
+                    cache.delete(cache_key)
+                except Exception:
+                    pass
 
             # 1b. Pipeline canonical stats (player_game_stats) when enabled
             try:
@@ -833,7 +839,9 @@ class NBADataService:
                     return db_data
 
         def _store(result: List[Dict[str, Any]]) -> None:
-            """Write to Redis + DB in one call."""
+            """Write good logs to Redis + DB. Never cache empty failures."""
+            if not NBADataService._is_good_game_log(result):
+                return
             cache.set(cache_key, result, ttl=86400)
             NBADataService._persist_game_log_to_db(player_id, season_to_use, result)
 
@@ -876,12 +884,12 @@ class NBADataService:
             return r3
 
         best = max(attempts, key=len) if attempts else []
-        if not best:
-            log.warning("No good game log data after cascade", player_id=player_id)
-        else:
+        if NBADataService._is_good_game_log(best):
             log.info("Player game log best of cascade", player_id=player_id, count=len(best))
-        _store(best)
-        return best
+            _store(best)
+            return best
+        log.warning("No good game log data after cascade", player_id=player_id)
+        return []
 
     @staticmethod
     def fetch_todays_games() -> List[Dict[str, Any]]:

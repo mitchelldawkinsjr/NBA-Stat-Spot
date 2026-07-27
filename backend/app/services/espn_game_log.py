@@ -89,6 +89,24 @@ def fetch_player_game_log_espn(
 
     player_name = player.get("full_name") or (player.get("first_name", "") + " " + player.get("last_name", "")).strip()
     team_id = player.get("team_id")
+
+    # Prefer recent game-log team (CommonAllPlayers team_id is often stale / FA)
+    try:
+        from ..utils.season import get_current_season as _gcs
+        cached = NBADataService._get_game_log_from_db(player_id, season or _gcs())
+        if cached:
+            m = (cached[0].get("matchup") or "").strip().upper()
+            # "LAL @ IND" / "LAL vs. BOS" — player's team is the first token
+            abbr = m.split()[0] if m.split() else None
+            if abbr:
+                teams = NBADataService.fetch_all_teams() or []
+                for t in teams:
+                    if (t.get("abbreviation") or "").upper() == abbr:
+                        team_id = t.get("id")
+                        break
+    except Exception:
+        pass
+
     if not player_name or team_id is None:
         logger.info("ESPN fallback: missing name or team", player_id=player_id)
         return []
@@ -103,10 +121,19 @@ def fetch_player_game_log_espn(
         logger.info("ESPN fallback: no ESPN team slug", player_id=player_id, team_id=team_id)
         return []
 
+    # ESPN season year = ending year of NBA season ("2025-26" -> 2026)
+    season_year = None
+    if season and "-" in season:
+        try:
+            start, end = season.split("-", 1)
+            season_year = int(start[:2] + end) if len(end) == 2 else int(end)
+        except ValueError:
+            season_year = None
+
     # Get team schedule (events = games); sort by date descending (most recent first)
-    events = espn.get_team_schedule(espn_slug)
+    events = espn.get_team_schedule(espn_slug, season_year=season_year)
     if not events:
-        logger.info("ESPN fallback: no schedule", player_id=player_id, espn_slug=espn_slug)
+        logger.info("ESPN fallback: no schedule", player_id=player_id, espn_slug=espn_slug, season_year=season_year)
         return []
 
     def _event_date(e: Dict[str, Any]) -> str:

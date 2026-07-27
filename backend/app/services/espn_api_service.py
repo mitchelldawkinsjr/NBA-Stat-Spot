@@ -224,18 +224,19 @@ class ESPNService:
         
         return data.get("athletes", [])
     
-    def get_team_schedule(self, team_id: str) -> List[Dict[str, Any]]:
+    def get_team_schedule(self, team_id: str, season_year: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Get team schedule (upcoming and past games).
-        
+
         Args:
             team_id: Team slug (e.g., "lal", "bos")
-            
-        Returns:
-            List of game dictionaries
+            season_year: ESPN season year (ending year of NBA season, e.g. 2026 for 2025-26).
+                         When omitted, ESPN returns the current/upcoming slate only.
         """
         endpoint = f"{self.BASE_URL}/teams/{team_id}/schedule"
-        cache_key = f"espn:team_schedule:{team_id}:1h"
+        if season_year:
+            endpoint = f"{endpoint}?season={int(season_year)}"
+        cache_key = f"espn:team_schedule:{team_id}:{season_year or 'current'}:1h"
         
         data = self.client.get_with_rate_limit(
             provider=APIProvider.ESPN,

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from ...models.player_prop_evaluations import PlayerPropEvaluation
 from ...services.analytics_constants import FORMULA_VERSION
+from ...services.aggregate_stats_reader import AggregateStatsReader
 from ...services.best_picks_service import TIER_LEAN, TIER_LOCK, TIER_STRONG, _tier_label
 from ...services.daily_props_service import DailyPropsService
 from ...utils.season import get_current_season
@@ -89,7 +90,9 @@ def _upsert_evaluation(
 
 def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
     season = ctx.season or get_current_season()
-    snapshot_date = ctx.target_date or date.today()
+    from ..utils.slate_date import resolve_slate_date
+
+    snapshot_date = resolve_slate_date(db, target_date=ctx.target_date, season=season)
     ds = snapshot_date.isoformat()
 
     # Force live compute (do not read existing prop evaluation rows).
@@ -101,6 +104,17 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
         prefer_precomputed=False,
     )
     items: List[Dict[str, Any]] = daily.get("items") or []
+
+    # Offseason / empty slate: keep prior evaluations for this date if live returns nothing.
+    if not items and AggregateStatsReader.count_prop_evaluations(db, snapshot_date) > 0:
+        return {
+            "rows_written": 0,
+            "game_date": ds,
+            "season": season,
+            "formula_version": FORMULA_VERSION,
+            "skipped": "no_live_props_kept_existing",
+            "tier_thresholds": {"lock": TIER_LOCK, "strong": TIER_STRONG, "lean": TIER_LEAN},
+        }
 
     written = 0
     for item in items:
