@@ -48,8 +48,12 @@ def upsert_player_game_stat(
     row.blocks = int(stats.get("blk") or stats.get("blocks") or 0)
     row.turnovers = int(stats.get("tov") or stats.get("turnovers") or 0)
 
-    if any(k in stats for k in ("fgm", "field_goals_made", "fga", "field_goals_attempted")):
+    if any(k in stats for k in ("fgm", "field_goals_made")):
         row.field_goals_made = int(stats.get("fgm") or stats.get("field_goals_made") or 0)
+        if any(k in stats for k in ("fga", "field_goals_attempted")):
+            row.field_goals_attempted = int(stats.get("fga") or stats.get("field_goals_attempted") or 0)
+    elif any(k in stats for k in ("fga", "field_goals_attempted")):
+        # Attempted-only feeds (e.g. game-log cache) — store FGA but do not invent FGM=0 for validation.
         row.field_goals_attempted = int(stats.get("fga") or stats.get("field_goals_attempted") or 0)
     if any(k in stats for k in ("ftm", "free_throws_made")):
         row.free_throws_made = int(stats.get("ftm") or stats.get("free_throws_made") or 0)
@@ -64,10 +68,11 @@ def upsert_player_game_stat(
         "three_pointers_made": row.three_pointers_made,
         "minutes_played": row.minutes_played,
     }
-    if row.field_goals_made is not None or row.field_goals_attempted is not None:
+    # Points identity only when made+attempted shooting fields were provided together.
+    if any(k in stats for k in ("fgm", "field_goals_made")):
         validation_record["field_goals_made"] = row.field_goals_made
         validation_record["field_goals_attempted"] = row.field_goals_attempted
-    if row.free_throws_made is not None:
+    if row.free_throws_made is not None and any(k in stats for k in ("ftm", "free_throws_made")):
         validation_record["free_throws_made"] = row.free_throws_made
 
     status, failures_json = validate_and_serialize(validation_record)
