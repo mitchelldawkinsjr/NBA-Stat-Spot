@@ -2,6 +2,9 @@ from .teams import Team
 from .players import Player
 from .player_game_stats import PlayerGameStat
 from .player_game_log_cache import PlayerGameLogCache
+from .player_stat_windows import PlayerStatWindow
+from .player_line_hit_rates import PlayerLineHitRate
+from .player_prop_evaluations import PlayerPropEvaluation
 from .prop_suggestions import PropSuggestion
 from .prop_bet_lines import PropBetLine
 from .user_bets import UserBet

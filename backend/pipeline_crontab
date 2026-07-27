@@ -8,7 +8,11 @@
 # Daily player log warm
 0 10 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run ingest_player_logs || echo "Failed: ingest_player_logs"
 
-# Build dashboard + ranks
+# Precompute windows / hit rates, then daily prop evaluations
+5 10 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run compute_analytics || echo "Failed: compute_analytics"
+10 10 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run build_prop_evaluations || echo "Failed: build_prop_evaluations"
+
+# Build dashboard + ranks (dashboard assembles from prop evaluation rows)
 15 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run build_ranks || echo "Failed: build_ranks"
 20 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run build_dashboard || echo "Failed: build_dashboard"
 

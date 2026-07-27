@@ -297,10 +297,42 @@ class BestPicksService:
         season: Optional[str] = None,
         limit: int = 12,
         min_confidence: float = 62.0,
+        prefer_precomputed: bool = True,
     ) -> Dict[str, Any]:
         season = season or get_current_season()
         target_date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
         target_date_obj = date_cls.fromisoformat(target_date[:10])
+
+        if prefer_precomputed:
+            try:
+                from ..database import SessionLocal
+                from .aggregate_stats_reader import AggregateStatsReader
+
+                db = SessionLocal()
+                try:
+                    if AggregateStatsReader.count_prop_evaluations(db, target_date_obj) > 0:
+                        items = AggregateStatsReader.list_prop_evaluations(
+                            db,
+                            target_date_obj,
+                            min_confidence=min_confidence,
+                            limit=limit,
+                        )
+                        for it in items:
+                            if not it.get("tier"):
+                                it["tier"] = _tier_label(float(it.get("confidence") or 0))
+                        return {
+                            "items": items,
+                            "total": len(items),
+                            "returned": len(items),
+                            "date": target_date,
+                            "season": season,
+                            "source": "player_prop_evaluations",
+                        }
+                finally:
+                    db.close()
+            except Exception:
+                pass
+
         et_tz = pytz.timezone("America/New_York")
         today_et = datetime.now(et_tz).date()
         if target_date_obj == today_et:

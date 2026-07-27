@@ -1,4 +1,8 @@
-"""Build dashboard snapshots and record accuracy rows."""
+"""Build dashboard snapshots and record accuracy rows.
+
+Prefers assembling from player_prop_evaluations (after build_prop_evaluations).
+Falls back to live DailyProps/BestPicks compute when no rows exist.
+"""
 from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, List
@@ -6,6 +10,7 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 
 from ...services.accuracy_tracking_service import record_pick_of_the_day, record_prop_predictions
+from ...services.aggregate_stats_reader import AggregateStatsReader
 from ...services.best_picks_service import BestPicksService
 from ...services.cache_service import get_cache_service
 from ...services.daily_props_service import DailyPropsService
@@ -18,6 +23,7 @@ from ..repositories.snapshots_repo import (
     ARTIFACT_TOP_PICKS,
     save_snapshot,
 )
+from . import build_prop_evaluations as prop_eval_job
 from . import data_quality as dq_job
 
 
@@ -53,10 +59,45 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
     ds = snapshot_date.isoformat()
     publish = pipeline_auto_publish() and not pipeline_shadow_build()
 
-    daily = DailyPropsService.get_top_props_for_date(
-        date=ds, season=season, min_confidence=50.0, limit=100
-    )
-    top = BestPicksService.get_top_picks(date=ds, season=season, limit=12, min_confidence=62.0)
+    # Ensure prop evaluations exist for this date (idempotent upsert).
+    if AggregateStatsReader.count_prop_evaluations(db, snapshot_date) == 0:
+        prop_ctx = PipelineContext(
+            job_name="build_prop_evaluations",
+            target_date=snapshot_date,
+            season=season,
+            dry_run=False,
+            run_id=ctx.run_id,
+        )
+        prop_eval_job.run(prop_ctx, db)
+
+    if AggregateStatsReader.count_prop_evaluations(db, snapshot_date) > 0:
+        daily_items = AggregateStatsReader.list_prop_evaluations(
+            db, snapshot_date, min_confidence=50.0, limit=100
+        )
+        top_items = AggregateStatsReader.list_prop_evaluations(
+            db, snapshot_date, min_confidence=62.0, limit=12
+        )
+        daily = {
+            "items": daily_items,
+            "source": "player_prop_evaluations",
+            "count": len(daily_items),
+        }
+        top = {
+            "items": top_items,
+            "total": len(top_items),
+            "returned": len(top_items),
+            "date": ds,
+            "season": season,
+            "source": "player_prop_evaluations",
+        }
+    else:
+        daily = DailyPropsService.get_top_props_for_date(
+            date=ds, season=season, min_confidence=50.0, limit=100, prefer_precomputed=False
+        )
+        top = BestPicksService.get_top_picks(
+            date=ds, season=season, limit=12, min_confidence=62.0, prefer_precomputed=False
+        )
+
     pick = _derive_pick_of_day(daily.get("items") or [], ds)
 
     save_snapshot(
@@ -118,4 +159,5 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
         "top_picks_count": len(top.get("items") or []),
         "daily_props_count": len(daily.get("items") or []),
         "published": publish,
+        "source": daily.get("source") or "live_compute",
     }

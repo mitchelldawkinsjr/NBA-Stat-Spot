@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ...models.game_participants import GameParticipant
 from ...models.player_game_log_cache import PlayerGameLogCache
 from ...models.player_game_stats import PlayerGameStat
+from ...services.box_score_validator import BoxScoreValidator, validate_and_serialize
 
 
 def _stat_id(player_id: int, game_id: str) -> str:
@@ -46,6 +47,33 @@ def upsert_player_game_stat(
     row.steals = int(stats.get("stl") or stats.get("steals") or 0)
     row.blocks = int(stats.get("blk") or stats.get("blocks") or 0)
     row.turnovers = int(stats.get("tov") or stats.get("turnovers") or 0)
+
+    if any(k in stats for k in ("fgm", "field_goals_made", "fga", "field_goals_attempted")):
+        row.field_goals_made = int(stats.get("fgm") or stats.get("field_goals_made") or 0)
+        row.field_goals_attempted = int(stats.get("fga") or stats.get("field_goals_attempted") or 0)
+    if any(k in stats for k in ("ftm", "free_throws_made")):
+        row.free_throws_made = int(stats.get("ftm") or stats.get("free_throws_made") or 0)
+
+    validation_record: Dict[str, Any] = {
+        "points": row.points,
+        "rebounds": row.rebounds,
+        "assists": row.assists,
+        "steals": row.steals,
+        "blocks": row.blocks,
+        "turnovers": row.turnovers,
+        "three_pointers_made": row.three_pointers_made,
+        "minutes_played": row.minutes_played,
+    }
+    if row.field_goals_made is not None or row.field_goals_attempted is not None:
+        validation_record["field_goals_made"] = row.field_goals_made
+        validation_record["field_goals_attempted"] = row.field_goals_attempted
+    if row.free_throws_made is not None:
+        validation_record["free_throws_made"] = row.free_throws_made
+
+    status, failures_json = validate_and_serialize(validation_record)
+    row.validation_status = status
+    row.validation_failures = failures_json
+
     db.flush()
     return row
 
@@ -92,6 +120,41 @@ def sync_player_game_log_cache(
     return n
 
 
+def sync_logs_to_player_game_stats(
+    db: Session,
+    *,
+    player_id: int,
+    season: str,
+    logs: List[Dict[str, Any]],
+    source: str = "nba_api",
+) -> int:
+    """Upsert game-log rows into player_game_stats (with validation)."""
+    written = 0
+    for row in logs:
+        gid = str(row.get("game_id") or "")
+        if not gid:
+            continue
+        gd_raw = row.get("game_date") or ""
+        try:
+            if isinstance(gd_raw, date):
+                gdate = gd_raw
+            else:
+                gdate = date.fromisoformat(str(gd_raw)[:10])
+        except ValueError:
+            continue
+        upsert_player_game_stat(
+            db,
+            player_id=player_id,
+            game_id=gid,
+            game_date=gdate,
+            season=season,
+            stats=row,
+            source=source,
+        )
+        written += 1
+    return written
+
+
 def record_game_participant(db: Session, game_id: str, player_id: int) -> None:
     exists = (
         db.query(GameParticipant.id)
@@ -109,15 +172,21 @@ def get_participants_for_game(db: Session, game_id: str) -> List[int]:
 
 
 def get_player_logs_from_stats(
-    db: Session, player_id: int, season: str, limit: int = 30
+    db: Session, player_id: int, season: str, limit: int = 30, exclude_invalid: bool = True
 ) -> List[Dict[str, Any]]:
-    rows = (
-        db.query(PlayerGameStat)
-        .filter(PlayerGameStat.player_id == player_id, PlayerGameStat.season == season)
-        .order_by(PlayerGameStat.game_date.desc())
-        .limit(limit)
-        .all()
+    from sqlalchemy import or_
+
+    q = db.query(PlayerGameStat).filter(
+        PlayerGameStat.player_id == player_id, PlayerGameStat.season == season
     )
+    if exclude_invalid:
+        q = q.filter(
+            or_(
+                PlayerGameStat.validation_status.is_(None),
+                PlayerGameStat.validation_status != BoxScoreValidator.STATUS_INVALID,
+            )
+        )
+    rows = q.order_by(PlayerGameStat.game_date.desc()).limit(limit).all()
     out = []
     for r in rows:
         out.append(

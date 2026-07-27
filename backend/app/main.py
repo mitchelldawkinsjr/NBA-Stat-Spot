@@ -13,6 +13,9 @@ from .models.player_game_log_cache import PlayerGameLogCache  # ensures table is
 from .models.games import Game  # noqa: F401
 from .models.game_participants import GameParticipant  # noqa: F401
 from .models.dashboard_snapshots import DashboardSnapshot  # noqa: F401
+from .models.player_stat_windows import PlayerStatWindow  # noqa: F401
+from .models.player_line_hit_rates import PlayerLineHitRate  # noqa: F401
+from .models.player_prop_evaluations import PlayerPropEvaluation  # noqa: F401
 from .models.pipeline_runs import PipelineRun, IngestWatermark  # noqa: F401
 from .services.cache_service import CacheEntry  # Import cache model so table is created
 from .routers.props_v1 import router as props_v1_router

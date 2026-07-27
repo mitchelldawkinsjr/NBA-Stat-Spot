@@ -233,6 +233,7 @@ class DailyPropsService:
         limit: int = 50,
         last_n: Optional[int] = None,
         hot_form_only: bool = False,
+        prefer_precomputed: bool = True,
     ) -> Dict:
         """
         Get top props for all players playing on a given date.
@@ -244,6 +245,7 @@ class DailyPropsService:
             limit: Maximum number of props to return
             last_n: Optional limit to last N games for computation
             hot_form_only: If True, only return props for players in hot form (recent > season)
+            prefer_precomputed: If True, read player_prop_evaluations when rows exist
             
         Returns:
             Dictionary with "items" list of top props
@@ -259,6 +261,33 @@ class DailyPropsService:
         else:
             # Use today's date in UTC to match frontend
             target_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        if prefer_precomputed:
+            try:
+                from datetime import date as date_cls
+                from ..database import SessionLocal
+                from .aggregate_stats_reader import AggregateStatsReader
+
+                gd = date_cls.fromisoformat(str(target_date)[:10])
+                db = SessionLocal()
+                try:
+                    if AggregateStatsReader.count_prop_evaluations(db, gd) > 0:
+                        items = AggregateStatsReader.list_prop_evaluations(
+                            db,
+                            gd,
+                            min_confidence=min_confidence,
+                            hot_form_only=hot_form_only,
+                            limit=limit,
+                        )
+                        return {
+                            "items": items,
+                            "source": "player_prop_evaluations",
+                            "count": len(items),
+                        }
+                finally:
+                    db.close()
+            except Exception:
+                pass
         
         # Get games for the target date (so frontend date and backend use the same day)
         try:

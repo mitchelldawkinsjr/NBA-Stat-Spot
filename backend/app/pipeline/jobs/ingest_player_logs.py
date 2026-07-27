@@ -55,6 +55,9 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
                     player_stats_repo.sync_player_game_log_cache(
                         db, player_id=pid, season=season, logs=logs or []
                     )
+                    player_stats_repo.sync_logs_to_player_game_stats(
+                        db, player_id=pid, season=season, logs=logs or [], source="nba_api"
+                    )
                     warmed += 1
                 else:
                     errors += 1

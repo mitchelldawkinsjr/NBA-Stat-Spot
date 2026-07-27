@@ -188,9 +188,29 @@ def _process_player(
         direction = "over"
 
     trend: Dict[str, Any] = {}
-    for n in PERIODS:
-        label = PERIOD_LABELS[n]
-        trend[label] = StatsCalculator.trend_period(logs, line, STAT_KEY, direction, n)
+    used_precomputed = False
+    try:
+        from ..database import SessionLocal
+        from .aggregate_stats_reader import AggregateStatsReader
+
+        db = SessionLocal()
+        try:
+            pre = AggregateStatsReader.trend_block_for_line(
+                db, pid_int, season, STAT_KEY, line, direction
+            )
+            # Use precomputed only when at least one window has sample games
+            if any((pre.get(lab) or {}).get("total", 0) > 0 for lab in ("L5", "L10", "L20")):
+                trend = pre
+                used_precomputed = True
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    if not used_precomputed:
+        for n in PERIODS:
+            label = PERIOD_LABELS[n]
+            trend[label] = StatsCalculator.trend_period(logs, line, STAT_KEY, direction, n)
 
     prog = LiveGameContextService.compute_stat_progression(
         pts, line, minutes_played, live_pace=game_live_pace
@@ -208,6 +228,7 @@ def _process_player(
         "progression": prog,
         "trend": trend,
         "rationale_summary": (ev.get("rationale") or {}).get("summary", ""),
+        "trend_source": "player_line_hit_rates" if used_precomputed else "live_compute",
     }
 
     return {

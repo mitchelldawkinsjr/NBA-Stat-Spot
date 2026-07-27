@@ -389,18 +389,50 @@ def trends(
 ):
     season_to_use = season or get_current_season()
     logs = NBADataService.fetch_player_game_log(player_id, season_to_use)
-    last = logs[-20:]
-    avg10 = StatsCalculator.calculate_rolling_average(last, stat_type, 10)
-    avg5 = StatsCalculator.calculate_rolling_average(last, stat_type, 5)
-    heat_index = StatsCalculator.calculate_heat_index(last, stat_type, 10)
-    volatility_index = StatsCalculator.calculate_volatility_index(last, stat_type, 10)
+    last = logs[-20:] if logs else []
+
+    # Prefer precomputed windows when available
+    avg5 = None
+    avg10 = None
+    heat_index = None
+    volatility_index = None
+    source = "live_compute"
+    try:
+        from ..database import SessionLocal
+        from ..services.aggregate_stats_reader import AggregateStatsReader
+
+        db = SessionLocal()
+        try:
+            w5 = AggregateStatsReader.get_stat_window(db, player_id, season_to_use, stat_type, "l5")
+            w10 = AggregateStatsReader.get_stat_window(db, player_id, season_to_use, stat_type, "l10")
+            if w5 or w10:
+                source = "player_stat_windows"
+                avg5 = w5.get("avg") if w5 else None
+                avg10 = w10.get("avg") if w10 else None
+                heat_index = (w10 or w5 or {}).get("heat_index")
+                volatility_index = (w10 or w5 or {}).get("volatility_index")
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    if avg5 is None:
+        avg5 = StatsCalculator.calculate_rolling_average(last, stat_type, 5)
+    if avg10 is None:
+        avg10 = StatsCalculator.calculate_rolling_average(last, stat_type, 10)
+    if heat_index is None:
+        heat_index = StatsCalculator.calculate_heat_index(last, stat_type, 10)
+    if volatility_index is None:
+        volatility_index = StatsCalculator.calculate_volatility_index(last, stat_type, 10)
+
     return {
         "stat": stat_type,
         "avg5": avg5,
         "avg10": avg10,
-        "heat_index": round(heat_index, 2),
+        "heat_index": round(float(heat_index or 0), 2),
         "volatility_index": volatility_index,
         "items": last,
+        "source": source,
     }
 
 
@@ -422,22 +454,51 @@ def get_player_streaks(
 
     stats = ["pts", "reb", "ast", "tpm"]
     result: Dict[str, Any] = {}
+    windows_by_stat: Dict[str, Any] = {}
+    try:
+        from ..database import SessionLocal
+        from ..services.aggregate_stats_reader import AggregateStatsReader
+
+        db = SessionLocal()
+        try:
+            for stat in stats:
+                season_w = AggregateStatsReader.get_stat_window(
+                    db, player_id, season_to_use, stat, "season"
+                )
+                l5 = AggregateStatsReader.get_stat_window(db, player_id, season_to_use, stat, "l5")
+                if season_w or l5:
+                    windows_by_stat[stat] = {"season": season_w, "l5": l5}
+        finally:
+            db.close()
+    except Exception:
+        pass
+
     for stat in stats:
-        season_avg = StatsCalculator.calculate_rolling_average(logs, stat, len(logs))
-        if season_avg <= 0:
+        pre = windows_by_stat.get(stat) or {}
+        season_avg = (pre.get("season") or {}).get("avg")
+        if season_avg is None:
+            season_avg = StatsCalculator.calculate_rolling_average(logs, stat, len(logs))
+        if season_avg is None or season_avg <= 0:
             continue
         streak_over = StatsCalculator.calculate_streak(logs, stat, season_avg, "over")
         streak_under = StatsCalculator.calculate_streak(logs, stat, season_avg, "under")
-        recent5_avg = StatsCalculator.calculate_rolling_average(logs, stat, 5)
+        recent5_avg = (pre.get("l5") or {}).get("avg")
+        if recent5_avg is None:
+            recent5_avg = StatsCalculator.calculate_rolling_average(logs, stat, 5)
         result[stat] = {
-            "season_avg": round(season_avg, 1),
-            "recent5_avg": round(recent5_avg, 1),
+            "season_avg": round(float(season_avg), 1),
+            "recent5_avg": round(float(recent5_avg), 1),
             "streak_over": streak_over,   # consecutive games ABOVE season avg
             "streak_under": streak_under, # consecutive games BELOW season avg
             "hot": streak_over >= 3,
             "cold": streak_under >= 3,
         }
-    return {"player_id": player_id, "games_analyzed": len(logs), "streaks": result}
+    return {
+        "player_id": player_id,
+        "games_analyzed": len(logs),
+        "streaks": result,
+        "source": "player_stat_windows" if windows_by_stat else "live_compute",
+    }
 
 @router.get(
     "/{player_id}/context",

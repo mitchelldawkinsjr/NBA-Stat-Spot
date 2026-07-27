@@ -25,3 +25,5 @@ def test_pipeline_jobs_registered():
     assert "ingest_schedule" in JOBS
     assert "build_dashboard" in JOBS
     assert "settle_accuracy" in JOBS
+    assert "compute_analytics" in JOBS
+    assert "build_prop_evaluations" in JOBS

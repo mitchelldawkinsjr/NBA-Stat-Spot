@@ -10,11 +10,11 @@ def _env_bool(key: str, default: bool = False) -> bool:
 
 
 def pipeline_read_stats() -> bool:
-    return _env_bool("PIPELINE_READ_STATS", False)
+    return _env_bool("PIPELINE_READ_STATS", True)
 
 
 def pipeline_read_dashboard() -> bool:
-    return _env_bool("PIPELINE_READ_DASHBOARD", False)
+    return _env_bool("PIPELINE_READ_DASHBOARD", True)
 
 
 def pipeline_shadow_build() -> bool:

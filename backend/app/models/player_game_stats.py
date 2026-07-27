@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Boolean, Float, DateTime, ForeignKey, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, Date, Boolean, Float, DateTime, ForeignKey, UniqueConstraint, Index, Text
 from sqlalchemy.sql import func
 from ..database import Base
 
@@ -7,6 +7,7 @@ class PlayerGameStat(Base):
     __table_args__ = (
         UniqueConstraint("player_id", "game_id", name="uq_player_game_stats_player_game"),
         Index("idx_pgs_player_season", "player_id", "season"),
+        Index("idx_pgs_season_validation", "season", "validation_status"),
     )
 
     id = Column(String, primary_key=True)
@@ -29,4 +30,6 @@ class PlayerGameStat(Base):
     field_goals_attempted = Column(Integer)
     free_throws_made = Column(Integer)
     turnovers = Column(Integer)
+    validation_status = Column(String(16), nullable=False, default="valid")
+    validation_failures = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
