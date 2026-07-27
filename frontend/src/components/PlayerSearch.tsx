@@ -20,6 +20,11 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
         return 
       }
       const res = await apiFetch(`api/v1/players/search?q=${encodeURIComponent(q)}`)
+      if (!res.ok) {
+        setItems([])
+        setOpen(false)
+        return
+      }
       const data = await res.json()
       setItems(data.items || [])
       setOpen(true)
@@ -85,7 +90,7 @@ export function PlayerSearch({ onSelect }: { onSelect: (p: { id: number; name: s
                 type="button" 
                 className="w-full text-left px-2.5 py-2 border-none bg-transparent hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer text-gray-900 dark:text-slate-100 rounded-md transition-colors duration-200"
               >
-                {p.name}
+                {p.name}{p.team ? ` · ${p.team}` : ''}
               </button>
             </li>
           ))}

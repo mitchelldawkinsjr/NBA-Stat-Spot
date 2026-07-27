@@ -606,13 +606,54 @@ class NBADataService:
                     team_map[int(tid)] = abbr
                 except (TypeError, ValueError):
                     pass
-        
+
+        def _team_from_matchup(matchup: str) -> Optional[str]:
+            """Player game-log MATCHUP is always 'PLAYER_TEAM @ OPP' or 'PLAYER_TEAM vs. OPP'."""
+            if not matchup:
+                return None
+            token = str(matchup).strip().split()[0] if str(matchup).strip() else ""
+            token = token.upper().rstrip(".")
+            return token if 2 <= len(token) <= 4 and token.isalpha() else None
+
+        def _recent_team_abbr(player_id: int) -> Optional[str]:
+            """Cache/DB-only recent team; never block search on external APIs."""
+            try:
+                from ..utils.season import get_current_season
+                from ..database import SessionLocal
+                from ..models.player_game_log_cache import PlayerGameLogCache
+
+                season = get_current_season()
+                db = SessionLocal()
+                try:
+                    row = (
+                        db.query(PlayerGameLogCache)
+                        .filter(
+                            PlayerGameLogCache.player_id == player_id,
+                            PlayerGameLogCache.season == season,
+                        )
+                        .order_by(PlayerGameLogCache.game_date.desc())
+                        .first()
+                    )
+                    if row and row.matchup:
+                        return _team_from_matchup(row.matchup)
+                finally:
+                    db.close()
+            except Exception:
+                pass
+            return None
+
         def _team_abbr_for_player(p: Dict[str, Any]) -> Optional[str]:
-            # Prefer explicit abbreviation on player (e.g. from static merge)
+            pid = p.get("id")
+            if pid is not None:
+                try:
+                    recent = _recent_team_abbr(int(pid))
+                    if recent:
+                        return recent
+                except (TypeError, ValueError):
+                    pass
             abbr = p.get("team_abbreviation") or p.get("team")
             if abbr and isinstance(abbr, str):
                 return abbr
-            # Resolve team_id to abbreviation (normalize to int for lookup)
             team_id = p.get("team_id")
             if team_id is None:
                 return None
@@ -620,17 +661,21 @@ class NBADataService:
                 return team_map.get(int(team_id))
             except (TypeError, ValueError):
                 return None
-        
-        matches = []
-        for p in all_players:
-            if p.get("full_name") and query_lower in p.get("full_name", "").lower():
-                team_abbr = _team_abbr_for_player(p)
-                matches.append({
-                    "id": int(p.get("id")),
-                    "name": p.get("full_name"),
-                    "team": team_abbr
-                })
-        return matches[:20]
+
+        name_matches = [
+            p for p in all_players
+            if p.get("full_name") and query_lower in p.get("full_name", "").lower()
+        ][:20]
+
+        return [
+            {
+                "id": int(p.get("id")),
+                "name": p.get("full_name"),
+                "team": _team_abbr_for_player(p),
+            }
+            for p in name_matches
+            if p.get("id") is not None
+        ]
 
     @staticmethod
     def _is_good_game_log(result: Optional[List[Dict[str, Any]]], min_games: int = 1) -> bool:

@@ -1,6 +1,6 @@
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { useSeason } from '../context/SeasonContext'
+import { SEASON_PATTERN, useSeason } from '../context/SeasonContext'
 
 const NAV_ITEMS = [
   { to: '/dashboard',   label: 'Dashboard',      icon: 'grid_view' },
@@ -19,10 +19,37 @@ const BOTTOM_NAV = [
   { to: '/explore',    label: 'Player Search',  icon: 'query_stats' },
 ]
 
+function SeasonField({ className }: { className?: string }) {
+  const { season, setSeason } = useSeason()
+  const [draft, setDraft] = useState(season)
+  useEffect(() => setDraft(season), [season])
+
+  const commit = () => {
+    const next = draft.trim()
+    if (SEASON_PATTERN.test(next)) setSeason(next)
+    else setDraft(season)
+  }
+
+  return (
+    <input
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === 'Enter') {
+          e.currentTarget.blur()
+        }
+      }}
+      placeholder="2025-26"
+      className={className}
+      aria-label="Season"
+    />
+  )
+}
+
 export default function SliceProLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const { season, setSeason } = useSeason()
 
   const isActive = (to: string) =>
     pathname === to || (to !== '/' && pathname.startsWith(to))
@@ -50,12 +77,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
         <div className="hidden lg:flex items-center gap-3">
           <div className="flex items-center bg-surface-container-low px-3 py-1.5 rounded border border-[#353534]/50">
             <span className="material-symbols-outlined text-[16px] text-on-surface/50 mr-2">calendar_month</span>
-            <input
-              value={season}
-              onChange={e => setSeason(e.target.value)}
-              placeholder="2025-26"
-              className="bg-transparent border-none text-xs font-bold focus:ring-0 placeholder:text-on-surface/30 w-20 p-0 text-on-surface uppercase"
-            />
+            <SeasonField className="bg-transparent border-none text-xs font-bold focus:ring-0 placeholder:text-on-surface/30 w-20 p-0 text-on-surface uppercase" />
           </div>
         </div>
 
@@ -115,12 +137,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
           <div className="pt-4 border-t border-[#353534]/30 space-y-1">
             <div className="flex items-center gap-2 px-4 py-2">
               <span className="text-[9px] text-on-surface/40 uppercase tracking-widest">Season</span>
-              <input
-                value={season}
-                onChange={e => setSeason(e.target.value)}
-                placeholder="2025-26"
-                className="bg-transparent border-none text-[10px] font-bold text-primary-container focus:ring-0 p-0 w-16 uppercase"
-              />
+              <SeasonField className="bg-transparent border-none text-[10px] font-bold text-primary-container focus:ring-0 p-0 w-16 uppercase" />
             </div>
             <Link
               to="/admin"
@@ -175,12 +192,7 @@ export default function SliceProLayout({ children }: { children: ReactNode }) {
             <div className="p-4 border-t border-[#353534]/30 space-y-3">
               <div className="flex items-center gap-2 px-4 py-2">
                 <span className="text-[9px] text-on-surface/40 uppercase tracking-widest">Season</span>
-                <input
-                  value={season}
-                  onChange={e => setSeason(e.target.value)}
-                  placeholder="2025-26"
-                  className="bg-transparent border-none text-[10px] font-bold text-primary-container focus:ring-0 p-0 w-20 uppercase"
-                />
+                <SeasonField className="bg-transparent border-none text-[10px] font-bold text-primary-container focus:ring-0 p-0 w-20 uppercase" />
               </div>
               <Link
                 to="/admin"
