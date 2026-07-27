@@ -92,14 +92,26 @@ def sync_player_game_log_cache(
 ) -> int:
     if not logs:
         return 0
+    # Dedupe by game_id (ESPN can return duplicates); unique is (player_id, game_id).
+    by_gid: Dict[str, Dict[str, Any]] = {}
+    for row in logs:
+        gid = str(row.get("game_id") or "")
+        if gid:
+            by_gid[gid] = row
+
+    # Remove any existing rows for these game_ids (any season) plus this season.
+    gids = list(by_gid.keys())
+    if gids:
+        db.query(PlayerGameLogCache).filter(
+            PlayerGameLogCache.player_id == player_id,
+            PlayerGameLogCache.game_id.in_(gids),
+        ).delete(synchronize_session=False)
     db.query(PlayerGameLogCache).filter_by(player_id=player_id, season=season).delete(
         synchronize_session=False
     )
+
     n = 0
-    for row in logs:
-        gid = str(row.get("game_id") or "")
-        if not gid:
-            continue
+    for gid, row in by_gid.items():
         db.add(
             PlayerGameLogCache(
                 player_id=player_id,

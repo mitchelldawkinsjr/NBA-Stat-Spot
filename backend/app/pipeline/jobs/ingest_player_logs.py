@@ -10,10 +10,6 @@ from ...utils.season import get_current_season
 from ..context import PipelineContext
 from ..repositories import player_stats_repo
 
-# Prefer DB/cache whenever we already have any good history (offseason-safe).
-# External refresh only when empty — ESPN box-score crawl is too heavy for cron.
-_MIN_CACHED_GAMES = 1
-
 
 def _load_existing(pid: int, season: str) -> List[Dict[str, Any]]:
     """Read without hitting external APIs (force_refresh=False)."""
@@ -26,29 +22,33 @@ def _load_existing(pid: int, season: str) -> List[Dict[str, Any]]:
     return []
 
 
-def _warm_one(pid: int, season: str) -> Tuple[bool, str]:
+def _warm_one(pid: int, season: str, allow_external: bool) -> Tuple[int, bool, str, List[Dict[str, Any]]]:
     """
-    Warm one player. Returns (ok, source) where source is cache|refresh|fail.
-    Skip external APIs when local history already exists.
+    Fetch logs for one player (no DB session — thread-safe).
+    External refresh is opt-in; cron stays on local cache in offseason.
     """
     existing = _load_existing(pid, season)
-    if len(existing) >= _MIN_CACHED_GAMES:
-        return True, "cache"
+    if existing:
+        return pid, True, "cache", existing
+
+    if not allow_external:
+        return pid, False, "fail", []
 
     try:
         refreshed = NBADataService.fetch_player_game_log(pid, season, force_refresh=True)
         if NBADataService._is_good_game_log(refreshed):
-            return True, "refresh"
+            return pid, True, "refresh", refreshed or []
     except Exception:
         pass
-    return False, "fail"
+    return pid, False, "fail", []
 
 
 def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
     season = ctx.season or get_current_season()
     players_per_team = int(ctx.stats.get("players_per_team", 6))
+    # External ESPN/NBA crawl is slow; cron defaults to local cache only.
+    allow_external = bool(ctx.stats.get("allow_external", False))
 
-    teams = NBADataService.fetch_all_teams() or []
     all_players = NBADataService.fetch_all_players_including_rookies() or []
     players_by_team: Dict[int, List[Dict[str, Any]]] = {}
     for player in all_players:
@@ -70,38 +70,44 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
     warmed = 0
     errors = 0
     sources: Dict[str, int] = {"cache": 0, "refresh": 0, "fail": 0}
-
-    def _fetch(pid: int) -> Tuple[int, bool, str, Optional[List[Dict[str, Any]]]]:
-        ok, source = _warm_one(pid, season)
-        logs: Optional[List[Dict[str, Any]]] = None
-        if ok:
-            logs = _load_existing(pid, season)
-        return pid, ok, source, logs
+    results: List[Tuple[int, bool, str, List[Dict[str, Any]]]] = []
 
     with ThreadPoolExecutor(max_workers=6) as pool:
-        futures = {pool.submit(_fetch, pid): pid for pid in player_ids}
+        futures = {
+            pool.submit(_warm_one, pid, season, allow_external): pid for pid in player_ids
+        }
         for fut in as_completed(futures):
             try:
-                pid, ok, source, logs = fut.result(timeout=120.0)
-                sources[source] = sources.get(source, 0) + 1
-                if not ok:
-                    errors += 1
-                    continue
-                player_stats_repo.sync_player_game_log_cache(
-                    db, player_id=pid, season=season, logs=logs or []
-                )
-                player_stats_repo.sync_logs_to_player_game_stats(
-                    db, player_id=pid, season=season, logs=logs or [], source="nba_api"
-                )
-                warmed += 1
+                results.append(fut.result(timeout=120.0))
             except Exception:
                 errors += 1
                 sources["fail"] = sources.get("fail", 0) + 1
+
+    # Serial DB writes — shared Session is not thread-safe.
+    for pid, ok, source, logs in results:
+        sources[source] = sources.get(source, 0) + 1
+        if not ok:
+            errors += 1
+            continue
+        try:
+            player_stats_repo.sync_player_game_log_cache(
+                db, player_id=pid, season=season, logs=logs or []
+            )
+            player_stats_repo.sync_logs_to_player_game_stats(
+                db, player_id=pid, season=season, logs=logs or [], source="nba_api"
+            )
+            db.commit()
+            warmed += 1
+        except Exception:
+            db.rollback()
+            errors += 1
+            sources["fail"] = sources.get("fail", 0) + 1
 
     return {
         "rows_written": warmed,
         "players_targeted": len(player_ids),
         "errors": errors,
         "sources": sources,
+        "allow_external": allow_external,
         "season": season,
     }
