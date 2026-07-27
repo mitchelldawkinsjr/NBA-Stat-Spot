@@ -1,20 +1,31 @@
 """Warm player game logs for top players per team."""
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from sqlalchemy.orm import Session
 
+from ...database import SessionLocal
 from ...services.nba_api_service import NBADataService
 from ...utils.season import get_current_season
 from ..context import PipelineContext
 from ..repositories import player_stats_repo
 
 
-def _load_existing(pid: int, season: str) -> List[Dict[str, Any]]:
-    """Read without hitting external APIs (force_refresh=False)."""
+def _load_local(pid: int, season: str) -> List[Dict[str, Any]]:
+    """Read only local stores (PGS → DB cache). Never call ESPN/NBA."""
+    db = SessionLocal()
     try:
-        logs = NBADataService.fetch_player_game_log(pid, season, force_refresh=False)
+        logs = player_stats_repo.get_player_logs_from_stats(db, pid, season, limit=30)
+        if NBADataService._is_good_game_log(logs):
+            return logs or []
+    except Exception:
+        pass
+    finally:
+        db.close()
+
+    try:
+        logs = NBADataService._get_game_log_from_db(pid, season)
         if NBADataService._is_good_game_log(logs):
             return logs or []
     except Exception:
@@ -23,11 +34,7 @@ def _load_existing(pid: int, season: str) -> List[Dict[str, Any]]:
 
 
 def _warm_one(pid: int, season: str, allow_external: bool) -> Tuple[int, bool, str, List[Dict[str, Any]]]:
-    """
-    Fetch logs for one player (no DB session — thread-safe).
-    External refresh is opt-in; cron stays on local cache in offseason.
-    """
-    existing = _load_existing(pid, season)
+    existing = _load_local(pid, season)
     if existing:
         return pid, True, "cache", existing
 
@@ -46,7 +53,6 @@ def _warm_one(pid: int, season: str, allow_external: bool) -> Tuple[int, bool, s
 def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
     season = ctx.season or get_current_season()
     players_per_team = int(ctx.stats.get("players_per_team", 6))
-    # External ESPN/NBA crawl is slow; cron defaults to local cache only.
     allow_external = bool(ctx.stats.get("allow_external", False))
 
     all_players = NBADataService.fetch_all_players_including_rookies() or []
@@ -83,7 +89,6 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
                 errors += 1
                 sources["fail"] = sources.get("fail", 0) + 1
 
-    # Serial DB writes — shared Session is not thread-safe.
     for pid, ok, source, logs in results:
         sources[source] = sources.get(source, 0) + 1
         if not ok:
