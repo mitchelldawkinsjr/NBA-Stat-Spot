@@ -95,12 +95,27 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
             errors += 1
             continue
         try:
-            player_stats_repo.sync_player_game_log_cache(
-                db, player_id=pid, season=season, logs=logs or []
+            # Don't clobber a richer local cache with a thinner PGS slice.
+            existing_n = (
+                db.execute(
+                    __import__("sqlalchemy").text(
+                        "SELECT COUNT(*) FROM player_game_log_cache WHERE player_id=:p AND season=:s"
+                    ),
+                    {"p": pid, "s": season},
+                ).scalar()
+                or 0
             )
-            player_stats_repo.sync_logs_to_player_game_stats(
-                db, player_id=pid, season=season, logs=logs or [], source="nba_api"
-            )
+            if existing_n > len(logs or []):
+                player_stats_repo.sync_logs_to_player_game_stats(
+                    db, player_id=pid, season=season, logs=logs or [], source="nba_api"
+                )
+            else:
+                player_stats_repo.sync_player_game_log_cache(
+                    db, player_id=pid, season=season, logs=logs or []
+                )
+                player_stats_repo.sync_logs_to_player_game_stats(
+                    db, player_id=pid, season=season, logs=logs or [], source="nba_api"
+                )
             db.commit()
             warmed += 1
         except Exception:
