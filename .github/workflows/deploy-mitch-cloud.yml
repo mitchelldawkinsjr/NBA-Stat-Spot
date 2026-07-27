@@ -48,16 +48,18 @@ jobs:
             mkdir -p /opt/360ws/clients/docker-app/nba-stat-spot
             mkdir -p /data/databases/nba-stat-spot
             mkdir -p /data/nba-stat-spot/logs
+            mkdir -p /data/nba-stat-spot/redis
           EOF
           
-          # Copy files to server
-          rsync -avz --delete \
+          # Copy files to server (do not delete .env / local overlays)
+          rsync -avz \
             --exclude '.git' \
             --exclude 'node_modules' \
             --exclude '__pycache__' \
             --exclude '*.pyc' \
             --exclude '.venv' \
             --exclude 'frontend/dist' \
+            --exclude '.env' \
             ./ ${VPS_USER}@${VPS_HOST}:/opt/360ws/clients/docker-app/nba-stat-spot/
           
           # SSH into the server and deploy
@@ -68,15 +70,13 @@ jobs:
             # Ensure 360ws-network exists
             docker network create 360ws-network 2>/dev/null || true
             
-            # Pull latest images and build
-            docker-compose -f docker-compose.prod.yml pull || true
-            docker-compose -f docker-compose.prod.yml build --no-cache
+            # Build images (use cache; avoid destructive compose down which
+            # recreates postgres and can corrupt WAL on abrupt stop)
+            docker compose -f docker-compose.prod.yml build
             
-            # Stop existing containers
-            docker-compose -f docker-compose.prod.yml down || true
-            
-            # Start services
-            docker-compose -f docker-compose.prod.yml up -d
+            # Rolling recreate of app containers only — leave postgres/redis running
+            docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend pipeline frontend
+            docker compose -f docker-compose.prod.yml up -d postgres redis
             
             # Wait for services to be healthy
             echo "Waiting for services to be healthy..."
@@ -84,8 +84,8 @@ jobs:
             
             # Run database migrations
             echo "Running database migrations..."
-            docker-compose -f docker-compose.prod.yml exec -T backend alembic upgrade head || \
-            docker-compose -f docker-compose.prod.yml run --rm backend alembic upgrade head || true
+            docker compose -f docker-compose.prod.yml exec -T backend alembic upgrade head || \
+            docker compose -f docker-compose.prod.yml run --rm backend alembic upgrade head || true
             
             # Health check
             echo "Performing health check..."
@@ -103,10 +103,12 @@ jobs:
             
             if [ $attempt -eq $max_attempts ]; then
               echo "Health check failed after $max_attempts attempts."
-              docker-compose -f docker-compose.prod.yml logs backend
+              docker compose -f docker-compose.prod.yml logs --tail=80 backend postgres
               exit 1
             fi
             
+            # Quick API smoke
+            curl -sf "http://localhost:8007/api/v1/players/search?q=lebron" > /dev/null
             echo "Deployment successful!"
           EOF
       
