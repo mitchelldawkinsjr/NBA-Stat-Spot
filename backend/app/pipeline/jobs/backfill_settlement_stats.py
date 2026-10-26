@@ -18,7 +18,7 @@ from ...utils.season import get_current_season
 from ..context import PipelineContext
 from ..repositories import player_stats_repo
 from ..utils.player_match import build_name_team_index
-from .ingest_boxscores import _parse_boxscore_players
+from .ingest_boxscores import _parse_boxscore_players, log_cache_row
 
 
 def _pending_dates(db: Session) -> List[date]:
@@ -123,9 +123,8 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
                     home = abbr
                 elif ha == "away":
                     away = abbr
-            matchup = f"{away} @ {home}" if away and home else ""
-
             games_processed += 1
+            touched: Set[int] = set()
             for p in players:
                 pid = int(p["player_id"])
                 # Always write stats (helps future settles); prioritize needed players.
@@ -140,30 +139,26 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
                         source="espn",
                     )
                     stats_written += 1
+                    touched.add(pid)
                 except Exception:
                     errors += 1
                     continue
 
                 try:
-                    existing = NBADataService._get_game_log_from_db(pid, season) or []
-                    merged = {str(x.get("game_id")): x for x in existing}
-                    merged[eid] = {
-                        "game_id": eid,
-                        "game_date": d.isoformat(),
-                        "matchup": matchup,
-                        "pts": p.get("pts", 0),
-                        "reb": p.get("reb", 0),
-                        "ast": p.get("ast", 0),
-                        "tpm": p.get("tpm", 0),
-                        "minutes": p.get("minutes", 0),
-                    }
-                    player_stats_repo.sync_player_game_log_cache(
-                        db, player_id=pid, season=season, logs=list(merged.values())
+                    player_stats_repo.merge_game_into_log_cache(
+                        db,
+                        player_id=pid,
+                        season=season,
+                        row=log_cache_row(
+                            p, game_id=eid, game_date=d, home_abbr=home, away_abbr=away
+                        ),
                     )
                 except Exception:
                     pass
 
             db.commit()
+            for pid in touched:
+                NBADataService.invalidate_player_game_log(pid, season)
             time.sleep(0.15)  # gentle on ESPN rate limit
 
         dates_done += 1

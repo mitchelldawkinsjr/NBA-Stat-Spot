@@ -1,17 +1,24 @@
 """Ingest box scores for FINAL games into player_game_stats."""
 from __future__ import annotations
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Set
 
 from sqlalchemy.orm import Session
 
 from ...services.espn_api_service import get_espn_service
-from ...services.live_game_context_service import _build_espn_box_index_from_summary
+from ...services.espn_game_log import _parse_minutes
 from ...services.nba_api_service import NBADataService
 from ...utils.season import get_current_season
 from ..context import PipelineContext
 from ..repositories import games_repo, player_stats_repo
 from ..utils.player_match import build_name_team_index, match_espn_athlete
+
+
+def _safe_int(v: Any) -> int:
+    try:
+        return int(v or 0)
+    except (ValueError, TypeError):
+        return 0
 
 
 def _parse_boxscore_players(
@@ -23,13 +30,6 @@ def _parse_boxscore_players(
     box = summary.get("boxscore") or {}
     players_blocks = box.get("players") or []
     teams_meta = box.get("teams") or []
-
-    team_abbr_by_ha: Dict[str, str] = {}
-    for tb in teams_meta:
-        ha = (tb.get("homeAway") or "").lower()
-        abbr = ((tb.get("team") or {}).get("abbreviation") or "").upper()
-        if ha and abbr:
-            team_abbr_by_ha[ha] = abbr
 
     for player_block in players_blocks:
         team_info = player_block.get("team") or {}
@@ -50,48 +50,55 @@ def _parse_boxscore_players(
                     if i < len(raw_stats):
                         stat_map[k] = raw_stats[i]
 
-                pts = reb = ast = tpm = 0
-                try:
-                    pts = int(stat_map.get("points") or 0)
-                except (ValueError, TypeError):
-                    pass
-                try:
-                    reb = int(stat_map.get("rebounds") or 0)
-                except (ValueError, TypeError):
-                    pass
-                try:
-                    ast = int(stat_map.get("assists") or 0)
-                except (ValueError, TypeError):
-                    pass
+                tpm = 0
                 three_key = "threePointFieldGoalsMade-threePointFieldGoalsAttempted"
-                if three_key in stat_map and stat_map[three_key]:
-                    parts = str(stat_map[three_key]).split("-")
-                    if parts:
-                        try:
-                            tpm = int(parts[0])
-                        except ValueError:
-                            pass
+                if stat_map.get(three_key):
+                    tpm = _safe_int(str(stat_map[three_key]).split("-")[0])
 
-                from ...services.espn_game_log import _parse_minutes
-
-                minutes = _parse_minutes(stat_map.get("minutes"))
                 nba_id = match_espn_athlete(a, team_abbr, player_index)
                 if not nba_id:
                     continue
                 out.append(
                     {
                         "player_id": nba_id,
-                        "pts": pts,
-                        "reb": reb,
-                        "ast": ast,
+                        "team_abbr": team_abbr,
+                        "pts": _safe_int(stat_map.get("points")),
+                        "reb": _safe_int(stat_map.get("rebounds")),
+                        "ast": _safe_int(stat_map.get("assists")),
                         "tpm": tpm,
-                        "minutes": minutes,
-                        "stl": 0,
-                        "blk": 0,
-                        "tov": 0,
+                        "minutes": _parse_minutes(stat_map.get("minutes")),
+                        "stl": _safe_int(stat_map.get("steals")),
+                        "blk": _safe_int(stat_map.get("blocks")),
+                        "tov": _safe_int(stat_map.get("turnovers")),
                     }
                 )
     return out
+
+
+def log_cache_row(
+    p: Dict[str, Any], *, game_id: str, game_date: date, home_abbr: str, away_abbr: str
+) -> Dict[str, Any]:
+    """Shape a parsed box-score player as a game-log row (team-perspective matchup)."""
+    team = p.get("team_abbr") or ""
+    if team and team == home_abbr:
+        matchup = f"{team} vs. {away_abbr}"
+    elif team and team == away_abbr:
+        matchup = f"{team} @ {home_abbr}"
+    else:
+        matchup = f"{away_abbr} @ {home_abbr}" if away_abbr and home_abbr else ""
+    return {
+        "game_id": game_id,
+        "game_date": game_date.isoformat(),
+        "matchup": matchup,
+        "pts": p["pts"],
+        "reb": p["reb"],
+        "ast": p["ast"],
+        "tpm": p["tpm"],
+        "minutes": p["minutes"],
+        "stl": p["stl"],
+        "blk": p["blk"],
+        "tov": p["tov"],
+    }
 
 
 def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
@@ -101,8 +108,6 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
     to_d = ctx.to_date or today
 
     games = games_repo.list_games_for_dates(db, from_d, to_d, status="FINAL")
-    if not games:
-        games = games_repo.list_games_for_dates(db, from_d, to_d)
 
     all_players = NBADataService.fetch_all_players_including_rookies() or []
     player_index = build_name_team_index(all_players)
@@ -113,21 +118,12 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
     errors = 0
 
     for game in games:
-        if game.status != "FINAL":
-            continue
-        espn_id = game.game_id
-        summary = espn.get_game_summary(str(espn_id))
+        summary = espn.get_game_summary(str(game.game_id))
         if not summary:
             errors += 1
             continue
 
         players = _parse_boxscore_players(summary, player_index)
-        if not players:
-            idx = _build_espn_box_index_from_summary(summary)
-            for espn_aid, st in idx.items():
-                pass
-            players = _parse_boxscore_players(summary, player_index)
-
         gdate = game.game_date
         for p in players:
             pid = p["player_id"]
@@ -148,35 +144,25 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
                 errors += 1
                 continue
 
-        log_rows = []
-        for p in players:
-            log_rows.append(
-                {
-                    "game_id": game.game_id,
-                    "game_date": gdate.isoformat(),
-                    "matchup": f"{game.away_team_abbr} @ {game.home_team_abbr}",
-                    "pts": p["pts"],
-                    "reb": p["reb"],
-                    "ast": p["ast"],
-                    "tpm": p["tpm"],
-                    "minutes": p["minutes"],
-                }
-            )
-        for pid in {p["player_id"] for p in players}:
-            plogs = [
-                r
-                for r in log_rows
-            ]
             try:
-                existing = NBADataService.fetch_player_game_log(pid, season, force_refresh=False)
-                merged = {str(x.get("game_id")): x for x in (existing or [])}
-                for r in plogs:
-                    merged[str(r["game_id"])] = r
-                player_stats_repo.sync_player_game_log_cache(
-                    db, player_id=pid, season=season, logs=list(merged.values())
+                player_stats_repo.merge_game_into_log_cache(
+                    db,
+                    player_id=pid,
+                    season=season,
+                    row=log_cache_row(
+                        p,
+                        game_id=game.game_id,
+                        game_date=gdate,
+                        home_abbr=game.home_team_abbr or "",
+                        away_abbr=game.away_team_abbr or "",
+                    ),
                 )
             except Exception:
-                pass
+                errors += 1
+
+    db.commit()
+    for pid in participants:
+        NBADataService.invalidate_player_game_log(pid, season)
 
     return {
         "rows_written": stats_written,

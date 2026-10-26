@@ -44,9 +44,16 @@ def upsert_player_game_stat(
     row.assists = int(stats.get("ast") or stats.get("assists") or 0)
     row.three_pointers_made = int(stats.get("tpm") or stats.get("three_pointers_made") or 0)
     row.minutes_played = float(stats.get("minutes") or stats.get("minutes_played") or 0)
-    row.steals = int(stats.get("stl") or stats.get("steals") or 0)
-    row.blocks = int(stats.get("blk") or stats.get("blocks") or 0)
-    row.turnovers = int(stats.get("tov") or stats.get("turnovers") or 0)
+    # Feeds without these keys must not wipe values written by a richer source.
+    for attr, short, long in (
+        ("steals", "stl", "steals"),
+        ("blocks", "blk", "blocks"),
+        ("turnovers", "tov", "turnovers"),
+    ):
+        if short in stats or long in stats:
+            setattr(row, attr, int(stats.get(short) or stats.get(long) or 0))
+        elif getattr(row, attr) is None:
+            setattr(row, attr, 0)
 
     if any(k in stats for k in ("fgm", "field_goals_made")):
         row.field_goals_made = int(stats.get("fgm") or stats.get("field_goals_made") or 0)
@@ -135,6 +142,24 @@ def sync_player_game_log_cache(
         n += 1
     db.flush()
     return n
+
+
+def merge_game_into_log_cache(
+    db: Session,
+    *,
+    player_id: int,
+    season: str,
+    row: Dict[str, Any],
+) -> int:
+    """Add or replace one game in a player's cached log, keeping all other games."""
+    existing = db.query(PlayerGameLogCache).filter_by(player_id=player_id, season=season).all()
+    merged = {str(r.game_id): r.to_dict() for r in existing}
+    for r in existing:
+        db.expunge(r)
+    merged[str(row["game_id"])] = row
+    return sync_player_game_log_cache(
+        db, player_id=player_id, season=season, logs=list(merged.values())
+    )
 
 
 def sync_logs_to_player_game_stats(

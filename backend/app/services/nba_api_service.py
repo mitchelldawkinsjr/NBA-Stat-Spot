@@ -764,6 +764,19 @@ class NBADataService:
             return []
 
     @staticmethod
+    def _player_game_log_cache_key(player_id: int, season: str) -> str:
+        today_str = datetime.now().date().isoformat()
+        return f"nba_api:player_game_log:{player_id}:{season}:{today_str}"
+
+    @staticmethod
+    def invalidate_player_game_log(player_id: int, season: str) -> None:
+        """Drop the cached game log so the next read picks up newly ingested games."""
+        try:
+            get_cache_service().delete(NBADataService._player_game_log_cache_key(player_id, season))
+        except Exception:
+            pass
+
+    @staticmethod
     def fetch_player_game_log(player_id: int, season: Optional[str] = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """
         Fetch player game log with 24-hour Redis caching + DB persistence.
@@ -774,8 +787,7 @@ class NBADataService:
         import structlog
         log = structlog.get_logger()
         season_to_use = season or get_current_season()
-        today_str = datetime.now().date().isoformat()
-        cache_key = f"nba_api:player_game_log:{player_id}:{season_to_use}:{today_str}"
+        cache_key = NBADataService._player_game_log_cache_key(player_id, season_to_use)
         cache = get_cache_service()
 
         if not force_refresh:
