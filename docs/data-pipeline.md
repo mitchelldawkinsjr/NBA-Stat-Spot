@@ -11,6 +11,8 @@ ingest (schedule/box/logs)
   → BoxScoreValidator (quarantine invalid rows on player_game_stats)
   → compute_analytics → player_stat_windows + player_line_hit_rates
   → build_prop_evaluations → player_prop_evaluations
+  → build_ranks → team def/off/pace caches
+  → build_opponent_analysis → player_opponent_analysis
   → build_dashboard (assembles snapshots from prop rows)
   → API reads tables / published snapshots
 ```
@@ -37,7 +39,7 @@ PYTHONPATH=. python -m app.pipeline run <job> [--date YYYY-MM-DD] [--season 2025
 PYTHONPATH=. python -m app.pipeline backfill --from-date 2026-03-01 --to-date 2026-03-14 --jobs ingest_schedule,ingest_boxscores,build_dashboard,settle_accuracy
 ```
 
-Jobs: `ingest_schedule`, `ingest_boxscores`, `ingest_player_logs`, `compute_analytics`, `build_prop_evaluations`, `build_dashboard`, `build_ranks`, `settle_accuracy`, `data_quality`
+Jobs: `ingest_schedule`, `ingest_boxscores`, `ingest_player_logs`, `compute_analytics`, `build_prop_evaluations`, `build_ranks`, `build_opponent_analysis`, `build_dashboard`, `settle_accuracy`, `data_quality`
 
 ## Schedule (UTC)
 
@@ -48,6 +50,7 @@ Jobs: `ingest_schedule`, `ingest_boxscores`, `ingest_player_logs`, `compute_anal
 | `5 10` | `compute_analytics` |
 | `10 10` | `build_prop_evaluations` |
 | `15 11` | `build_ranks` |
+| `18 11` | `build_opponent_analysis` |
 | `20 11` | `build_dashboard` |
 | `35 11` | `settle_accuracy` |
 | `40 11` | `data_quality` |
@@ -60,6 +63,7 @@ Jobs: `ingest_schedule`, `ingest_boxscores`, `ingest_player_logs`, `compute_anal
 | `player_stat_windows` | `compute_analytics` | player trends/streaks |
 | `player_line_hit_rates` | `compute_analytics` | live props L5/L10/L20 |
 | `player_prop_evaluations` | `build_prop_evaluations` | daily props, best picks, dashboard |
+| `player_opponent_analysis` | `build_opponent_analysis` | player profile Opponent Analysis |
 | `dashboard_snapshots` | `build_dashboard` | dashboard home when published |
 
 `formula_version` is currently `v1-stats-calculator` — bump and recompute when calculator rules change.
@@ -93,8 +97,10 @@ docker exec -it nba-stat-spot-backend alembic upgrade head
 1. Deploy + `alembic upgrade head`.
 2. Backfill analytics: `python -m app.pipeline run compute_analytics --season <current>`.
 3. `python -m app.pipeline run build_prop_evaluations --date <today>`.
-4. `python -m app.pipeline run build_dashboard --date <today>`.
-5. Confirm API has `PIPELINE_READ_STATS=true` / `PIPELINE_READ_DASHBOARD=true` (compose defaults).
-6. After quality looks good, set `PIPELINE_AUTO_PUBLISH=true` and `PIPELINE_SHADOW_BUILD=false`.
+4. `python -m app.pipeline run build_ranks --season <current>`.
+5. `python -m app.pipeline run build_opponent_analysis --date <today>`.
+6. `python -m app.pipeline run build_dashboard --date <today>`.
+7. Confirm API has `PIPELINE_READ_STATS=true` / `PIPELINE_READ_DASHBOARD=true` (compose defaults).
+8. After quality looks good, set `PIPELINE_AUTO_PUBLISH=true` and `PIPELINE_SHADOW_BUILD=false`.
 
 See also [Accuracy Operations](accuracy-operations.md).

@@ -12,8 +12,9 @@
 5 10 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run compute_analytics || echo "Failed: compute_analytics"
 10 10 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run build_prop_evaluations || echo "Failed: build_prop_evaluations"
 
-# Build dashboard + ranks (dashboard assembles from prop evaluation rows)
+# Build ranks, then opponent analysis (H2H / def ranks / matchup adv → DB)
 15 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run build_ranks || echo "Failed: build_ranks"
+18 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run build_opponent_analysis || echo "Failed: build_opponent_analysis"
 20 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run build_dashboard || echo "Failed: build_dashboard"
 
 # Settle accuracy from DB stats

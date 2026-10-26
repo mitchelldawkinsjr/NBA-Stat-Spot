@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field
 from datetime import date
 from ..services.nba_api_service import NBADataService
 from ..services.stats_calculator import StatsCalculator
-from ..services.context_collector import ContextCollector
 from ..utils.season import get_current_season, get_previous_season
 from ..services.live_game_service import LiveGameService
 from ..services.live_game_context_service import get_live_game_context_service
@@ -504,14 +503,9 @@ def get_player_streaks(
     "/{player_id}/context",
     summary="Get player context for a specific game/opponent",
     description="""
-    Get contextual information about a player for a specific game, including:
-    - Head-to-head (H2H) averages against the opponent
-    - Opponent defensive rankings
-    - Injury status
-    - Rest days
-    - Team performance metrics
-    
-    This endpoint is useful for analyzing player performance against specific opponents.
+    Read precomputed opponent analysis from `player_opponent_analysis` (pipeline agent).
+    Includes H2H averages, opponent defensive/offensive ranks, matchup advantage,
+    rest/injury snapshot, and team performance. No on-request calculation.
     """,
     response_description="Player context including H2H data and opponent analysis",
     tags=["players_v1"]
@@ -525,136 +519,63 @@ def get_player_context(
     is_home_game: bool = Query(True, description="Whether it's a home game"),
     season: Optional[str] = Query(None, description="Season string (e.g., '2025-26')", example="2025-26")
 ):
-    """Get player context including H2H data for a specific opponent"""
-    import structlog
-    
-    logger = structlog.get_logger()
-    
-    try:
-        # Parse game date
-        if game_date:
-            try:
-                game_date_obj = date.fromisoformat(game_date)
-            except ValueError:
-                game_date_obj = date.today()
-        else:
-            game_date_obj = date.today()
-        
-        # Collect player context
-        # The defensive ranks calculation now uses parallel processing with timeouts
-        # to prevent hanging. First request may take 1-2 minutes, subsequent requests
-        # will use cached data and be much faster.
-        context = ContextCollector.collect_player_context(
-            player_id=player_id,
-            game_date=game_date_obj,
-            opponent_team_id=opponent_team_id,
-            is_home_game=is_home_game,
-            season=season or get_current_season()
-        )
-        
-        # Enrich with full team performance for opponent (def_rank_3pm, offense ranks)
-        opponent_defense = {
-            "rank_pts": context.opponent_def_rank_pts,
-            "rank_reb": context.opponent_def_rank_reb,
-            "rank_ast": context.opponent_def_rank_ast,
-        }
-        opponent_offense = {}
-        opponent_defense_vs_position = None
-        if context.opponent_team_id:
-            try:
-                opp_perf = ContextCollector.get_team_performance(
-                    context.opponent_team_id, season=season or get_current_season()
-                )
-                opponent_defense["rank_3pm"] = opp_perf.get("def_rank_3pm")
-                opponent_offense = {
-                    "rank_pts": opp_perf.get("off_rank_pts"),
-                    "rank_reb": opp_perf.get("off_rank_reb"),
-                    "rank_ast": opp_perf.get("off_rank_ast"),
-                    "rank_3pm": opp_perf.get("off_rank_3pm"),
-                }
-            except Exception:
-                pass
-            # Position-based defense: opponent's ranks vs this player's position (PG/SG/SF/PF/C)
-            try:
-                from ..services.best_picks_service import _normalize_position
-                all_players = NBADataService.fetch_all_players_including_rookies() or []
-                player = next((p for p in all_players if p.get("id") == player_id), None)
-                position = _normalize_position(player.get("position") if player else None)
-                if position:
-                    pos_ranks = ContextCollector._calculate_position_defensive_ranks(season or get_current_season()) or {}
-                    opp_pos_ranks = pos_ranks.get(position, {}).get(int(context.opponent_team_id), {})
-                    if opp_pos_ranks:
-                        opponent_defense_vs_position = {
-                            "position": position,
-                            "rank_pts": opp_pos_ranks.get("pts"),
-                            "rank_reb": opp_pos_ranks.get("reb"),
-                            "rank_ast": opp_pos_ranks.get("ast"),
-                            "rank_3pm": opp_pos_ranks.get("3pm"),
-                        }
-            except Exception:
-                pass
-
-        # Matchup advantage score: player season avg − opponent's avg allowed
-        matchup_advantage: Dict[str, Any] = {}
+    """Return precomputed opponent analysis from DB only."""
+    season_to_use = season or get_current_season()
+    if game_date:
         try:
-            logs = NBADataService.fetch_player_game_log(player_id, season or get_current_season())
-            if logs and context.opponent_team_id:
-                def_avgs = ContextCollector.get_defensive_averages(season or get_current_season())
-                opp_avgs = def_avgs.get(int(context.opponent_team_id)) or {}
-                n = len(logs)
-                if n >= 5 and opp_avgs:
-                    player_pts = sum(float(g.get("pts", 0) or 0) for g in logs) / n
-                    player_reb = sum(float(g.get("reb", 0) or 0) for g in logs) / n
-                    player_ast = sum(float(g.get("ast", 0) or 0) for g in logs) / n
-                    player_3pm = sum(float(g.get("tpm", 0) or 0) for g in logs) / n
-                    matchup_advantage = {
-                        "pts": round(player_pts - opp_avgs.get("pts", player_pts), 2),
-                        "reb": round(player_reb - opp_avgs.get("reb", player_reb), 2),
-                        "ast": round(player_ast - opp_avgs.get("ast", player_ast), 2),
-                        "3pm": round(player_3pm - opp_avgs.get("3pm", player_3pm), 2),
-                    }
-        except Exception:
-            pass
+            game_date_obj = date.fromisoformat(game_date)
+        except ValueError:
+            game_date_obj = date.today()
+    else:
+        game_date_obj = date.today()
 
-        # Return context data
-        return {
-            "player_id": player_id,
-            "game_date": game_date_obj.isoformat(),
-            "opponent_team_id": context.opponent_team_id,
-            "opponent_team_abbr": context.opponent_team_abbr,
-            "is_home_game": context.is_home_game,
-            "rest_days": context.rest_days,
-            "is_injured": context.is_injured,
-            "injury_status": context.injury_status,
-            "injury_description": context.injury_description,
-            "h2h": {
-                "avg_pts": context.h2h_avg_pts,
-                "avg_reb": context.h2h_avg_reb,
-                "avg_ast": context.h2h_avg_ast,
-                "games_played": context.h2h_games_played
-            },
-            "opponent_defense": opponent_defense,
-            "opponent_defense_vs_position": opponent_defense_vs_position,
-            "opponent_offense": opponent_offense,
-            "matchup_advantage": matchup_advantage,
-            "team_performance": {
-                "win_rate": context.team_win_rate,
-                "conference_rank": context.team_conference_rank,
-                "recent_form": context.team_recent_form
-            },
-            "opponent_performance": {
-                "win_rate": context.opponent_win_rate,
-                "conference_rank": context.opponent_conference_rank
-            }
-        }
+    empty = {
+        "player_id": player_id,
+        "game_date": game_date_obj.isoformat(),
+        "opponent_team_id": opponent_team_id,
+        "opponent_team_abbr": None,
+        "is_home_game": is_home_game,
+        "rest_days": None,
+        "is_injured": None,
+        "injury_status": None,
+        "injury_description": None,
+        "h2h": {"avg_pts": None, "avg_reb": None, "avg_ast": None, "games_played": 0},
+        "opponent_defense": {"rank_pts": None, "rank_reb": None, "rank_ast": None, "rank_3pm": None},
+        "opponent_defense_vs_position": None,
+        "opponent_offense": {"rank_pts": None, "rank_reb": None, "rank_ast": None, "rank_3pm": None},
+        "matchup_advantage": {},
+        "team_performance": {"win_rate": None, "conference_rank": None, "recent_form": None},
+        "opponent_performance": {"win_rate": None, "conference_rank": None},
+        "source": "missing",
+    }
+
+    if not opponent_team_id:
+        return empty
+
+    try:
+        from ..database import SessionLocal
+        from ..services.aggregate_stats_reader import AggregateStatsReader
+
+        db = SessionLocal()
+        try:
+            row = AggregateStatsReader.get_opponent_analysis(
+                db, player_id, int(opponent_team_id), season_to_use
+            )
+        finally:
+            db.close()
+
+        if not row:
+            empty["message"] = "Opponent analysis not computed yet; run build_opponent_analysis"
+            return empty
+
+        # Prefer requested game_date in response when caller passes one
+        if game_date:
+            row["game_date"] = game_date_obj.isoformat()
+        if row.get("is_home_game") is None:
+            row["is_home_game"] = is_home_game
+        return row
     except Exception as e:
         logger.error("Failed to fetch player context", player_id=player_id, error=str(e))
-        return {
-            "player_id": player_id,
-            "error": str(e),
-            "h2h": {"avg_pts": None, "avg_reb": None, "avg_ast": None, "games_played": 0},
-            "opponent_defense": {"rank_pts": None, "rank_reb": None, "rank_ast": None, "rank_3pm": None},
-            "opponent_defense_vs_position": None,
-            "opponent_offense": {"rank_pts": None, "rank_reb": None, "rank_ast": None, "rank_3pm": None}
-        }
+        empty["error"] = str(e)
+        return empty
 

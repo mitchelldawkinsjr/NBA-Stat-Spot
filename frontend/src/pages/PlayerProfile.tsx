@@ -1153,7 +1153,7 @@ export default function PlayerProfile() {
                                 <div className="text-[11px] text-on-surface flex items-center justify-between transition-colors duration-200"><span>H2H</span><span className="font-semibold">{historical}</span></div>
                               </div>
                               {opponentDefenseEmpty && (
-                                <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-400">Refresh defensive ranks in Admin to load.</p>
+                                <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-400">Run build_opponent_analysis pipeline job to load.</p>
                               )}
                             </div>
                           )

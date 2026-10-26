@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from ..models.player_line_hit_rates import PlayerLineHitRate
+from ..models.player_opponent_analysis import PlayerOpponentAnalysis
 from ..models.player_prop_evaluations import PlayerPropEvaluation
 from ..models.player_stat_windows import PlayerStatWindow
 
@@ -158,6 +159,97 @@ class AggregateStatsReader:
                     "results": [],
                 }
         return out
+
+    @staticmethod
+    def get_opponent_analysis(
+        db: Session,
+        player_id: int,
+        opponent_team_id: int,
+        season: str,
+    ) -> Optional[Dict[str, Any]]:
+        row = (
+            db.query(PlayerOpponentAnalysis)
+            .filter_by(
+                player_id=player_id,
+                opponent_team_id=opponent_team_id,
+                season=season,
+            )
+            .first()
+        )
+        if not row:
+            return None
+
+        pos_def = None
+        if row.position and any(
+            v is not None
+            for v in (
+                row.pos_def_rank_pts,
+                row.pos_def_rank_reb,
+                row.pos_def_rank_ast,
+                row.pos_def_rank_3pm,
+            )
+        ):
+            pos_def = {
+                "position": row.position,
+                "rank_pts": row.pos_def_rank_pts,
+                "rank_reb": row.pos_def_rank_reb,
+                "rank_ast": row.pos_def_rank_ast,
+                "rank_3pm": row.pos_def_rank_3pm,
+            }
+
+        matchup_advantage: Dict[str, Any] = {}
+        for key, val in (
+            ("pts", row.matchup_adv_pts),
+            ("reb", row.matchup_adv_reb),
+            ("ast", row.matchup_adv_ast),
+            ("3pm", row.matchup_adv_3pm),
+        ):
+            if val is not None:
+                matchup_advantage[key] = val
+
+        return {
+            "player_id": row.player_id,
+            "game_date": row.game_date.isoformat() if row.game_date else None,
+            "opponent_team_id": row.opponent_team_id,
+            "opponent_team_abbr": row.opponent_team_abbr,
+            "is_home_game": row.is_home_game,
+            "rest_days": row.rest_days,
+            "is_injured": row.is_injured,
+            "injury_status": row.injury_status,
+            "injury_description": row.injury_description,
+            "h2h": {
+                "avg_pts": row.h2h_avg_pts,
+                "avg_reb": row.h2h_avg_reb,
+                "avg_ast": row.h2h_avg_ast,
+                "games_played": row.h2h_games_played or 0,
+            },
+            "opponent_defense": {
+                "rank_pts": row.def_rank_pts,
+                "rank_reb": row.def_rank_reb,
+                "rank_ast": row.def_rank_ast,
+                "rank_3pm": row.def_rank_3pm,
+            },
+            "opponent_defense_vs_position": pos_def,
+            "opponent_offense": {
+                "rank_pts": row.off_rank_pts,
+                "rank_reb": row.off_rank_reb,
+                "rank_ast": row.off_rank_ast,
+                "rank_3pm": row.off_rank_3pm,
+            },
+            "matchup_advantage": matchup_advantage,
+            "team_performance": {
+                "win_rate": row.team_win_rate,
+                "conference_rank": row.team_conference_rank,
+                "recent_form": row.team_recent_form,
+            },
+            "opponent_performance": {
+                "win_rate": row.opponent_win_rate,
+                "conference_rank": row.opponent_conference_rank,
+            },
+            "formula_version": row.formula_version,
+            "computed_at": row.computed_at.isoformat() if row.computed_at else None,
+            "source": "player_opponent_analysis",
+        }
 
     @staticmethod
     def count_prop_evaluations(db: Session, game_date: date) -> int:
