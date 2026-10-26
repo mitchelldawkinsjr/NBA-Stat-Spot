@@ -24,6 +24,76 @@ def _load_rookie_merge_list() -> List[Dict[str, Any]]:
         return []
 
 
+def _parse_espn_score(value: Any) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _merge_espn_scores(games: List[Dict[str, Any]], on_date) -> List[Dict[str, Any]]:
+    """Attach final scores from the ESPN scoreboard. Schedule ingest otherwise stores no points."""
+    try:
+        from .espn_api_service import get_espn_service
+
+        if hasattr(on_date, "strftime"):
+            date_str = on_date.strftime("%Y%m%d")
+        else:
+            date_str = str(on_date).replace("-", "")[:8]
+        board = get_espn_service().get_scoreboard(date=date_str) or {}
+        events = board.get("events") if isinstance(board, dict) else None
+        if not events:
+            return games
+        by_id: Dict[str, Dict[str, Any]] = {}
+        for event in events:
+            gid = str(event.get("id") or "")
+            comps = event.get("competitions") or []
+            if not gid or not comps:
+                continue
+            comp = comps[0]
+            home_abbr = away_abbr = None
+            home_score = away_score = None
+            for competitor in comp.get("competitors") or []:
+                abbr = ((competitor.get("team") or {}).get("abbreviation") or "").upper()
+                score = _parse_espn_score(competitor.get("score"))
+                if (competitor.get("homeAway") or "").lower() == "home":
+                    home_abbr, home_score = abbr, score
+                else:
+                    away_abbr, away_score = abbr, score
+            status_obj = comp.get("status") or event.get("status") or {}
+            status_type = status_obj.get("type") if isinstance(status_obj.get("type"), dict) else {}
+            name = (status_type.get("name") or status_obj.get("description") or "").upper()
+            status_id = str(status_type.get("id") or status_obj.get("id") or "")
+            if status_id == "3" or "FINAL" in name or status_type.get("completed") or status_obj.get("completed"):
+                status = "FINAL"
+            elif status_id == "2" or "IN_PROGRESS" in name or "LIVE" in name:
+                status = "LIVE"
+            else:
+                status = None
+            by_id[gid] = {
+                "home": home_abbr,
+                "away": away_abbr,
+                "homeScore": home_score,
+                "awayScore": away_score,
+                "status": status,
+            }
+        for game in games:
+            info = by_id.get(str(game.get("gameId") or game.get("game_id") or ""))
+            if not info:
+                continue
+            if info["homeScore"] is not None:
+                game["homeScore"] = info["homeScore"]
+            if info["awayScore"] is not None:
+                game["awayScore"] = info["awayScore"]
+            if info["status"]:
+                game["status"] = info["status"]
+        return games
+    except Exception:
+        return games
+
+
 def _clean_player_name(name: str) -> str:
     """Clean a player name for display: strip, collapse spaces, normalize Jr./Sr./II/III/IV spacing.
     Only applied to recent (rostered) players."""
@@ -1380,5 +1450,5 @@ class NBADataService:
                 import structlog
                 _log = structlog.get_logger()
                 _log.warning("ESPN fallback for fetch_games_for_date failed", date=str(target_date), error=str(e))
-        
-        return games
+
+        return _merge_espn_scores(games, target_date)

@@ -582,7 +582,7 @@ class GamePredictionService:
     def get_game_prediction_detail(self, game_id: str, target_date: Optional[date] = None) -> Optional[Dict[str, Any]]:
         """Get full prediction and detail for one game (for game detail page)."""
         target_date = target_date or date.today()
-        cache_key = f"game_prediction_detail:v4:{game_id}"
+        cache_key = f"game_prediction_detail:v5:{game_id}"
         cached = self.cache.get(cache_key)
         if cached is not None:
             return cached

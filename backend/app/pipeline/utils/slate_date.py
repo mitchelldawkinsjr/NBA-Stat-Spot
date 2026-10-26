@@ -7,6 +7,7 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ...models.games import Game
 from ...models.player_game_stats import PlayerGameStat
 from ...models.player_prop_evaluations import PlayerPropEvaluation
 
@@ -34,6 +35,19 @@ def resolve_slate_date(
     )
     if today_props > 0:
         return today
+
+    today_games = (
+        db.query(func.count(Game.game_id)).filter(Game.game_date == today).scalar() or 0
+    )
+    if today_games > 0:
+        return today
+
+    q_games = db.query(func.max(Game.game_date))
+    if season:
+        q_games = q_games.filter(Game.season == season)
+    latest_game = q_games.scalar()
+    if latest_game:
+        return latest_game
 
     q_props = db.query(func.max(PlayerPropEvaluation.game_date))
     if season:
