@@ -47,8 +47,71 @@ def _normalize_team_abbr(abbr: Optional[str]) -> str:
         "NO": "NOP",
         "GS": "GSW",
         "NY": "NYK",
+        "UTAH": "UTA",
+        "WSH": "WAS",
+        "PHO": "PHX",
+        "BRK": "BKN",
     }
     return alias_to_nba.get(u, u)
+
+
+def _load_pipeline_metrics(season: str) -> Dict[str, Any]:
+    try:
+        from .pipeline_team_metrics import get_pipeline_team_metrics
+
+        return get_pipeline_team_metrics(season) or {}
+    except Exception as exc:
+        logger.debug("Pipeline team metrics unavailable", error=str(exc))
+        return {}
+
+
+def _metric_for(metrics: Dict[str, Any], team_id: Optional[int], abbr: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not metrics:
+        return None
+    by_id = metrics.get("by_id") or {}
+    if team_id is not None:
+        row = by_id.get(int(team_id)) or by_id.get(str(int(team_id)))
+        if row:
+            return row
+    by_abbr = metrics.get("by_abbr") or {}
+    for key in filter(None, [(abbr or "").strip().upper(), _normalize_team_abbr(abbr)]):
+        if key in by_abbr:
+            return by_abbr[key]
+    return None
+
+
+def _apply_pipeline_scoring(row: Dict[str, Any], metrics: Dict[str, Any]) -> None:
+    """Replace league-average PPG and impossible pace with pipeline game scores."""
+    for _side, id_key, abbr_key, ppg_key, pace_key in (
+        ("home", "home_team_id", "home", "home_ppg", "home_pace"),
+        ("away", "away_team_id", "away", "away_ppg", "away_pace"),
+    ):
+        metric = _metric_for(metrics, row.get(id_key), row.get(abbr_key))
+        if metric and metric.get("ppg") is not None:
+            row[ppg_key] = metric["ppg"]
+        poss = metric.get("possessions") if metric else None
+        current = row.get(pace_key)
+        if poss is not None:
+            row[pace_key] = poss
+        elif current is not None and float(current) < 70:
+            row[pace_key] = None
+
+
+def _apply_pipeline_list(rows: List[Dict[str, Any]], season: str) -> None:
+    metrics = _load_pipeline_metrics(season)
+    if not metrics:
+        return
+    for row in rows:
+        if isinstance(row, dict):
+            _apply_pipeline_scoring(row, metrics)
+
+
+def _fill_rank_dict(existing: Optional[Dict[str, Any]], incoming: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    out = dict(existing or {})
+    for key in ("pts", "reb", "ast", "3pm"):
+        if out.get(key) is None and incoming and incoming.get(key) is not None:
+            out[key] = incoming[key]
+    return out
 
 
 def _get_teams_by_abbr() -> Dict[str, Dict[str, Any]]:
@@ -245,6 +308,22 @@ class GamePredictionService:
             except Exception:
                 pass
 
+        pipeline_metrics = _load_pipeline_metrics(season)
+        home_metric = _metric_for(pipeline_metrics, home_id, home_abbr)
+        away_metric = _metric_for(pipeline_metrics, away_id, away_abbr)
+        if home_metric and home_metric.get("ppg") is not None:
+            home_ppg = float(home_metric["ppg"])
+        if away_metric and away_metric.get("ppg") is not None:
+            away_ppg = float(away_metric["ppg"])
+        if home_metric and home_metric.get("possessions") is not None:
+            home_pace = float(home_metric["possessions"])
+        elif home_pace is not None and float(home_pace) < 70:
+            home_pace = default_pace
+        if away_metric and away_metric.get("possessions") is not None:
+            away_pace = float(away_metric["possessions"])
+        elif away_pace is not None and float(away_pace) < 70:
+            away_pace = default_pace
+
         prob_home = _win_probability_from_ranks(
             home_off.get("pts"),
             home_def.get("pts"),
@@ -354,6 +433,8 @@ class GamePredictionService:
         cache_key = f"game_predictions:{target_date.isoformat()}"
         cached = self.cache.get(cache_key)
         if cached is not None:
+            if isinstance(cached, list) and cached:
+                _apply_pipeline_list(cached, get_current_season())
             return cached
 
         request_started = time.perf_counter()
@@ -434,6 +515,7 @@ class GamePredictionService:
                 logger.warning("Failed to build prediction for game", game_id=event.get("id"), error=str(e))
                 continue
 
+        _apply_pipeline_list(predictions, season)
         self.cache.set(cache_key, predictions, ttl=86400)
         self._populate_prediction_summaries_async(cache_key, predictions)
         try:
@@ -500,7 +582,7 @@ class GamePredictionService:
     def get_game_prediction_detail(self, game_id: str, target_date: Optional[date] = None) -> Optional[Dict[str, Any]]:
         """Get full prediction and detail for one game (for game detail page)."""
         target_date = target_date or date.today()
-        cache_key = f"game_prediction_detail:v3:{game_id}"
+        cache_key = f"game_prediction_detail:v4:{game_id}"
         cached = self.cache.get(cache_key)
         if cached is not None:
             return cached
@@ -587,6 +669,39 @@ class GamePredictionService:
             else {}
         )
 
+        pipeline_metrics = _load_pipeline_metrics(season)
+        home_metric = _metric_for(pipeline_metrics, _hid, home_abbr)
+        away_metric = _metric_for(pipeline_metrics, _aid, away_abbr)
+
+        def _apply_side(metric, def_full, off_full, pace_data, ppg_key, pace_key, def_rank_key, off_rank_key):
+            def_full = _fill_rank_dict(def_full, (metric or {}).get("def"))
+            off_full = _fill_rank_dict(off_full, (metric or {}).get("off"))
+            if metric and metric.get("ppg") is not None:
+                one[ppg_key] = metric["ppg"]
+            if metric and (metric.get("off") or {}).get("pts") is not None and one.get(off_rank_key) is None:
+                one[off_rank_key] = metric["off"]["pts"]
+            if metric and (metric.get("def") or {}).get("pts") is not None and one.get(def_rank_key) is None:
+                one[def_rank_key] = metric["def"]["pts"]
+            poss = (metric or {}).get("possessions")
+            pace_data = dict(pace_data or {})
+            if poss is not None:
+                pace_data["possessions"] = poss
+                pace_data["pace_rank"] = metric.get("pace_rank")
+                one[pace_key] = poss
+            elif pace_data.get("possessions") is not None and float(pace_data.get("possessions") or 0) < 70:
+                pace_data["possessions"] = None
+                one[pace_key] = None
+            return def_full, off_full, pace_data
+
+        home_def_full, home_off_full, home_pace_data = _apply_side(
+            home_metric, home_def_full, home_off_full, home_pace_data,
+            "home_ppg", "home_pace", "home_def_rank_pts", "home_off_rank_pts",
+        )
+        away_def_full, away_off_full, away_pace_data = _apply_side(
+            away_metric, away_def_full, away_off_full, away_pace_data,
+            "away_ppg", "away_pace", "away_def_rank_pts", "away_off_rank_pts",
+        )
+
         # Position defense: how each team defends each position
         positions = ["PG", "SG", "SF", "PF", "C"]
         home_pos_defense = {}
@@ -620,7 +735,6 @@ class GamePredictionService:
             key_players_text=key_players_text,
         )
 
-        ranks_incomplete = not (def_ranks and off_ranks and pace_ranks and pos_ranks)
         incomplete = (
             home_id is None
             or away_id is None
@@ -628,7 +742,6 @@ class GamePredictionService:
             or not away_def_full
             or not home_off_full
             or not away_off_full
-            or ranks_incomplete
         )
         ttl = 300 if incomplete else 86400
 

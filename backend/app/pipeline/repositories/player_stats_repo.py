@@ -229,13 +229,26 @@ def get_player_logs_from_stats(
             )
         )
     rows = q.order_by(PlayerGameStat.game_date.desc()).limit(limit).all()
+    game_ids = [r.game_id for r in rows if r.game_id]
+    cache_by_game: Dict[str, PlayerGameLogCache] = {}
+    if game_ids:
+        for cached in (
+            db.query(PlayerGameLogCache)
+            .filter(
+                PlayerGameLogCache.player_id == player_id,
+                PlayerGameLogCache.game_id.in_(game_ids),
+            )
+            .all()
+        ):
+            cache_by_game[str(cached.game_id)] = cached
     out = []
     for r in rows:
+        cached = cache_by_game.get(str(r.game_id))
         out.append(
             {
                 "game_id": r.game_id,
                 "game_date": r.game_date.isoformat() if r.game_date else "",
-                "matchup": "",
+                "matchup": (cached.matchup if cached else "") or "",
                 "pts": float(r.points or 0),
                 "reb": float(r.rebounds or 0),
                 "ast": float(r.assists or 0),
@@ -243,7 +256,10 @@ def get_player_logs_from_stats(
                 "minutes": float(r.minutes_played or 0),
                 "stl": float(r.steals or 0),
                 "blk": float(r.blocks or 0),
-                "tov": float(r.turnovers or 0),
+                "tov": float(cached.tov if cached is not None else (r.turnovers or 0)),
+                "fga": float(cached.fga or 0) if cached is not None else float(r.field_goals_attempted or 0),
+                "fta": float(cached.fta or 0) if cached is not None else 0.0,
+                "oreb": float(cached.oreb or 0) if cached is not None else 0.0,
             }
         )
     return out

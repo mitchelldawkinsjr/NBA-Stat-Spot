@@ -8,6 +8,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ...models.games import Game
+from ...models.player_game_log_cache import PlayerGameLogCache
 from ...models.player_game_stats import PlayerGameStat
 from ...models.player_opponent_analysis import PlayerOpponentAnalysis
 from ...models.players import Player
@@ -16,7 +17,6 @@ from ...services.analytics_constants import FORMULA_VERSION
 from ...services.best_picks_service import _normalize_position
 from ...services.box_score_validator import BoxScoreValidator
 from ...services.context_collector import ContextCollector
-from ...services.nba_api_service import NBADataService
 from ...utils.season import get_current_season
 from ..context import PipelineContext
 
@@ -74,6 +74,38 @@ def _h2h_from_logs(
         "h2h_avg_ast": sum(ast) / n if ast else None,
         "h2h_games_played": n,
     }
+
+
+def _rest_from_logs(logs: List[Dict[str, Any]], game_date: date) -> Optional[int]:
+    prior = [
+        str(g.get("game_date") or "")[:10]
+        for g in logs
+        if g.get("game_date") and str(g.get("game_date"))[:10] < game_date.isoformat()
+    ]
+    if not prior:
+        return None
+    last = datetime.strptime(max(prior), "%Y-%m-%d").date()
+    return max(0, (game_date - last).days - 1)
+
+
+def _logs_by_player(db: Session, player_ids: List[int], season: str) -> Dict[int, List[Dict[str, Any]]]:
+    """Game logs from the pipeline cache (matchup + shooting). No external API."""
+    if not player_ids:
+        return {}
+    grouped: Dict[int, List[Dict[str, Any]]] = {}
+    rows = (
+        db.query(PlayerGameLogCache)
+        .filter(
+            PlayerGameLogCache.player_id.in_(player_ids),
+            PlayerGameLogCache.season == season,
+        )
+        .all()
+    )
+    for row in rows:
+        grouped.setdefault(int(row.player_id), []).append(row.to_dict())
+    for logs in grouped.values():
+        logs.sort(key=lambda g: str(g.get("game_date") or ""), reverse=True)
+    return grouped
 
 
 def _season_avgs(logs: List[Dict[str, Any]]) -> Dict[str, float]:
@@ -279,27 +311,16 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
 
     written = 0
     skipped = 0
-    log_cache: Dict[int, List[Dict[str, Any]]] = {}
+    log_cache = _logs_by_player(db, [pid for pid, *_ in pairs], season)
 
     for player_id, opponent_team_id, is_home, game_date in pairs:
         player = players_by_id.get(player_id)
         position = _normalize_position(player.position if player else None)
         opp_abbr = id_to_abbr.get(opponent_team_id)
 
-        if player_id not in log_cache:
-            try:
-                log_cache[player_id] = NBADataService.fetch_player_game_log(player_id, season) or []
-            except Exception:
-                log_cache[player_id] = []
-        logs = log_cache[player_id]
+        logs = log_cache.get(player_id) or []
 
         h2h = _h2h_from_logs(logs, opp_abbr)
-        # Prefer ContextCollector H2H when DB matchup strings miss the opponent
-        if not h2h.get("h2h_games_played"):
-            try:
-                h2h = ContextCollector.get_matchup_history(player_id, opponent_team_id, season) or h2h
-            except Exception:
-                pass
 
         opp_def = def_ranks.get(int(opponent_team_id)) or {}
         opp_off = off_ranks.get(int(opponent_team_id)) or {}
@@ -320,16 +341,8 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
                 if key in avgs and key in opp_avgs:
                     matchup_adv[out_key] = round(avgs[key] - float(opp_avgs[key]), 2)
 
-        rest_days = None
+        rest_days = _rest_from_logs(logs, game_date)
         injury: Dict[str, Any] = {}
-        try:
-            rest_days = ContextCollector.calculate_rest_days(player_id, game_date, season)
-        except Exception:
-            pass
-        try:
-            injury = ContextCollector.get_injury_status(player_id, game_date) or {}
-        except Exception:
-            injury = {}
 
         player_team_id = player.team_id if player else None
         team_perf = _team_perf(int(player_team_id)) if player_team_id else {}

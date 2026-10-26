@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ...services.cache_service import get_cache_service
 from ...services.context_collector import ContextCollector
+from ...services.pipeline_team_metrics import get_pipeline_team_metrics, publish_rank_caches
 from ...utils.season import get_current_season
 from ..context import PipelineContext
 from ..repositories.snapshots_repo import ARTIFACT_TEAM_RANKS, save_snapshot
@@ -20,6 +21,8 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
         target = date.today()
 
     cache = get_cache_service()
+    metrics = get_pipeline_team_metrics(season, db, force_refresh=True)
+    published = publish_rank_caches(season, metrics)
     def_ranks = ContextCollector.get_cached_defensive_ranks(season) or ContextCollector._calculate_defensive_ranks(season)
     off_ranks = ContextCollector.get_cached_offensive_ranks(season) or ContextCollector._calculate_offensive_ranks(season)
     pace_ranks = ContextCollector.get_cached_pace_ranks(season) or ContextCollector._calculate_pace_ranks(season)
@@ -46,4 +49,9 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
     cache.set(f"offensive_ranks:{season}", off_ranks, ttl=86400)
     cache.set(f"pace_ranks:{season}", pace_ranks, ttl=86400)
 
-    return {"rows_written": 1, "season": season, "published": publish}
+    return {
+        "rows_written": 1,
+        "season": season,
+        "published": publish,
+        "pipeline_teams": published.get("teams", 0),
+    }
