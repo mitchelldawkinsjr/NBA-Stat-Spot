@@ -131,7 +131,7 @@ def compute_pipeline_team_metrics(db: Session, season: str) -> Dict[str, Any]:
         slot = boxes.setdefault(str(row.game_id), {})
         side = slot.setdefault(
             team,
-            {"fga": 0.0, "fta": 0.0, "tov": 0.0, "oreb": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0, "n": 0.0, "opp": opp},
+            {"fga": 0.0, "fta": 0.0, "tov": 0.0, "oreb": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0, "pts": 0.0, "n": 0.0, "opp": opp},
         )
         side["fga"] += float(row.fga or 0)
         side["fta"] += float(row.fta or 0)
@@ -140,6 +140,7 @@ def compute_pipeline_team_metrics(db: Session, season: str) -> Dict[str, Any]:
         side["reb"] += float(row.reb or 0)
         side["ast"] += float(row.ast or 0)
         side["3pm"] += float(row.tpm or 0)
+        side["pts"] += float(row.pts or 0)
         side["n"] += 1
 
     # Fill reb/ast/3pm from player_game_stats when the log cache has no matchup.
@@ -167,13 +168,14 @@ def compute_pipeline_team_metrics(db: Session, season: str) -> Dict[str, Any]:
             slot = boxes.setdefault(str(row.game_id), {})
             side = slot.setdefault(
                 team,
-                {"fga": 0.0, "fta": 0.0, "tov": 0.0, "oreb": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0, "n": 0.0, "opp": opp},
+                {"fga": 0.0, "fta": 0.0, "tov": 0.0, "oreb": 0.0, "reb": 0.0, "ast": 0.0, "3pm": 0.0, "pts": 0.0, "n": 0.0, "opp": opp},
             )
             side["fga"] += float(row.field_goals_attempted or 0)
             side["tov"] += float(row.turnovers or 0)
             side["reb"] += float(row.rebounds or 0)
             side["ast"] += float(row.assists or 0)
             side["3pm"] += float(row.three_pointers_made or 0)
+            side["pts"] += float(row.points or 0)
             side["n"] += 1
 
     off_reb: Dict[str, List[float]] = {}
@@ -183,6 +185,8 @@ def compute_pipeline_team_metrics(db: Session, season: str) -> Dict[str, Any]:
     def_ast: Dict[str, List[float]] = {}
     def_3pm: Dict[str, List[float]] = {}
     pace_vals: Dict[str, List[float]] = {}
+    box_scored: Dict[str, List[float]] = {}
+    box_allowed: Dict[str, List[float]] = {}
 
     for sides in boxes.values():
         for team, side in sides.items():
@@ -194,14 +198,24 @@ def compute_pipeline_team_metrics(db: Session, season: str) -> Dict[str, Any]:
             poss = side["fga"] + 0.44 * side["fta"] + side["tov"] - side["oreb"]
             if poss >= MIN_POSSESSIONS:
                 pace_vals.setdefault(team, []).append(poss)
+            # Schedule ingest does not store final scores. A full-enough box sum is the team total.
+            if side["n"] >= 5 and side["pts"] >= 70:
+                box_scored.setdefault(team, []).append(side["pts"])
             opp_side = sides.get(side.get("opp") or "")
             if opp_side and opp_side["n"] >= 5:
                 def_reb.setdefault(team, []).append(opp_side["reb"])
                 def_ast.setdefault(team, []).append(opp_side["ast"])
                 def_3pm.setdefault(team, []).append(opp_side["3pm"])
+            if opp_side and opp_side["n"] >= 5 and opp_side["pts"] >= 70:
+                box_allowed.setdefault(team, []).append(opp_side["pts"])
 
     ppg_avg = {abbr: _avg(vals) for abbr, vals in scored.items() if vals}
     pa_avg = {abbr: _avg(vals) for abbr, vals in allowed.items() if vals}
+    if not ppg_avg:
+        ppg_avg = {abbr: _avg(vals) for abbr, vals in box_scored.items() if vals}
+        scored = box_scored
+    if not pa_avg:
+        pa_avg = {abbr: _avg(vals) for abbr, vals in box_allowed.items() if vals}
     off_pts_rank = _ranks(ppg_avg, higher_is_better=True)
     def_pts_rank = _ranks(pa_avg, higher_is_better=False)
     off_reb_rank = _ranks({a: _avg(v) for a, v in off_reb.items() if v}, higher_is_better=True)
@@ -262,7 +276,7 @@ def get_pipeline_team_metrics(
     force_refresh: bool = False,
 ) -> Dict[str, Any]:
     cache = get_cache_service()
-    cache_key = f"pipeline_team_metrics:{season}:6h"
+    cache_key = f"pipeline_team_metrics:v2:{season}:6h"
     if not force_refresh:
         cached = cache.get(cache_key)
         if isinstance(cached, dict) and (cached.get("by_abbr") or cached.get("by_id")):
