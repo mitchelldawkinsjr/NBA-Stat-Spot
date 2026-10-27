@@ -1,4 +1,4 @@
-"""Backfill player game stats needed to settle open prop predictions.
+"""Backfill player game stats needed to settle open props and AI picks.
 
 Uses ESPN scoreboard + box scores for each pending prediction date
 (far fewer API calls than per-player season crawls).
@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Set
 
 from sqlalchemy.orm import Session
 
-from ...models.prediction_accuracy import PropPredictionRecord
+from ...models.prediction_accuracy import PickOfTheDayRecord, PropPredictionRecord
 from ...services.espn_api_service import get_espn_service
 from ...services.nba_api_service import NBADataService
 from ...utils.season import get_current_season
@@ -22,21 +22,32 @@ from .ingest_boxscores import _parse_boxscore_players, log_cache_row
 
 
 def _pending_dates(db: Session) -> List[date]:
-    rows = (
+    """Dates that still have an open prop or AI pick of the day."""
+    dates: Set[date] = set()
+    prop_rows = (
         db.query(PropPredictionRecord.record_date)
         .filter(
             PropPredictionRecord.actual_value.is_(None),
             PropPredictionRecord.settled_at.is_(None),
         )
         .distinct()
-        .order_by(PropPredictionRecord.record_date.asc())
         .all()
     )
-    return [r[0] for r in rows if r[0] is not None]
+    pick_rows = (
+        db.query(PickOfTheDayRecord.record_date)
+        .filter(PickOfTheDayRecord.actual_value.is_(None))
+        .distinct()
+        .all()
+    )
+    for row in list(prop_rows) + list(pick_rows):
+        if row[0] is not None:
+            dates.add(row[0])
+    return sorted(dates)
 
 
 def _pending_player_ids_for_date(db: Session, d: date) -> Set[int]:
-    rows = (
+    ids: Set[int] = set()
+    prop_rows = (
         db.query(PropPredictionRecord.player_id)
         .filter(
             PropPredictionRecord.record_date == d,
@@ -46,7 +57,19 @@ def _pending_player_ids_for_date(db: Session, d: date) -> Set[int]:
         .distinct()
         .all()
     )
-    return {int(r[0]) for r in rows if r[0] is not None}
+    pick_rows = (
+        db.query(PickOfTheDayRecord.player_id)
+        .filter(
+            PickOfTheDayRecord.record_date == d,
+            PickOfTheDayRecord.actual_value.is_(None),
+        )
+        .distinct()
+        .all()
+    )
+    for row in list(prop_rows) + list(pick_rows):
+        if row[0] is not None:
+            ids.add(int(row[0]))
+    return ids
 
 
 def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:

@@ -28,15 +28,22 @@ class DbStatsProvider(StatsProvider):
 
         db = SessionLocal()
         try:
-            logs = player_stats_repo.get_player_logs_from_stats(
-                db, player_id, season, limit=100
-            )
+            try:
+                logs = player_stats_repo.get_player_logs_from_stats(
+                    db, player_id, season, limit=100
+                )
+            except Exception:
+                db.rollback()
+                logs = []
             if logs:
                 return logs
         finally:
             db.close()
 
-        cached = NBADataService._get_game_log_from_db(player_id, season)
+        try:
+            cached = NBADataService._get_game_log_from_db(player_id, season)
+        except Exception:
+            cached = None
         if cached:
             return cached
         return NBADataService.fetch_player_game_log(player_id, season)

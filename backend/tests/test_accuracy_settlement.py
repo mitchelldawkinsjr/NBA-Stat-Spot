@@ -154,9 +154,100 @@ def test_settle_open_predictions_processes_backlog_dates(monkeypatch):
     monkeypatch.setattr(
         ats,
         "settle_all_for_date",
-        lambda d, season=None: {"date": d.isoformat(), "pick_of_the_day": {"settled": True}},
+        lambda d, season=None, stats_provider=None: {
+            "date": d.isoformat(),
+            "pick_of_the_day": {"settled": True},
+        },
     )
 
     out = ats.settle_open_predictions(date(2026, 1, 10), season="2025-26")
     assert out["count_dates"] == 2
     assert out["dates_processed"] == ["2026-01-09", "2026-01-10"]
+
+
+class _SeasonLogs:
+    """Returns a game only for the season the pick was actually played in."""
+
+    def __init__(self):
+        self.seasons = []
+
+    def fetch_player_game_log(self, player_id, season):
+        self.seasons.append(season)
+        if season == "2025-26":
+            return [{"game_date": "JAN 10, 2026", "pts": 0, "reb": 4, "ast": 2}]
+        return [{"game_date": "OCT 22, 2026", "pts": 30}]
+
+
+def test_pick_settles_against_its_own_season_not_current(monkeypatch):
+    db = _session()
+    db.add(
+        PickOfTheDayRecord(
+            record_date=date(2026, 1, 10),
+            player_id=11,
+            player_name="Last Season Player",
+            stat_type="PTS",
+            line_value=12.5,
+            suggestion="under",
+            confidence=71.0,
+        )
+    )
+    db.commit()
+
+    logs = _SeasonLogs()
+    monkeypatch.setattr(ats, "_get_db", lambda: db)
+
+    out = ats.settle_pick_of_the_day(
+        date(2026, 1, 10), season="2026-27", stats_provider=logs
+    )
+    assert out["settled"] is True
+    assert out["actual_value"] == 0
+    assert out["hit"] is True
+    assert "2025-26" in logs.seasons
+    assert logs.seasons[0] == "2025-26"
+
+    row = db.query(PickOfTheDayRecord).first()
+    assert row.actual_value == 0
+    assert row.hit is True
+
+
+def test_pick_uses_live_log_when_stored_log_omits_the_game(monkeypatch):
+    db = _session()
+    db.add(
+        PickOfTheDayRecord(
+            record_date=date(2026, 1, 10),
+            player_id=15,
+            player_name="Missing Box Player",
+            stat_type="PTS",
+            line_value=18.5,
+            suggestion="over",
+            confidence=74.0,
+        )
+    )
+    db.commit()
+
+    class _PartialDb:
+        def fetch_player_game_log(self, player_id, season):
+            return [{"game_date": "2026-01-01", "pts": 10}]
+
+    monkeypatch.setattr(ats, "_get_db", lambda: db)
+    monkeypatch.setattr(
+        ats.NBADataService,
+        "fetch_player_game_log",
+        lambda player_id, season: [{"game_date": "JAN 10, 2026", "pts": 24}],
+    )
+
+    out = ats.settle_pick_of_the_day(
+        date(2026, 1, 10), season="2026-27", stats_provider=_PartialDb()
+    )
+    assert out["settled"] is True
+    assert out["actual_value"] == 24
+    assert out["hit"] is True
+
+
+def test_nba_month_date_matches_record_date():
+    row, reason = ats._find_game_log_row_for_record_date(
+        [{"game_date": "OCT 26, 2025", "pts": 18}],
+        date(2025, 10, 26),
+    )
+    assert reason == "exact_date_match"
+    assert row["pts"] == 18

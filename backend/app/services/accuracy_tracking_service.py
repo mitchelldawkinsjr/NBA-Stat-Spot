@@ -65,18 +65,24 @@ def _confidence_to_band(confidence: Optional[float]) -> str:
 
 
 
+def _season_for_date(target_date: date) -> str:
+    """NBA season string for a calendar date (October starts the new season)."""
+    start_year = target_date.year if target_date.month >= 10 else target_date.year - 1
+    return f"{start_year}-{(start_year + 1) % 100:02d}"
+
+
 def _season_candidates_for_settlement(target_date: date, season: Optional[str]) -> List[str]:
-    """Return one or two seasons to check when settling a dated record."""
-    if season:
-        return [season]
-    primary = f"{target_date.year if target_date.month >= 10 else target_date.year - 1}-{((target_date.year if target_date.month >= 10 else target_date.year - 1) + 1) % 100:02d}"
-    candidates = [primary]
-    prev = get_previous_season(primary)
-    if prev:
-        candidates.append(prev)
-    current = get_current_season()
-    if current not in candidates:
-        candidates.append(current)
+    """Seasons to search for a dated record.
+
+    The record's own season comes first. A caller-supplied season (usually the
+    current one) is extra, not a replacement — otherwise last season's picks
+    stay pending after the season rolls over.
+    """
+    primary = _season_for_date(target_date)
+    candidates: List[str] = []
+    for candidate in (primary, season, get_previous_season(primary), get_current_season()):
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
     return candidates
 
 def _new_prop_bucket() -> Dict[str, int]:
@@ -240,19 +246,103 @@ def _aggregate_prop_records(prop_rows: List[PropPredictionRecord]) -> Dict[str, 
     }
 
 
-def _normalize_game_log_date_iso(raw: Union[str, None]) -> str:
-    """Normalize NBA game log date to YYYY-MM-DD for comparison with record_date."""
+_NBA_MONTHS = {
+    "JAN": 1,
+    "FEB": 2,
+    "MAR": 3,
+    "APR": 4,
+    "MAY": 5,
+    "JUN": 6,
+    "JUL": 7,
+    "AUG": 8,
+    "SEP": 9,
+    "OCT": 10,
+    "NOV": 11,
+    "DEC": 12,
+}
+
+
+def _normalize_game_log_date_iso(raw: Union[str, date, datetime, None]) -> str:
+    """Normalize NBA game log date to YYYY-MM-DD for comparison with record_date.
+
+    Accepts ISO dates and nba_api strings such as ``OCT 26, 2025``.
+    """
     if raw is None:
         return ""
+    if isinstance(raw, datetime):
+        return raw.date().isoformat()
+    if isinstance(raw, date):
+        return raw.isoformat()
     s = str(raw).strip()
     if len(s) >= 10 and s[4] == "-" and s[7] == "-":
         return s[:10]
     try:
         if "T" in s:
-            return datetime.fromisoformat(s.replace("Z", "+00:00").split("T")[0]).date().isoformat()
+            return datetime.fromisoformat(s.replace("Z", "+00:00")).date().isoformat()
     except (ValueError, TypeError):
         pass
-    return s[:10] if len(s) >= 10 else s
+    parts = s.replace(",", " ").split()
+    if len(parts) == 3 and parts[0][:3].isalpha():
+        month = _NBA_MONTHS.get(parts[0][:3].upper())
+        if month:
+            try:
+                return date(int(parts[2]), month, int(parts[1])).isoformat()
+            except (TypeError, ValueError):
+                return ""
+    return ""
+
+
+def _match_stat_row_for_date(
+    provider: Any,
+    player_id: int,
+    season_candidates: List[str],
+    target_date: date,
+) -> Tuple[Optional[Dict[str, Any]], str]:
+    """Find the box-score row for a player on a slate date.
+
+    Stored logs are checked first. If they omit that game, fall back to the
+    live game log for the record's season. A partial database log must not
+    block grading.
+    """
+    from .stats_provider import GameLogStatsProvider
+
+    matched_row: Optional[Dict[str, Any]] = None
+    match_reason = "missing_stats"
+    for season_try in season_candidates:
+        try:
+            logs = provider.fetch_player_game_log(player_id, season_try) or []
+        except Exception as e:
+            logger.info(
+                "prediction_skipped",
+                player_id=player_id,
+                date=target_date.isoformat(),
+                reason="log_fetch_failed",
+                season=season_try,
+                error=str(e),
+            )
+            continue
+        matched_row, match_reason = _find_game_log_row_for_record_date(logs, target_date)
+        if matched_row is not None:
+            return matched_row, match_reason
+
+    if isinstance(provider, GameLogStatsProvider) or not season_candidates:
+        return matched_row, match_reason
+
+    try:
+        live_logs = NBADataService.fetch_player_game_log(player_id, season_candidates[0]) or []
+    except Exception as e:
+        logger.info(
+            "prediction_skipped",
+            player_id=player_id,
+            date=target_date.isoformat(),
+            reason="live_log_fetch_failed",
+            error=str(e),
+        )
+        return matched_row, match_reason
+    live_row, live_reason = _find_game_log_row_for_record_date(live_logs, target_date)
+    if live_row is not None:
+        return live_row, live_reason
+    return matched_row, match_reason
 
 
 def _find_game_log_row_for_record_date(logs: List[Dict[str, Any]], target_date: date) -> Tuple[Optional[Dict[str, Any]], str]:
@@ -479,22 +569,11 @@ def settle_pick_of_the_day(
         ).first()
         if not record:
             return {"settled": False, "reason": "no_unsettled_record"}
-        logs = []
-        for season_try in season_candidates:
-            logs = provider.fetch_player_game_log(record.player_id, season_try)
-            if logs:
-                break
         logger.info("prediction_found", prediction_type="pick_of_the_day", player_id=record.player_id, date=target_date.isoformat())
-        game_log_key = STAT_TO_GAME_LOG_KEY.get(record.stat_type, "pts")
-        matched_row, match_reason = _find_game_log_row_for_record_date(logs or [], target_date)
-        actual_value = None
-        if matched_row is not None:
-            raw = matched_row.get(game_log_key) or matched_row.get(game_log_key.upper())
-            if raw is not None:
-                try:
-                    actual_value = float(raw)
-                except (TypeError, ValueError):
-                    pass
+        matched_row, match_reason = _match_stat_row_for_date(
+            provider, record.player_id, season_candidates, target_date
+        )
+        actual_value = _actual_from_game_row(record.stat_type, matched_row) if matched_row else None
         if actual_value is None:
             logger.info("prediction_skipped", prediction_type="pick_of_the_day", player_id=record.player_id, date=target_date.isoformat(), reason=match_reason)
             return {"settled": False, "reason": match_reason, "player_id": record.player_id}
@@ -561,16 +640,9 @@ def settle_top_picks_for_date(
         )
         for record in records:
             logger.info("prediction_found", prediction_type="top_pick", player_id=record.player_id, date=target_date.isoformat())
-            try:
-                logs = []
-                for season_try in season_candidates:
-                    logs = provider.fetch_player_game_log(record.player_id, season_try)
-                    if logs:
-                        break
-            except Exception as e:
-                errors.append(f"player {record.player_id}: {e}")
-                continue
-            matched_row, match_reason = _find_game_log_row_for_record_date(logs or [], target_date)
+            matched_row, match_reason = _match_stat_row_for_date(
+                provider, record.player_id, season_candidates, target_date
+            )
             actual_value: Optional[float] = _actual_from_game_row(record.stat_type, matched_row) if matched_row else None
             if actual_value is None:
                 not_found += 1
