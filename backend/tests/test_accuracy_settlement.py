@@ -244,6 +244,41 @@ def test_pick_uses_live_log_when_stored_log_omits_the_game(monkeypatch):
     assert out["hit"] is True
 
 
+def test_pick_refreshes_log_when_cached_games_omit_the_date(monkeypatch):
+    db = _session()
+    db.add(
+        PickOfTheDayRecord(
+            record_date=date(2026, 10, 27),
+            player_id=1629029,
+            player_name="Luka Doncic",
+            stat_type="PTS",
+            line_value=44.0,
+            suggestion="under",
+            confidence=57.0,
+        )
+    )
+    db.commit()
+
+    def fake_log(player_id, season, force_refresh=False):
+        if force_refresh:
+            return [{"game_date": "2026-10-27", "pts": 41, "reb": 5, "ast": 9}]
+        return [{"game_date": "2026-10-25", "pts": 52}]
+
+    class _StaleDb:
+        def fetch_player_game_log(self, player_id, season):
+            return [{"game_date": "2026-10-25", "pts": 52}]
+
+    monkeypatch.setattr(ats, "_get_db", lambda: db)
+    monkeypatch.setattr(ats.NBADataService, "fetch_player_game_log", fake_log)
+
+    out = ats.settle_pick_of_the_day(
+        date(2026, 10, 27), season="2026-27", stats_provider=_StaleDb()
+    )
+    assert out["settled"] is True
+    assert out["actual_value"] == 41
+    assert out["hit"] is True
+
+
 def test_nba_month_date_matches_record_date():
     row, reason = ats._find_game_log_row_for_record_date(
         [{"game_date": "OCT 26, 2025", "pts": 18}],

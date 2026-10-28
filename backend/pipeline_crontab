@@ -17,6 +17,10 @@
 18 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run build_opponent_analysis || echo "Failed: build_opponent_analysis"
 20 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run build_dashboard || echo "Failed: build_dashboard"
 
+# West-coast games can still be live at the 05:30 UTC ingest. Refresh finals before settle.
+20 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run ingest_schedule || echo "Failed: ingest_schedule"
+28 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run ingest_boxscores || echo "Failed: ingest_boxscores"
+
 # Settle accuracy from DB stats
 35 11 * * * cd /app && PYTHONPATH=/app python -m app.pipeline run settle_accuracy || echo "Failed: settle_accuracy"
 

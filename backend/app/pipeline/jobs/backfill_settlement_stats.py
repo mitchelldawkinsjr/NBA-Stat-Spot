@@ -136,6 +136,9 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
             if not players:
                 errors += 1
                 continue
+            known = player_stats_repo.known_player_ids(
+                db, {int(p["player_id"]) for p in players}
+            )
 
             competitors = comp.get("competitors") or []
             home = away = ""
@@ -150,36 +153,41 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
             touched: Set[int] = set()
             for p in players:
                 pid = int(p["player_id"])
+                if pid not in known:
+                    errors += 1
+                    continue
                 # Always write stats (helps future settles); prioritize needed players.
                 try:
-                    player_stats_repo.upsert_player_game_stat(
-                        db,
-                        player_id=pid,
-                        game_id=eid,
-                        game_date=d,
-                        season=season,
-                        stats=p,
-                        source="espn",
-                    )
+                    with db.begin_nested():
+                        player_stats_repo.upsert_player_game_stat(
+                            db,
+                            player_id=pid,
+                            game_id=eid,
+                            game_date=d,
+                            season=season,
+                            stats=p,
+                            source="espn",
+                        )
+                        player_stats_repo.merge_game_into_log_cache(
+                            db,
+                            player_id=pid,
+                            season=season,
+                            row=log_cache_row(
+                                p, game_id=eid, game_date=d, home_abbr=home, away_abbr=away
+                            ),
+                        )
                     stats_written += 1
                     touched.add(pid)
                 except Exception:
                     errors += 1
                     continue
 
-                try:
-                    player_stats_repo.merge_game_into_log_cache(
-                        db,
-                        player_id=pid,
-                        season=season,
-                        row=log_cache_row(
-                            p, game_id=eid, game_date=d, home_abbr=home, away_abbr=away
-                        ),
-                    )
-                except Exception:
-                    pass
-
-            db.commit()
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+                errors += 1
+                continue
             for pid in touched:
                 NBADataService.invalidate_player_game_log(pid, season)
             time.sleep(0.15)  # gentle on ESPN rate limit

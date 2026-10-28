@@ -38,10 +38,13 @@ def _load_local(pid: int, season: str) -> List[Dict[str, Any]]:
 
 def _warm_one(pid: int, season: str, allow_external: bool) -> Tuple[int, bool, str, List[Dict[str, Any]]]:
     existing = _load_local(pid, season)
-    if existing:
+    stale = bool(existing) and NBADataService._log_is_behind_team_finals(existing)
+    if existing and not stale:
         return pid, True, "cache", existing
 
-    if not allow_external:
+    # A short cache used to count as done, so logs froze on the day they were
+    # first saved. Refresh when the player's team has a newer final.
+    if not allow_external and not stale:
         return pid, False, "fail", []
 
     try:
@@ -50,6 +53,8 @@ def _warm_one(pid: int, season: str, allow_external: bool) -> Tuple[int, bool, s
             return pid, True, "refresh", refreshed or []
     except Exception:
         pass
+    if existing:
+        return pid, True, "cache", existing
     return pid, False, "fail", []
 
 

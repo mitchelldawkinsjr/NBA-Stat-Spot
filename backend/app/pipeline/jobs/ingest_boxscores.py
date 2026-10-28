@@ -125,42 +125,49 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
 
         players = _parse_boxscore_players(summary, player_index)
         gdate = game.game_date
+        known = player_stats_repo.known_player_ids(
+            db, {int(p["player_id"]) for p in players}
+        )
         for p in players:
-            pid = p["player_id"]
+            pid = int(p["player_id"])
+            if pid not in known:
+                errors += 1
+                continue
             try:
-                player_stats_repo.upsert_player_game_stat(
-                    db,
-                    player_id=pid,
-                    game_id=game.game_id,
-                    game_date=gdate,
-                    season=season,
-                    stats=p,
-                    source="espn",
-                )
-                player_stats_repo.record_game_participant(db, game.game_id, pid)
+                with db.begin_nested():
+                    player_stats_repo.upsert_player_game_stat(
+                        db,
+                        player_id=pid,
+                        game_id=game.game_id,
+                        game_date=gdate,
+                        season=season,
+                        stats=p,
+                        source="espn",
+                    )
+                    player_stats_repo.record_game_participant(db, game.game_id, pid)
+                    player_stats_repo.merge_game_into_log_cache(
+                        db,
+                        player_id=pid,
+                        season=season,
+                        row=log_cache_row(
+                            p,
+                            game_id=game.game_id,
+                            game_date=gdate,
+                            home_abbr=game.home_team_abbr or "",
+                            away_abbr=game.away_team_abbr or "",
+                        ),
+                    )
                 participants.add(pid)
                 stats_written += 1
             except Exception:
                 errors += 1
                 continue
 
-            try:
-                player_stats_repo.merge_game_into_log_cache(
-                    db,
-                    player_id=pid,
-                    season=season,
-                    row=log_cache_row(
-                        p,
-                        game_id=game.game_id,
-                        game_date=gdate,
-                        home_abbr=game.home_team_abbr or "",
-                        away_abbr=game.away_team_abbr or "",
-                    ),
-                )
-            except Exception:
-                errors += 1
-
-    db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            errors += 1
     for pid in participants:
         NBADataService.invalidate_player_game_log(pid, season)
 

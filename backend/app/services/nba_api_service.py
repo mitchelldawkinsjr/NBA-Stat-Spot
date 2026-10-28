@@ -847,6 +847,61 @@ class NBADataService:
             pass
 
     @staticmethod
+    def _team_abbr_from_logs(logs: List[Dict[str, Any]]) -> Optional[str]:
+        """Player's team is the first token of matchups we store ('HOU @ DAL', 'HOU vs. DAL')."""
+        for row in logs or []:
+            matchup = str(row.get("matchup") or "").strip().upper()
+            token = matchup.split()[0] if matchup.split() else ""
+            if token.isalpha() and 2 <= len(token) <= 3:
+                return token
+        return None
+
+    @staticmethod
+    def _latest_final_game_date(team_abbr: str):
+        """Latest FINAL game date for a team, or None if the games table is unavailable."""
+        try:
+            from sqlalchemy import or_, func
+            from ..database import SessionLocal
+            from ..models.games import Game
+
+            db = SessionLocal()
+            try:
+                return (
+                    db.query(func.max(Game.game_date))
+                    .filter(
+                        Game.status == "FINAL",
+                        or_(
+                            Game.home_team_abbr == team_abbr,
+                            Game.away_team_abbr == team_abbr,
+                        ),
+                    )
+                    .scalar()
+                )
+            finally:
+                db.close()
+        except Exception:
+            return None
+
+    @staticmethod
+    def _log_is_behind_team_finals(logs: List[Dict[str, Any]]) -> bool:
+        """True when the cached log stops before the player's team played a final game.
+
+        A one-game cache from early in the season must not be treated as the full log.
+        """
+        abbr = NBADataService._team_abbr_from_logs(logs)
+        if not abbr:
+            return False
+        latest = NBADataService._latest_final_game_date(abbr)
+        if not latest:
+            return False
+        dates = [str(row.get("game_date") or "")[:10] for row in logs]
+        dates = [d for d in dates if len(d) >= 10]
+        if not dates:
+            return True
+        latest_iso = latest.isoformat() if hasattr(latest, "isoformat") else str(latest)[:10]
+        return max(dates) < latest_iso
+
+    @staticmethod
     def fetch_player_game_log(player_id: int, season: Optional[str] = None, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """
         Fetch player game log with 24-hour Redis caching + DB persistence.
@@ -859,11 +914,14 @@ class NBADataService:
         season_to_use = season or get_current_season()
         cache_key = NBADataService._player_game_log_cache_key(player_id, season_to_use)
         cache = get_cache_service()
+        stale_fallback: List[Dict[str, Any]] = []
 
         if not force_refresh:
             # 1. Redis (fastest) — ignore empty lists (poisoned by failed cascades)
             cached_data = cache.get(cache_key)
             if cached_data is not None and NBADataService._is_good_game_log(cached_data):
+                # Redis for today means we already resolved this log, including a
+                # refresh that confirmed the player did not play the latest final.
                 return cached_data
             if isinstance(cached_data, list) and not cached_data:
                 try:
@@ -883,7 +941,11 @@ class NBADataService:
                         pgs_logs = pgs_repo.get_player_logs_from_stats(
                             pdb, player_id, season_to_use, limit=30
                         )
-                        if pgs_logs and NBADataService._is_good_game_log(pgs_logs):
+                        if (
+                            pgs_logs
+                            and NBADataService._is_good_game_log(pgs_logs)
+                            and not NBADataService._log_is_behind_team_finals(pgs_logs)
+                        ):
                             log.debug(
                                 "Player game log from player_game_stats",
                                 player_id=player_id,
@@ -924,10 +986,17 @@ class NBADataService:
                             pdb.close()
                 except Exception:
                     pass
-                if use_cache:
+                if use_cache and not NBADataService._log_is_behind_team_finals(db_data):
                     log.debug("Player game log from DB cache", player_id=player_id, count=len(db_data))
                     cache.set(cache_key, db_data, ttl=86400)
                     return db_data
+                if use_cache:
+                    stale_fallback = db_data
+                    log.info(
+                        "Player game log cache is behind team finals",
+                        player_id=player_id,
+                        count=len(db_data),
+                    )
 
         def _store(result: List[Dict[str, Any]]) -> None:
             """Write good logs to Redis + DB. Never cache empty failures."""
@@ -980,7 +1049,7 @@ class NBADataService:
             _store(best)
             return best
         log.warning("No good game log data after cascade", player_id=player_id)
-        return []
+        return stale_fallback or []
 
     @staticmethod
     def fetch_todays_games() -> List[Dict[str, Any]]:

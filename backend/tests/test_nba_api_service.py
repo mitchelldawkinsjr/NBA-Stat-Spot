@@ -6,6 +6,16 @@ from unittest.mock import patch, MagicMock
 from app.services.nba_api_service import NBADataService
 
 
+def test_one_game_cache_is_behind_when_team_has_a_later_final():
+    from datetime import date
+
+    with patch.object(NBADataService, "_latest_final_game_date", return_value=date(2026, 10, 27)):
+        stale = [{"game_date": "2026-10-09", "matchup": "HOU @ DAL"}]
+        current = [{"game_date": "2026-10-27", "matchup": "HOU vs. ATL"}]
+        assert NBADataService._log_is_behind_team_finals(stale) is True
+        assert NBADataService._log_is_behind_team_finals(current) is False
+
+
 class TestNBADataService:
     """Test suite for NBADataService"""
     

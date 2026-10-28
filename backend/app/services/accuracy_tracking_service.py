@@ -342,6 +342,27 @@ def _match_stat_row_for_date(
     live_row, live_reason = _find_game_log_row_for_record_date(live_logs, target_date)
     if live_row is not None:
         return live_row, live_reason
+
+    # A partial player_game_stats log is treated as complete by the cached fetch.
+    # Ask ESPN/NBA for a fresh log before leaving the pick pending.
+    try:
+        fresh_logs = NBADataService.fetch_player_game_log(
+            player_id, season_candidates[0], force_refresh=True
+        ) or []
+    except TypeError:
+        fresh_logs = []
+    except Exception as e:
+        logger.info(
+            "prediction_skipped",
+            player_id=player_id,
+            date=target_date.isoformat(),
+            reason="live_log_refresh_failed",
+            error=str(e),
+        )
+        return matched_row, match_reason
+    fresh_row, fresh_reason = _find_game_log_row_for_record_date(fresh_logs, target_date)
+    if fresh_row is not None:
+        return fresh_row, fresh_reason
     return matched_row, match_reason
 
 
@@ -508,6 +529,11 @@ def settle_game_predictions(target_date: date) -> Dict[str, Any]:
                 ev_home = {"abbr": abbr, "score": score}
             else:
                 ev_away = {"abbr": abbr, "score": score}
+        st = ((comp.get("status") or {}).get("type") or {})
+        state = (st.get("state") or "").lower()
+        completed = bool(st.get("completed")) or state == "post"
+        if not completed:
+            continue
         if not ev_home or not ev_away or (ev_home["score"] == 0 and ev_away["score"] == 0):
             continue
         winner = ev_home["abbr"] if ev_home["score"] > ev_away["score"] else ev_away["abbr"]

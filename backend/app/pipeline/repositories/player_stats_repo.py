@@ -1,7 +1,7 @@
 """Player game stats and log cache upserts."""
 from __future__ import annotations
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from sqlalchemy.orm import Session
 
@@ -211,6 +211,17 @@ def record_game_participant(db: Session, game_id: str, player_id: int) -> None:
 def get_participants_for_game(db: Session, game_id: str) -> List[int]:
     rows = db.query(GameParticipant.player_id).filter(GameParticipant.game_id == game_id).all()
     return [r[0] for r in rows]
+
+
+def known_player_ids(db: Session, player_ids: Set[int]) -> Set[int]:
+    """Player ids that exist in players. Box-score feeds include ids we have not loaded."""
+    from ...models.players import Player
+
+    ids = {int(pid) for pid in player_ids if pid is not None}
+    if not ids:
+        return set()
+    rows = db.query(Player.id).filter(Player.id.in_(ids)).all()
+    return {int(row[0]) for row in rows}
 
 
 def get_player_logs_from_stats(
