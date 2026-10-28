@@ -320,6 +320,10 @@ class BestPicksService:
                         for it in items:
                             if not it.get("tier"):
                                 it["tier"] = _tier_label(float(it.get("confidence") or 0))
+                        try:
+                            record_prop_predictions(target_date_obj, items)
+                        except Exception:
+                            pass
                         return {
                             "items": items,
                             "total": len(items),

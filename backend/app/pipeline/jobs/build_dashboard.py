@@ -130,10 +130,10 @@ def run(ctx: PipelineContext, db: Session) -> Dict[str, Any]:
             publish=publish,
         )
 
-    if publish:
-        record_prop_predictions(snapshot_date, top.get("items") or [])
-        if pick:
-            record_pick_of_the_day(snapshot_date, pick)
+    # Accuracy history is independent of whether the snapshot is published.
+    record_prop_predictions(snapshot_date, top.get("items") or [])
+    if pick:
+        record_pick_of_the_day(snapshot_date, pick)
 
     cache = get_cache_service()
     cache.set(f"daily_props:{ds}", daily, ttl=86400)

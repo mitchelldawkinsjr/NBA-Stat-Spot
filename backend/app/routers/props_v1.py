@@ -1019,6 +1019,11 @@ def top_picks(
                     if limit:
                         out["items"] = (out.get("items") or [])[:limit]
                     out["returned"] = len(out.get("items", []))
+                    try:
+                        from ..services.accuracy_tracking_service import record_prop_predictions
+                        record_prop_predictions(date_cls.fromisoformat(target[:10]), out.get("items") or [])
+                    except Exception:
+                        pass
                     return out
         except Exception:
             pass
